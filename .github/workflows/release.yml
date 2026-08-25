@@ -13,7 +13,17 @@ permissions:
   contents: write
 
 jobs:
+  # 两个构建 job 并发时各自「建 Release」会撞出两个同 tag Release（GitHub 只在
+  # 串行创建时才拦重复）。先由一个前置 job 建好，构建 job 只往里传产物。
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - run: gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes ""
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   win:
+    needs: create-release
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,6 +45,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   mac:
+    needs: create-release
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
