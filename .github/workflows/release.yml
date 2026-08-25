@@ -18,7 +18,7 @@ jobs:
   create-release:
     runs-on: ubuntu-latest
     steps:
-      - run: gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes ""
+      - run: gh release create "$GITHUB_REF_NAME" -R xiaosen6/longma --title "$GITHUB_REF_NAME" --notes ""
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
