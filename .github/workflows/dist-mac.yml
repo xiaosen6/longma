@@ -23,9 +23,14 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # Pi 运行时不进 git（.gitignore apps/pi-bin/），CI 现下 darwin 双架构完整包
+      # Pi 运行时不进 git（.gitignore apps/pi-bin/），CI 现下 darwin 双架构完整包。
+      # GITHUB_TOKEN 避免 GitHub API 匿名限流（runner 出口 IP 共享，匿名极易 403）。
       - run: node tools/pi/update.mjs 0.83.0 --platform=darwin-arm64
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: node tools/pi/update.mjs 0.83.0 --platform=darwin-x64
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # better-sqlite3 的 npm 包自带全平台预编译 .node，单 runner 可同时出 x64+arm64
       - run: pnpm dist:mac
