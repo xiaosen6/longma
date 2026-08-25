@@ -210,9 +210,10 @@ ChatPage / ChatInput
 
 ### 4.6 打包
 
-- Win：PowerShell `pnpm dist:win` → `LongMa-Setup-0.0.1-x64.exe`（约 129MB）。`npmRebuild: false`（better-sqlite3 预编译）。
-- Mac zip：WSL `electron-builder --mac` 可出 `.app`/`.zip`。
-- Mac dmg：~~WSL 用 xorriso 的是 ISO/HFS+~~ **已走 GitHub Actions macOS runner 出正式 UDIF**（仓库 [xiaosen6/longma](https://github.com/xiaosen6/longma)，`.github/workflows/dist-mac.yml` 手动触发，x64+arm64 dmg+zip 传 Artifacts）。注意：pi 下载步必须带 `GITHUB_TOKEN`（runner 出口 IP 匿名限流必 403）；better-sqlite3 的 npm 包含全平台预编译，单 runner 可出双架构。未签名。
+- Win：PowerShell `pnpm dist:win` → `LongMa-Setup-<version>-x64.exe`（约 130MB）。`npmRebuild: false`（better-sqlite3 预编译）。
+- Mac dmg：`Actions → dist-mac` 手动出包（UDIF 双架构， artifacts 自取）。
+- **发版**：推 `v*` tag → `release.yml` 双平台构建并发布 GitHub Release（自动带 latest.yml/latest-mac.yml，应用内更新靠它）。
+- **应用内更新**（0.1.0 起）：设置 → 通用「版本与更新」；Win 后台下载完「重启更新」（托盘退出也会装）；Mac 未签名只检测版本 + 「下载新版本」跳 Release 页。启动 5s 首查 + 每 4h 静默查。dev 态（!isPackaged）不启用。
 
 ---
 
@@ -220,6 +221,8 @@ ChatPage / ChatInput
 
 | 坑 | 处理 |
 | --- | --- |
+| 发版 | 推 `v*` tag（须与 desktop `package.json` version 一致）→ `.github/workflows/release.yml` 出 Win exe + Mac dmg 并发布 Release。手动出包用 `dist-mac.yml` |
+| 应用内更新 | electron-updater + GitHub Releases（公开仓免鉴权）。**mac 未签名 electron-updater 拒绝替换安装**，只做版本检测 + 跳 Release 页；Win NSIS 未签名可自动更新 |
 | WSL Electron 窗口蓝点 | `pnpm dev:win` 在 PowerShell |
 | WSL vite/rollup 缺 linux native | 构建/打包在 Windows；WSL 只改代码+node:test |
 | 剪贴板无反应 | 权限 handler 曾 deny all；只放行 clipboard + IPC writeText/capturePage |
