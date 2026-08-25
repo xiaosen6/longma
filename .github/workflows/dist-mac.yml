@@ -1,0 +1,40 @@
+# macOS 正式 dmg（UDIF）只能由 macOS runner 产出（WSL/Linux 交叉打的是 HFS+ 伪 dmg）。
+# 手动触发：Actions → dist-mac → Run workflow；产物在 run 的 Artifacts 里。
+# 未签名（identity: null）：用户首次打开需在系统设置里允许。
+name: dist-mac
+
+on:
+  workflow_dispatch:
+
+jobs:
+  dmg:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.14.4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Pi 运行时不进 git（.gitignore apps/pi-bin/），CI 现下 darwin 双架构完整包
+      - run: node tools/pi/update.mjs 0.83.0 --platform=darwin-arm64
+      - run: node tools/pi/update.mjs 0.83.0 --platform=darwin-x64
+
+      # better-sqlite3 的 npm 包自带全平台预编译 .node，单 runner 可同时出 x64+arm64
+      - run: pnpm dist:mac
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: longma-mac
+          path: |
+            apps/desktop/dist/*.dmg
+            apps/desktop/dist/*-mac.zip

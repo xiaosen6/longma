@@ -1,0 +1,79 @@
+# 马大个「高维表达」类短视频 — 风格复刻档案（反向工程模板）
+# 用途：把参考片的「字幕 / 顶部文案 / 关键词动效」迁到你的素材上。
+# 若你有本地参考片，先跑 analyze_style.py 再对照改本文件。
+
+id: ma_dage
+name: 马大个·高维表达动能字幕
+description: >
+  大字号中文动能字幕、关键词高亮弹入、顶部金句/议题条、强描边可读性。
+  面向口播/访谈/观点短视频，竖屏与横屏均可（本档案默认按源片画幅）。
+
+canvas:
+  # keep | 9:16 | 16:9 | 1:1
+  aspect: keep
+  # 竖屏安全区：抖音底部 UI 约 25–30%
+  safe_bottom_pct: 0.28
+  safe_top_pct: 0.10
+
+palette:
+  text: "#FFFFFF"
+  text_secondary: "#F5F5F5"
+  keyword: "#FFE500"          # 金黄强调
+  keyword_alt: "#FF4D4F"      # 红强调（反问/否定）
+  outline: "#000000"
+  top_bar: "#000000CC"        # 顶部半透明底
+  accent_line: "#FFE500"
+
+typography:
+  font_primary: auto          # helpers 自动解析 NotoSansSC / 文泉驿
+  font_weight: medium
+  body_size_ratio: 0.055      # 相对 min(w,h)
+  keyword_size_ratio: 0.072
+  top_title_size_ratio: 0.048
+  outline_px_ratio: 0.006     # 相对 min(w,h)，约 6–10px@1080
+  shadow: true
+  shadow_offset: [2, 2]
+  shadow_fill: "#000000AA"
+  max_chars_per_line: 14
+  max_lines: 2
+
+subtitle:
+  placement: lower_third      # lower_third | center | top
+  y_from_bottom_pct: 0.22     # 横屏略高，避开边缘
+  chunk: phrase               # phrase | punct | chars
+  chars_per_chunk: 10
+  min_duration_s: 0.45
+  max_duration_s: 3.2
+  pad_after_s: 0.08
+  # 入场动效
+  motion_in: pop_scale        # pop_scale | fade | slide_up | none
+  motion_in_s: 0.18
+  # 关键词动效（命中 keywords / 自动名词启发时）
+  keyword_motion: pop_scale
+  keyword_motion_s: 0.22
+
+top_overlay:
+  enabled: true
+  mode: title_bar             # title_bar | floating_text | none
+  text: ""                    # 空则从 style 任务的 title 字段注入
+  y_from_top_pct: 0.08
+  bar_height_pct: 0.09
+  bar_width_pct: 0.92
+  motion_in: slide_down
+  motion_in_s: 0.35
+  hold_s: 999                 # 全程
+
+fx:
+  # 画面级轻特效（可选，写进 ffmpeg vf）
+  vignette: false
+  contrast_boost: 1.04
+  saturation: 1.05
+  # 切点/强调时可选闪白（默认关，需在 EDL beats 标记 emphasis）
+  flash_on_emphasis: false
+
+grade: neutral_punch
+
+notes:
+  - 复刻的是「排版语言与动效」，不是文案内容。
+  - 关键词：优先用 style_job.keywords；否则从转写里挑 2–6 个实词加重。
+  - 参考片无法下载时，用本档案作为 马大个类 默认；有参考片则 analyze_style 后改数值。

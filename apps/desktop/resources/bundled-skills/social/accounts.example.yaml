@@ -1,0 +1,35 @@
+# 公司账号对照表模板
+# 使用：复制为同目录 accounts.yaml，按真实称呼和账号改。
+# account 会传给 sau --account，对应仓库 cookies/<平台>_<account>.json
+
+accounts:
+  - 称呼: 品牌抖音
+    别名: [公司抖音, 品牌号]
+    平台: douyin
+    account: brand
+
+  - 称呼: 品牌快手
+    别名: [公司快手]
+    平台: kuaishou
+    account: brand
+
+  - 称呼: 品牌小红书
+    别名: [公司小红书, 红书号]
+    平台: xiaohongshu
+    account: brand
+
+  - 称呼: 品牌B站
+    别名: [公司B站, 哔哩哔哩]
+    平台: bilibili
+    account: brand
+    tid: 249
+
+  - 称呼: 品牌视频号
+    别名: [公司视频号, 微信视频号]
+    平台: tencent
+    account: brand
+
+  - 称呼: 品牌YouTube
+    别名: [公司YouTube, YT]
+    平台: youtube
+    account: brand

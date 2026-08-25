@@ -1,0 +1,10 @@
+node_modules/
+dist/
+out/
+*.log
+.DS_Store
+apps/pi-bin/
+apps/ripgrep-bin/
+tools/pi/updates/
+tools/screenshots/
+apps/desktop/dist/

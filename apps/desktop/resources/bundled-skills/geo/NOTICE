@@ -1,0 +1,7 @@
+This skill wraps the geo-optimizer-skill CLI.
+
+geo-optimizer-skill is MIT-licensed:
+https://github.com/Auriti-Labs/geo-optimizer-skill
+
+LongMa does not vendor that Python package. The agent invokes it via
+`uvx --from geo-optimizer-skill` or a local `geo` binary.

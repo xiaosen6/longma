@@ -1,0 +1,89 @@
+# 复刻 D:\AI\1.mp4（童愈海报风）
+# 固定超大标题字 + 左上品牌资料卡 + 中间小字幕 + 下方大号金句
+
+id: tongyu_poster
+name: 童愈·竖屏海报风
+description: >
+  竖屏 720×1040。头顶超大固定衬线字（半透明白），左上品牌+三行履历，
+  胸口小字幕随口播切换，下方两行加粗描边金句全程固定。
+
+canvas:
+  aspect: "9:16"
+  width: 720
+  height: 1040
+  crop_bias_x: 0.68            # 原片人物偏右
+
+palette:
+  text: "#FFFFFF"
+  outline: "#000000"
+  keyword: "#FFFFFF"
+
+typography:
+  font_path: "/mnt/c/Windows/Fonts/msyhbd.ttc"
+  font_primary: "Microsoft YaHei Bold"
+  body_size_ratio: 0.042
+  keyword_size_ratio: 0.042
+  outline_px_ratio: 0.007
+  soft_stroke: true
+  soft_stroke_blur: 1.4
+  letter_spacing: 0.4
+  keyword_same_color: true
+  shadow: false
+  max_chars_per_line: 12
+  max_lines: 1
+  phrase_space: false
+
+giant:
+  enabled: true
+  text: "国莎"                 # 可由 style_job.giant_text 覆盖
+  font_path: "/home/sun/.local/share/fonts/whitepaper/NotoSerifSC-Bold.otf"
+  y_pct: 0.145
+  size_ratio: 0.38             # 相对画幅宽
+  alpha: 0.90
+  x_shift_pct: 0.0
+  behind_person: true          # 大字在人物后面，不挡脸
+
+id_card:
+  enabled: true
+  brand: "国莎"
+  lines:
+    - "厨房日常对话"
+    - "边聊边拍视频"
+    - "AI帮忙出片"
+  x_pct: 0.055
+  y_pct: 0.032
+  brand_size_ratio: 0.052
+  line_size_ratio: 0.020
+  box_fill: "#1A1A1AB3"
+
+hook:
+  enabled: true
+  lines:
+    - "「AI」聊天"
+    - "到底怎么拍？"
+  y_pct: 0.60
+  size_ratio: 0.068
+  letter_spacing: 0.6
+  until_s: 7.0                 # 参考片：开场约 7 秒后大标题消失，只留口播字幕
+  caption_y_from_bottom: 0.38  # 大标题退后，口播字幕落到这个位置
+
+subtitle:
+  placement: lower_third
+  y_from_bottom_pct: 0.46      # 开场时小字幕在金句上方
+  chunk: phrase
+  chars_per_chunk: 12
+  min_duration_s: 1.0
+  max_duration_s: 3.4
+  pad_after_s: 0.12
+  hold_last: true
+  motion_in: fade
+  motion_in_s: 0.10
+  keyword_motion: none
+
+logo:
+  enabled: false
+chapter_bar:
+  enabled: false
+top_overlay:
+  enabled: false
+grade: none

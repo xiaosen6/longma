@@ -1,0 +1,88 @@
+# 硅谷101 完整字幕 UI（对齐参考高清帧 + 用户截图的粗描边字面）
+# 底栏 + 角标 + 章节条 + 粗黑描边白字（微软雅黑 Bold）
+
+id: silicon_valley_101
+name: 硅谷101·底栏粗描边字幕
+description: >
+  半透明深灰底栏、橙色「硅谷101」角标、底部分章节、
+  微软雅黑 Bold 白字 + 粗黑描边软光晕（与「能买下1.36个阿里…」字面一致）。
+
+canvas:
+  aspect: keep
+  safe_bottom_pct: 0.20
+  safe_top_pct: 0.08
+
+palette:
+  text: "#FFFFFF"
+  text_secondary: "#FFFFFF"
+  keyword: "#FFFFFF"
+  keyword_alt: "#FF6A00"
+  outline: "#000000"
+  bar_bg: "#2C2C2CC8"
+  chapter_bg: "#1A1A1AF2"
+  chapter_active: "#FF6A00"
+  chapter_idle: "#A0A0A0"
+  logo_bg: "#FF6A00"
+  logo_text: "#FFFFFF"
+  accent_line: "#3DDCFF"
+  top_tag_bg: "#000000CC"
+
+typography:
+  font_path: "/mnt/c/Windows/Fonts/msyhbd.ttc"
+  font_primary: "Microsoft YaHei Bold"
+  font_weight: bold
+  body_size_ratio: 0.050       # ~36px@720
+  keyword_size_ratio: 0.050
+  top_title_size_ratio: 0.036
+  outline_px_ratio: 0.0075     # 粗描边
+  soft_stroke: true
+  soft_stroke_blur: 1.6
+  letter_spacing: 0.5
+  keyword_same_color: true
+  shadow: false
+  max_chars_per_line: 16
+  max_lines: 1
+  # 参考常在意群间加空格：这么多钱 都花哪去了
+  phrase_space: true
+
+subtitle:
+  placement: bottom_bar
+  y_from_bottom_pct: 0.12
+  bar_height_pct: 0.092
+  bar_width_pct: 1.0
+  chunk: phrase
+  chars_per_chunk: 14
+  min_duration_s: 1.0
+  max_duration_s: 3.6
+  pad_after_s: 0.08
+  motion_in: fade
+  motion_in_s: 0.10
+  keyword_motion: none
+
+logo:
+  enabled: true
+  text: "硅谷\n101"
+  x_pct: 0.012
+  y_from_bottom_pct: 0.11
+  size_pct: 0.080
+  radius_pct: 0.008
+
+chapter_bar:
+  enabled: true
+  height_pct: 0.034
+  items: []
+
+top_overlay:
+  enabled: false
+  mode: none
+  text: ""
+
+side_card:
+  enabled: false
+
+fx:
+  vignette: false
+  contrast_boost: 1.0
+  saturation: 1.0
+
+grade: none
