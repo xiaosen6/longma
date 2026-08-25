@@ -28,6 +28,7 @@ import { useTheme, type ThemeMode } from '../themes/useTheme';
 import { SkillsPanel } from './settings/SkillsPanel';
 import { SearchPanel } from './settings/SearchPanel';
 import { ImBotPanel } from './settings/ImBotPanel';
+import { UpdateCard } from '../components/settings/UpdateCard';
 
 const THEME_OPTIONS: Array<{
   value: ThemeMode;
@@ -185,8 +186,7 @@ export function SettingsPage(): React.JSX.Element {
 
                 {/* 默认工作目录 */}
                 <SectionCard>
-                  <p className="text-13 font-medium text-secondary">默认工作目录</p>
-                  <p className="mt-1 text-12 text-muted">
+                  <p className="text-13 font-medium text-secondary">默认工作目录</p>                  <p className="mt-1 text-12 text-muted">
                     新建会话的 agent 工作目录（会话在此目录读写文件）
                   </p>
                   <div className="mt-3 flex gap-2">
@@ -245,6 +245,8 @@ export function SettingsPage(): React.JSX.Element {
                     setCodeFontState('');
                   }}
                 />
+
+                <UpdateCard />
               </div>
             )}
 

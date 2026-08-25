@@ -16,6 +16,12 @@ directories:
   output: dist
   buildResources: resources
 
+# 自动更新/发版的更新源：GitHub Releases（latest.yml / latest-mac.yml 随包发布）
+publish:
+  provider: github
+  owner: xiaosen6
+  repo: longma
+
 # Windows 构建把 electronDist 通过 CLI 指到本机 node_modules/electron/dist。
 # macOS 构建不要设 electronDist，让 electron-builder 拉 darwin 包。
 # better-sqlite3 v13 是 N-API 预编译，不要走 node-gyp（本机通常没 VS）。

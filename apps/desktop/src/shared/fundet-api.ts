@@ -122,6 +122,20 @@ export interface StatusChangedPayload {
   status: string;
 }
 
+/** 应用更新状态（主进程 updater.ts 是唯一真源） */
+export interface UpdateState {
+  currentVersion: string;
+  /** idle / checking / latest / downloading / ready(已下载待重启) / manual(mac 去页面下载) / error */
+  status: 'idle' | 'checking' | 'latest' | 'downloading' | 'ready' | 'manual' | 'error';
+  /** 新版本号（有更新时） */
+  version?: string;
+  /** 下载进度 0-100（仅 Windows 自动下载） */
+  progress?: number;
+  error?: string;
+  /** Release 页地址（mac 手动下载用） */
+  releaseUrl: string;
+}
+
 export interface InteractionRequestPayload {
   sessionId: string;
   request: InteractionRequest;
@@ -245,6 +259,11 @@ export interface FundetApi {
   imWechatQrCancel(): Promise<void>;
   imSetDefaults(patch: { workDir?: string; providerId?: string; model?: string }): Promise<void>;
 
+  updateStatus(): Promise<UpdateState>;
+  checkUpdate(): Promise<void>;
+  /** Windows：重启并安装已下载的更新；macOS：打开 Release 下载页 */
+  installUpdate(): Promise<void>;
+
   userHome(): Promise<string>;
   pickDirectory(): Promise<string | null>;
   pickFiles(): Promise<string[] | null>;
@@ -270,4 +289,5 @@ export interface FundetApi {
   onInteractionDismissed(cb: (payload: InteractionDismissedPayload) => void): () => void;
   onSessionListChanged(cb: () => void): () => void;
   onImStatusChanged(cb: (payload: ImBotsStatus) => void): () => void;
+  onUpdateStatusChanged(cb: (payload: UpdateState) => void): () => void;
 }

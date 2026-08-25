@@ -6,6 +6,7 @@ import { getHost, shutdownHost } from './host/pi-host.js';
 import { ensureBundledSkills } from './host/skills.js';
 import { registerIpcHandlers } from './ipc/register.js';
 import { registerImIpc, startSavedImBots, stopAllImBots } from './im/host.ts';
+import { initUpdater } from './updater.js';
 import {
   registerFileProtocolHandler,
   registerFileProtocolPrivileges,
@@ -201,6 +202,8 @@ function bootstrap(): void {
   registerImIpc();
   registerFileProtocolHandler();
   void startSavedImBots();
+  // 4) 应用更新（仅打包版启用，Windows 自动下载、macOS 手动引导）
+  initUpdater();
 
   createWindow();
   app.on('activate', () => {

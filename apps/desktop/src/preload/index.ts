@@ -105,6 +105,10 @@ const api: FundetApi = {
   imWechatQrCancel: () => ipcRenderer.invoke(FUNDET_INVOKE.IM_WECHAT_QR_CANCEL),
   imSetDefaults: (patch) => ipcRenderer.invoke(FUNDET_INVOKE.IM_SET_DEFAULTS, patch),
 
+  updateStatus: () => ipcRenderer.invoke(FUNDET_INVOKE.UPDATE_STATUS),
+  checkUpdate: () => ipcRenderer.invoke(FUNDET_INVOKE.UPDATE_CHECK),
+  installUpdate: () => ipcRenderer.invoke(FUNDET_INVOKE.UPDATE_INSTALL),
+
   userHome: () => ipcRenderer.invoke(FUNDET_INVOKE.FS_HOME),
   pickDirectory: () => ipcRenderer.invoke(FUNDET_INVOKE.FS_PICK_DIR),
   pickFiles: () => ipcRenderer.invoke(FUNDET_INVOKE.FS_PICK_FILES),
@@ -139,6 +143,7 @@ const api: FundetApi = {
     subscribe<InteractionDismissedPayload>(FUNDET_PUSH.INTERACTION_DISMISSED, cb),
   onSessionListChanged: (cb) => subscribe(FUNDET_PUSH.SESSION_LIST_CHANGED, cb),
   onImStatusChanged: (cb) => subscribe(FUNDET_PUSH.IM_STATUS_CHANGED, cb),
+  onUpdateStatusChanged: (cb) => subscribe(FUNDET_PUSH.UPDATE_STATUS_CHANGED, cb),
 };
 
 contextBridge.exposeInMainWorld('fundet', api);

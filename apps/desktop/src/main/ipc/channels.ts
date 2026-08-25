@@ -64,6 +64,9 @@ export const FUNDET_INVOKE = {
   IM_WECHAT_QR_START: 'im:wechat-qr-start',
   IM_WECHAT_QR_CANCEL: 'im:wechat-qr-cancel',
   IM_SET_DEFAULTS: 'im:set-defaults',
+  UPDATE_STATUS: 'update:status',
+  UPDATE_CHECK: 'update:check',
+  UPDATE_INSTALL: 'update:install',
 } as const;
 
 /** push 族（main → renderer，webContents.send 广播） */
@@ -78,4 +81,6 @@ export const FUNDET_PUSH = {
   INTERACTION_DISMISSED: 'interaction:dismissed',
   SESSION_LIST_CHANGED: 'session:list-changed',
   IM_STATUS_CHANGED: 'im:status-changed',
+  /** 更新状态变化：payload = UpdateState */
+  UPDATE_STATUS_CHANGED: 'update:status-changed',
 } as const;

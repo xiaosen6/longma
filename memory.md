@@ -212,7 +212,7 @@ ChatPage / ChatInput
 
 - Win：PowerShell `pnpm dist:win` → `LongMa-Setup-0.0.1-x64.exe`（约 129MB）。`npmRebuild: false`（better-sqlite3 预编译）。
 - Mac zip：WSL `electron-builder --mac` 可出 `.app`/`.zip`。
-- Mac dmg：WSL 用 xorriso 的是 ISO/HFS+，**不是**正式 Mac 安装镜像。真 UDIF 需 macOS。未签名。
+- Mac dmg：~~WSL 用 xorriso 的是 ISO/HFS+~~ **已走 GitHub Actions macOS runner 出正式 UDIF**（仓库 [xiaosen6/longma](https://github.com/xiaosen6/longma)，`.github/workflows/dist-mac.yml` 手动触发，x64+arm64 dmg+zip 传 Artifacts）。注意：pi 下载步必须带 `GITHUB_TOKEN`（runner 出口 IP 匿名限流必 403）；better-sqlite3 的 npm 包含全平台预编译，单 runner 可出双架构。未签名。
 
 ---
 
@@ -351,8 +351,8 @@ GEO 只审计用户给出的站点（CLI 自抓），不是通用搜索。
 - [x] 上下文圆环放到输入卡下方右侧（对齐 Cindy，不在顶栏）。
 - [x] IM 个人机器人：飞书 / 钉钉 / 企微 / 微信扫码（2026-08-24）。电脑要开着；IM 会话默认 auto 权限。
 - [ ] 侧栏宽度拖拽。
-- [ ] 真 Mac UDIF dmg（需 macOS CI）；当前 WSL dmg 非正式。
-- [ ] 未签名 Mac 公证。
+- [x] 真 Mac UDIF dmg（2026-08-25，GitHub Actions macos-latest，见 §4.6）；WSL dmg 已废弃不用
+- [ ] 未签名 Mac 公证（现状：新 macOS 对带 quarantine 的未签名 App 报「文件已损坏」，用户须 `sudo xattr -cr /Applications/LongMa.app`；根治要 Apple 开发者证书 + CI notarize）。
 - [ ] 文件夹拖入 composer（Cindy 有 extraDirs；龙马暂拒文件夹）。
 - [ ] Canvas 未覆盖的类型仍「用系统打开」。
 - [ ] WSL 无法 electron-vite build（rollup linux binding）。

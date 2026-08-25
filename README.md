@@ -158,12 +158,18 @@ macOS 安装镜像（未签名）：
 - Apple Silicon：`apps/desktop/dist/LongMa-0.0.1-arm64.dmg`
 - Intel：`apps/desktop/dist/LongMa-0.0.1-x64.dmg`
 
-双击打开，把 `LongMa.app` 拖到「应用程序」。第一次打开需在系统设置里允许未签名应用。
+双击打开，把 `LongMa.app` 拖到「应用程序」。**未签名应用在较新 macOS 上会直接报「文件已损坏」**（Gatekeeper 拦截，不是真损坏），在终端执行一次即可：
 
-也可用 zip（同样未签名）：
+```bash
+sudo xattr -cr /Applications/LongMa.app
+```
+
+也可用 zip（同样未签名，需同样的 xattr 处理）：
 
 - `apps/desktop/dist/LongMa-0.0.1-arm64-mac.zip`
-- `apps/desktop/dist/LongMa-0.0.1-x64-mac.zip`
+- `apps/desktop/dist/LongMa-0.0.1-mac.zip`（x64）
+
+正式 dmg 由 GitHub Actions 产出（Actions → dist-mac → Artifacts），本地产物路径以 `apps/desktop/dist/` 实际文件为准。
 
 ---
 

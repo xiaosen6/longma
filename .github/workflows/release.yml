@@ -1,0 +1,60 @@
+# 发版流水线：推 v* tag（如 v0.1.0，须与 apps/desktop/package.json 的 version 一致）
+# → Windows + macOS 并行构建 → 发布到同一个 GitHub Release（含 latest*.yml 更新元数据，
+# electron-updater 靠它做应用内更新）。
+# 手动出包不发版仍用 dist-mac.yml（workflow_dispatch）。
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  win:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.14.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # GITHUB_TOKEN：pi 下载走认证请求，规避 runner 出口 IP 匿名限流
+      - run: node tools/pi/update.mjs 0.83.0 --platform=win32-x64
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: pnpm --filter fundet-desktop build
+      - run: pnpm --filter fundet-desktop exec electron-builder --win --x64 --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.14.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: node tools/pi/update.mjs 0.83.0 --platform=darwin-arm64
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: node tools/pi/update.mjs 0.83.0 --platform=darwin-x64
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: pnpm --filter fundet-desktop build
+      # 未签名（identity: null）；electron-updater 在 mac 未签名时不装更新，只做检测
+      - run: pnpm --filter fundet-desktop exec electron-builder --mac --x64 --arm64 --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
