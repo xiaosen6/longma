@@ -16,11 +16,15 @@ directories:
   output: dist
   buildResources: resources
 
-# 自动更新/发版的更新源：GitHub Releases（latest.yml / latest-mac.yml 随包发布）
+# 自动更新/发版的更新源：GitHub Releases（latest.yml / latest-mac.yml 随包发布）。
+# releaseType 必须显式 release：默认 draft 时两个 job 并发建草稿，GitHub 允许同 tag
+# 多个 draft 共存 → 产生两个残缺的草稿 Release；published 受 tag 唯一约束，第二个
+# job 会正确复用已有 Release。
 publish:
   provider: github
   owner: xiaosen6
   repo: longma
+  releaseType: release
 
 # Windows 构建把 electronDist 通过 CLI 指到本机 node_modules/electron/dist。
 # macOS 构建不要设 electronDist，让 electron-builder 拉 darwin 包。
