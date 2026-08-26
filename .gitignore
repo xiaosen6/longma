@@ -9,3 +9,5 @@ tools/pi/updates/
 tools/ripgrep/updates/
 tools/screenshots/
 apps/desktop/dist/
+packages/browser-runtime/dist
+apps/desktop/resources-browser/

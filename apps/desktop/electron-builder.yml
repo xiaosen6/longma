@@ -35,7 +35,12 @@ files:
   - out/**
   - drizzle/**
   - package.json
-  - "!node_modules/@fundet/**"
+  # agent-core/shared 打进主 bundle，不进 asar；browser-runtime 的运行时闭包
+  # （playwright-core/sharp/…，96 包）由 tools/pack-browser-deps.mjs 打平，
+  # 经下方 extraResources 落到 resources/node_modules（asar 外，主进程模块
+  # 解析向上可及；.node 原生二进制不进 asar 也免去 asarUnpack）
+  - "!node_modules/@fundet/agent-core"
+  - "!node_modules/@fundet/shared"
 
 asarUnpack:
   - "**/*.node"
@@ -45,6 +50,8 @@ extraResources:
     to: icon.png
   - from: resources/icon.ico
     to: icon.ico
+  - from: resources-browser/node_modules
+    to: node_modules
   - from: resources/bundled-skills
     to: bundled-skills
     filter:

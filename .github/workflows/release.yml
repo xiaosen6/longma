@@ -43,7 +43,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: pnpm --filter fundet-desktop build
-      - run: pnpm --filter fundet-desktop exec electron-builder --win --x64 --publish always
+      - run: pnpm --filter fundet-desktop run dist:win:publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -74,7 +74,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: pnpm --filter fundet-desktop build
       # 未签名（identity: null）；electron-updater 在 mac 未签名时不装更新，只做检测
-      - run: pnpm --filter fundet-desktop exec electron-builder --mac --x64 --arm64 --publish always
+      - run: pnpm --filter fundet-desktop run dist:mac:publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'

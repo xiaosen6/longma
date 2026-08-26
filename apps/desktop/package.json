@@ -17,7 +17,14 @@
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit",
     "test": "node --test --experimental-strip-types src/shared/*.test.ts src/main/fs-local.test.ts src/main/doc-text.test.ts src/main/search/*.test.ts src/main/im/*.test.ts src/renderer/src/lib/artifacts.test.ts",
-    "rebuild:native": "electron-rebuild -f -w better-sqlite3 -o better-sqlite3"
+    "rebuild:native": "electron-rebuild -f -w better-sqlite3 -o better-sqlite3",
+    "predev": "pnpm --filter @fundet/browser-runtime compile",
+    "prebuild": "pnpm --filter @fundet/browser-runtime compile",
+    "predist": "node ../../tools/pack-browser-deps.mjs",
+    "predist:win": "node ../../tools/pack-browser-deps.mjs",
+    "predist:mac": "node ../../tools/pack-browser-deps.mjs",
+    "dist:win:publish": "electron-builder --win --x64 --publish always --config.electronDist=node_modules/electron/dist",
+    "dist:mac:publish": "electron-builder --mac --x64 --arm64 --publish always"
   },
   "dependencies": {
     "@fundet/agent-core": "workspace:*",
@@ -63,6 +70,10 @@
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4",
     "typescript": "^5.8.0",
-    "vite": "^6.3.0"
+    "vite": "^6.3.0",
+    "@fundet/browser-mcp": "workspace:*",
+    "@fundet/browser-runtime": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.0.0"
   }
 }
