@@ -1,3 +1,6 @@
+// 浏览器 runtime 的数据目录必须在 @fundet/browser-runtime 求值前种下（eager 常量），
+// 所以这个副作用模块必须是 main 的第一条 import
+import './browser/runtime-env.js';
 import { app, BrowserWindow, dialog, Menu, nativeTheme, session, shell, Tray } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -6,6 +9,7 @@ import { getHost, shutdownHost } from './host/pi-host.js';
 import { ensureBundledSkills } from './host/skills.js';
 import { registerIpcHandlers } from './ipc/register.js';
 import { registerImIpc, startSavedImBots, stopAllImBots } from './im/host.ts';
+import { disposeBrowserHost } from './browser/host.js';
 import { initUpdater } from './updater.js';
 import {
   registerFileProtocolHandler,
@@ -217,6 +221,8 @@ function bootstrap(): void {
   app.on('before-quit', () => {
     isQuitting = true;
     void stopAllImBots();
+    // 关闭托管浏览器（用过才发 stop；没用过 stop 反而会拉起服务挂住退出）
+    void disposeBrowserHost();
     // 关闭所有活跃会话，回收 pi 子进程
     void shutdownHost();
   });

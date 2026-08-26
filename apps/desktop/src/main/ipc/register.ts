@@ -55,6 +55,10 @@ import {
 import { searchWithEngine } from '../search/providers.ts';
 import { fetchProviderModels } from '../host/provider-models.js';
 import { getHost } from '../host/pi-host.js';
+import { createConsoleLogger } from '@fundet/agent-core';
+import { ensureBrowserRuntime } from '../browser/host.js';
+import { BROWSER_ENABLED_SETTING } from '../../shared/browser-settings.ts';
+import { getBoolSetting, setBoolSetting } from '../db/settings.js';
 import { importSkillFile, listSkills, uninstallSkill } from '../host/skills.js';
 import { FUNDET_INVOKE, FUNDET_PUSH } from './channels.js';
 import { resolveUnderWorkDir, stageBytesIntoWorkDir, stageFileIntoWorkDir } from '../fs-local.js';
@@ -643,6 +647,24 @@ export function registerIpcHandlers(): void {
       return { ok: true, engine: out.engine, results: out.results };
     },
   );
+
+  // ---------- 浏览器自动化 ----------
+  ipcMain.handle(FUNDET_INVOKE.BROWSER_STATUS, async () => ({
+    enabled: getBoolSetting(BROWSER_ENABLED_SETTING, false),
+  }));
+
+  ipcMain.handle(FUNDET_INVOKE.BROWSER_SET_ENABLED, async (_e, enabled: boolean) => {
+    setBoolSetting(BROWSER_ENABLED_SETTING, Boolean(enabled));
+  });
+
+  // 登录入口：start + focus（已开则聚焦），绝不新开 tab——冷启动时 open 会开出双 tab
+  ipcMain.handle(FUNDET_INVOKE.BROWSER_OPEN, async () => {
+    const logger = createConsoleLogger('fundet');
+    const runtime = await ensureBrowserRuntime(logger);
+    if (!runtime) throw new Error('浏览器运行时不可用：本机未检测到 Chromium 系浏览器');
+    await runtime.call({ action: 'start' });
+    await runtime.call({ action: 'focus' });
+  });
 
   // ---------- skills ----------
   ipcMain.handle(FUNDET_INVOKE.SKILLS_LIST, async (_e, workDir?: string) => listSkills(workDir));

@@ -31,9 +31,13 @@ import type {
   PiMcpServerRef,
 } from '@fundet/agent-core';
 import { SEARCH_MCP_SERVER_NAME } from '../../shared/search-engines.ts';
+import { BROWSER_ENABLED_SETTING, BROWSER_MCP_SERVER_NAME } from '../../shared/browser-settings.ts';
 import { listMcpServers, type McpServerView } from '../db/mcp-servers.js';
+import { getBoolSetting } from '../db/settings.js';
 import { startSearchMcpServer } from '../search/mcp-server.ts';
 import { handleWebSearch } from '../search/tool.ts';
+import { ensureBrowserRuntime } from '../browser/host.js';
+import { startBrowserMcpServer } from '../browser/mcp-http.js';
 
 /** 单次请求兜底超时（bridge 侧另有 startup/request 预算，这只是防永久挂起） */
 const PROXY_REQUEST_TIMEOUT_MS = 600_000;
@@ -254,6 +258,32 @@ export function createPreparePiExtraSpawnConfig(logger: Logger) {
       servers.push({ name: SEARCH_MCP_SERVER_NAME, url: search.url });
     } catch (err) {
       logger.error('内置搜索 MCP 启动失败', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+
+    // 浏览器自动化（设置 → 通用，默认关）：runtime 是进程级单例，这里只挂
+    // 每会话一份 MCP server。审批不进白名单——跟会话权限三档走（ask 每次问）。
+    try {
+      if (getBoolSetting(BROWSER_ENABLED_SETTING, false)) {
+        const runtime = await ensureBrowserRuntime(logger);
+        if (runtime) {
+          const browser = await startBrowserMcpServer(token, logger.child('browser-mcp'), runtime);
+          disposers.push(browser.dispose);
+          servers.push({
+            name: BROWSER_MCP_SERVER_NAME,
+            url: browser.url,
+            remote: {
+              headerEnvVars: {},
+              // navigate/act 可能跑几十秒，给满 bridge 硬边界
+              startupTimeoutMs: 30_000,
+              requestTimeoutMs: 600_000,
+            },
+          });
+        }
+      }
+    } catch (err) {
+      logger.error('浏览器 MCP 启动失败（跳过，其余 server 照常）', {
         error: err instanceof Error ? err.message : String(err),
       });
     }

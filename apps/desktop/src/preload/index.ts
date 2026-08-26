@@ -94,6 +94,11 @@ const api: FundetApi = {
   clearSearchEngineKey: (id) => ipcRenderer.invoke(FUNDET_INVOKE.SEARCH_CLEAR_KEY, id),
   setDefaultSearchEngine: (id) => ipcRenderer.invoke(FUNDET_INVOKE.SEARCH_SET_DEFAULT, id),
   testSearch: (query, engine) => ipcRenderer.invoke(FUNDET_INVOKE.SEARCH_TEST, query, engine),
+
+  browserStatus: () => ipcRenderer.invoke(FUNDET_INVOKE.BROWSER_STATUS),
+  setBrowserEnabled: (enabled) => ipcRenderer.invoke(FUNDET_INVOKE.BROWSER_SET_ENABLED, enabled),
+  openBrowserForLogin: () => ipcRenderer.invoke(FUNDET_INVOKE.BROWSER_OPEN),
+
   openExternal: (url) => ipcRenderer.invoke(FUNDET_INVOKE.OPEN_EXTERNAL, url),
 
   imStatus: () => ipcRenderer.invoke(FUNDET_INVOKE.IM_STATUS),

@@ -12,6 +12,8 @@ import type {
 } from '@fundet/agent-core';
 import type { ImBotsStatus, ImChannelId, ImSaveInput } from './im-bots.ts';
 export type { ImBotsStatus, ImChannelId, ImChannelStatus, ImSaveInput } from './im-bots.ts';
+import type { BrowserStatus } from './browser-settings.ts';
+export type { BrowserStatus } from './browser-settings.ts';
 
 export type ProviderApi = 'anthropic-messages' | 'openai-responses' | 'openai-completions';
 
@@ -248,6 +250,12 @@ export interface FundetApi {
   clearSearchEngineKey(id: SearchEngineId): Promise<void>;
   setDefaultSearchEngine(id: SearchEngineId | null): Promise<void>;
   testSearch(query: string, engine?: SearchEngineId): Promise<SearchTestResult>;
+
+  browserStatus(): Promise<BrowserStatus>;
+  setBrowserEnabled(enabled: boolean): Promise<void>;
+  /** 打开/拉起托管浏览器窗口（登录用）：start + focus，绝不新开 tab */
+  openBrowserForLogin(): Promise<void>;
+
   openExternal(url: string): Promise<void>;
 
   imStatus(): Promise<ImBotsStatus>;
