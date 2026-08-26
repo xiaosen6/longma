@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import * as Switch from '@radix-ui/react-switch';
-import { MoreHorizontal, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Eye, MoreHorizontal, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import type { ProviderApi, ProviderView } from '../../../../shared/fundet-api.js';
 import { formatTokenCount, preferScannedContextWindow } from '../../../../shared/context-window.js';
+import { effectiveModelInput } from '../../../../shared/model-input.ts';
 import { cn } from '../../lib/cn';
 import { ProviderLogoMark } from '../icons/ProviderLogoMark';
 import { AddProviderWizard } from './AddProviderWizard';
@@ -272,6 +273,18 @@ export function ProvidersPanel(): React.JSX.Element {
     await refresh(selected.id);
   };
 
+  // 视觉开关写显式 input 字段（['text','image'] / ['text']），覆盖按 id 的推断
+  const toggleModelVision = async (modelId: string, vision: boolean): Promise<void> => {
+    if (!selected) return;
+    const models = selected.models.map((m) =>
+      m.id === modelId
+        ? { ...m, input: (vision ? ['text', 'image'] : ['text']) as Array<'text' | 'image'> }
+        : m,
+    );
+    await window.fundet.updateProvider(selected.id, { models });
+    await refresh(selected.id);
+  };
+
   const remove = async (): Promise<void> => {
     if (!selected) return;
     await window.fundet.deleteProvider(selected.id);
@@ -427,6 +440,26 @@ export function ProvidersPanel(): React.JSX.Element {
                       <span className="min-w-0 flex-1 truncate text-14 text-primary">{m.id}</span>
                       <span className="w-14 shrink-0 text-right text-12 text-muted">
                         {m.contextWindow ? formatTokenCount(preferScannedContextWindow(m.id, m.contextWindow) ?? m.contextWindow) : ''}
+                      </span>
+                      <span
+                        title="视觉输入：允许向该模型发送图片（按模型 id 自动推断，可手动覆盖）"
+                        className="flex shrink-0 items-center gap-1"
+                      >
+                        <Eye
+                          size={13}
+                          className={
+                            effectiveModelInput(m.id, m.input)?.includes('image')
+                              ? 'text-accent'
+                              : 'text-muted/50'
+                          }
+                        />
+                        <Switch.Root
+                          checked={effectiveModelInput(m.id, m.input)?.includes('image') === true}
+                          onCheckedChange={(v) => void toggleModelVision(m.id, v)}
+                          className="h-[18px] w-[32px] cursor-pointer rounded-full bg-chip data-[state=checked]:bg-accent"
+                        >
+                          <Switch.Thumb className="block h-[14px] w-[14px] translate-x-[2px] rounded-full bg-card transition-transform data-[state=checked]:translate-x-[16px]" />
+                        </Switch.Root>
                       </span>
                       <Switch.Root
                         checked={m.enabled !== false}

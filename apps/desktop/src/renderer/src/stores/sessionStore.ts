@@ -12,6 +12,7 @@
  * 流式文本未 final 时放在 streamingText，由 MessageStream 渲染成临时气泡。
  */
 import { useSyncExternalStore } from 'react';
+import { friendlyProviderError } from '../../../shared/friendly-error.ts';
 import type { AgentEvent, InteractionRequest, UsageSnapshot } from '@fundet/agent-core';
 import type {
   MessageView,
@@ -355,7 +356,7 @@ function applyEvent(sessionId: string, event: AgentEvent): 'immediate' | 'thrott
         appendItem(sessionId, {
           kind: 'error',
           id: nextId('e'),
-          message: data.message || '未知错误',
+          message: friendlyProviderError(data.message || '未知错误'),
         });
         patchSlice(sessionId, { isRunning: false, streamingText: '' });
       } else {

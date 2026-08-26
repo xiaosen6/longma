@@ -139,3 +139,24 @@ export function sendBlockKind(filePath: string, size?: number): 'image' | 'file'
   if (typeof size === 'number' && size > MAX_IMAGE_BYTES) return 'file';
   return 'image';
 }
+
+/**
+ * 图片真实格式嗅探（魔数）：QQ 等聊天软件的"原图"经常是 PNG 套 .jpeg 扩展名，
+ * 按扩展名声明的 mime 与字节不符时严格的多模态端点会拒收。识别不了回落扩展名。
+ */
+export function sniffImageMime(head: Uint8Array, fallbackFromExt: string): string {
+  if (head.length >= 4 && head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4e && head[3] === 0x47) {
+    return 'image/png';
+  }
+  if (head.length >= 3 && head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff) {
+    return 'image/jpeg';
+  }
+  if (head.length >= 12 && head[8] === 0x57 && head[9] === 0x45 && head[10] === 0x42 && head[11] === 0x50) {
+    return 'image/webp'; // RIFF....WEBP
+  }
+  if (head.length >= 6 && head[0] === 0x47 && head[1] === 0x49 && head[2] === 0x46 && head[3] === 0x38) {
+    return 'image/gif'; // GIF8
+  }
+  // ftyp 容器（avif/heic）brand 变多，按扩展名声明更稳
+  return fallbackFromExt;
+}

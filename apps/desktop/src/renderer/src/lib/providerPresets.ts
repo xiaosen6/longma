@@ -7,7 +7,7 @@ export interface ProviderPreset {
   regionHint?: "cn" | "global";
   api: ProviderApi;
   baseUrl: string;
-  models: Array<{ id: string; contextWindow?: number }>;
+  models: Array<{ id: string; contextWindow?: number; maxTokens?: number }>;
 }
 
 /** Cindy catalog/providers.json 的预设，收成 LongMa 单 runtime（Pi BYOK）。 */
@@ -472,6 +472,33 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
       {
         "id": "mimo-v2.5",
         "contextWindow": 1000000
+      }
+    ]
+  },
+  {
+    "id": "volcengine-ark",
+    "name": "火山方舟（按量，含视觉模型）",
+    "docsUrl": "https://www.volcengine.com/docs/82379/1330310",
+    "regionHint": "cn",
+    "api": "openai-completions",
+    "baseUrl": "https://ark.cn-beijing.volces.com/api/v3",
+    "models": [
+      {
+        "id": "doubao-seed-1-6-vision-250815",
+        "contextWindow": 131072
+      },
+      {
+        "id": "doubao-1.5-vision-pro-32k",
+        "contextWindow": 32768,
+        "maxTokens": 12288
+      },
+      {
+        "id": "doubao-seed-1-6-250615",
+        "contextWindow": 256000
+      },
+      {
+        "id": "doubao-1-5-pro-32k",
+        "contextWindow": 32768
       }
     ]
   },

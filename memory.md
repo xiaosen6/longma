@@ -45,6 +45,7 @@ WSL 里可以改代码、跑 `pnpm --filter fundet-desktop test` / `typecheck`�
 | Mac 包 | 未签名。WSL 打出的 `.dmg` 是 xorriso ISO/HFS+，**不是**正式 UDIF；真 dmg 需 macOS 或 `macos-latest` CI |
 | 渲染进程 | `sandbox: true`（0.1.4 起），preload 必须是 CJS 产物（见 §5 坑表「沙箱 ESM preload」） |
 | 浏览器自动化 | 内置能力开关（默认关），非 MCP Servers 用户面；托管 Chrome 持久 profile「LongMa」 |
+| 视觉发图 | 模型按 id 推断视觉 + 每模型「视觉」开关；/models 列表不带能力元数据，别指望拉取时自动识别 |
 | 约束 | 保持 `@fundet/*` 与 `window.fundet`；Windows 用 PowerShell 跑 Electron |
 
 ---
@@ -220,6 +221,18 @@ ChatPage / ChatInput
 
 - **入站去重**（`im/dedup.ts`）：按渠道稳定消息 id（飞书 `message_id`、钉钉 `headers.messageId`、企微 `msgid`、微信 `messageId`），TTL 10min + 容量 2000。长连断线重连重推不再跑两遍回合。
 - **单回合兜底超时**（`im/turn-collector.ts`）：10 分钟（agent-core 的 45min turn-stall 看门狗对 IM 太长，一条卡住会堵死该聊天的排队）。超时 abort 会话、回一句提示放行队列；会话拒收时 dispose 释放订阅。
+
+### 4.8 视觉模型发图（2026-08-26 修复轮）
+
+客户报障：火山引擎多模态模型粘贴图片报 `PiImageInputUnsupportedError`。根因两层：
+
+- **模型无 input:image 标记**：PiAgent 发图前校验模型 input 含 'image'（assertImageInputSupported），providers 库的模型从不带该字段 → 一律拒发。修复三层：
+  1. `shared/model-input.ts` 按 id 推断视觉家族（glm-4v*/glm-4.5v、doubao-*-vision*、gpt-4o/4.1/5、o3/o4、claude、gemini、qwen-vl、deepseek-vl 等）。**注意 glm-4.5/5.x 无 V 是纯文本**（bigmodel 实测 code 1210）。
+  2. 设置 → 模型供应商每模型行「视觉」开关（Eye 图标，写库 input 字段覆盖推断）。
+  3. pi-host 映射 input：库值优先、缺省回落推断（存量 DB 免迁移直接生效）。
+- **QQ「原图」常是 PNG 套 .jpeg 扩展名**：mime 按扩展名报 image/jpeg、字节是 PNG，严格端点拒收。`file-kind.ts` 加 `sniffImageMime` 魔数嗅探（PNG/JPEG/WebP/GIF），staging 时读头 16 字节纠正。
+
+配套：供应商预设新增「火山方舟（按量，含视觉模型）」（ark /api/v3 + doubao vision 系列，doubao-1.5-vision-pro 带 maxTokens:12288——glm-4v-flash max_tokens 上限 1024 同类坑，wizard 现在透传 maxTokens）；列模型失败报错带实际请求 URL 与 Base URL 形态指引；`shared/friendly-error.ts` 把 1210 content.type/max_tokens 类供应商错误转成中文行动指引（sessionStore error 卡片）。真机端到端已验证：QQ 图 → 嗅探 image/png → glm-4v-flash 真实理解并描述图片。
 
 ### 4.6 打包与 CI
 

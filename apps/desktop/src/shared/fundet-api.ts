@@ -24,6 +24,8 @@ export interface ProviderModelSpec {
   maxTokens?: number;
   /** false = 不出现在模型选择器（Cindy 式「Shown in Model Picker」） */
   enabled?: boolean;
+  /** 显式声明的输入模态；缺省时按 id 推断（shared/model-input.ts） */
+  input?: Array<'text' | 'image'>;
 }
 
 export interface ProviderView {
