@@ -22,6 +22,7 @@
 ## 环境
 
 - Node.js ≥ 22.12
+- CPU 需支持 **AVX2 指令集**（2013 年后的 Intel / 2015 年后的 AMD 均满足；老 CPU 或部分虚拟机上助手运行时无法启动，启动时会明确提示）
 - pnpm 9.x（仓库 `packageManager` 为 9.14.4）
 - **Windows 上请用 PowerShell 启动**，不要用 WSL 弹窗口（WSLg + Electron 经常只剩任务栏蓝点）
 

@@ -283,6 +283,7 @@ ChatPage / ChatInput
 | Windows 悬浮 no-drag 挖洞不可靠 | app-region 悬浮层挖洞在 Electron 37/Windows 真机鼠标下失效（hover/点击被 drag 区吞掉，合成输入却正常）。修法：drag 区不与控件重叠——`drag-region` 用 `mr-[150px]` / 内部 absolute 层 `right-[150px]` 在窗口按钮左侧截止（ChatPage 两条头部都是这个结构） |
 | **rollup 渲染 vendored browser-runtime 丢代码** | 把 browser-runtime 源码交给 vite bundle，chunk 渲染会在拼接边界**整段丢模块代码**（esbuild "Unterminated string literal"，断点随代码布局漂移；chunk 文件名带未替换占位符 `!~{001}~`）；动态 import 被拆 chunk 时还会反向 import 入口 chunk → 主进程顶层副作用重跑 → **启动/首调即僵死**（CPU 0%，CDP 接受连接永不响应）。Cindy 用 manualChunks 钉单 chunk 规避（其 vite.main.config.ts 有坑记录），electron-vite 4 下钉了照样炸。**根治**：runtime tsc 编译到 dist + external 运行时依赖，vendored 源码永不过 rollup |
 | **electron-builder 26 + pnpm collector 遇 express 树死循环** | desktop dependencies 里出现 `@modelcontextprotocol/sdk`（依赖 express@5）后 "searching for node modules" 永久卡死；实测 express@4/@5 单独出现即卡（Cindy 没事是 electron-forge 不做依赖树收集）。**修法**：这批运行时依赖不进 desktop dependencies，`tools/pack-browser-deps.mjs` 打平闭包 → extraResources 到 `resources/node_modules`（asar 外，主进程模块解析向上可及） |
+| **pi 在无 AVX2 的 CPU 上启动即崩**（客户报障 code=3221225501） | 0xC000001D 非法指令：pi 是 bun 单二进制，标准 x64 构建要 AVX/AVX2（约 2013 前 Intel / 2015 前 AMD / 部分虚拟机没有；bun 有 baseline 变体但 pi 只发标准构建）。处理：启动预检 `pi --version` 崩溃码探测 → 原生弹窗明示；发送失败经 `friendlyError` 转中文引导。**这类机器暂无解**，除非 earendil-works/pi 出 baseline 构建 |
 | sharp 的 @img 平台二进制 | pnpm 对 sharp 的 optionalDependencies（@img/sharp-\<plat\> 等）**不在任何 node_modules 建符号链接**，只落 .pnpm store——dev 里 require('@img/...') 其实也是坏的（仅截图路径触发才发现）。pack 脚本从 store 扫 `@img+sharp-*` 并走闭包；dev 要用截图再处理 |
 
 Pi pin：`tools/pi/latest.json` → **0.83.0**。

@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { initDatabase } from './db/client.js';
 import { getHost, shutdownHost } from './host/pi-host.js';
+import { resolvePiBinaryPath } from './host/pi-binary.js';
 import { ensureBundledSkills } from './host/skills.js';
 import { registerIpcHandlers } from './ipc/register.js';
 import { registerImIpc, startSavedImBots, stopAllImBots } from './im/host.ts';
@@ -204,6 +205,22 @@ function bootstrap(): void {
     app.quit();
     return;
   }
+  // 2b) pi 运行时预检：bun 系二进制在无 AVX2 的 CPU 上启动即崩（0xC000001D），
+  // 与其等用户第一次发消息报错，不如启动就讲清楚。正常机器这一步 <500ms。
+  void (async () => {
+    const { spawn } = await import('node:child_process');
+    const child = spawn(resolvePiBinaryPath(), ['--version'], { stdio: 'ignore' });
+    child.on('exit', (code) => {
+      if (code === 3221225501) {
+        dialog.showErrorBox(
+          '此电脑无法运行助手功能',
+          '助手运行时（pi）需要 CPU 支持 AVX2 指令集，这台电脑的 CPU 不满足（2013 年前的 Intel、2015 年前的 AMD 或部分虚拟机的典型情况）。' +
+          '龙马的其它功能可正常浏览，但无法新建对话。请换用支持 AVX2 的电脑。',
+        );
+      }
+    });
+  })();
+
   // 3) IPC + 本地文件预览协议（视频 / 网页 / PDF）
   registerIpcHandlers();
   registerImIpc();

@@ -12,7 +12,7 @@
  * 流式文本未 final 时放在 streamingText，由 MessageStream 渲染成临时气泡。
  */
 import { useSyncExternalStore } from 'react';
-import { friendlyProviderError } from '../../../shared/friendly-error.ts';
+import { friendlyError, friendlyProviderError } from '../../../shared/friendly-error.ts';
 import type { AgentEvent, InteractionRequest, UsageSnapshot } from '@fundet/agent-core';
 import type {
   MessageView,
@@ -652,7 +652,7 @@ export async function sendMessage(
     appendItem(sessionId, {
       kind: 'error',
       id: nextId('e'),
-      message: `发送失败：${err instanceof Error ? err.message : String(err)}`,
+      message: `发送失败：${friendlyError(err instanceof Error ? err.message : String(err))}`,
     });
     patchSlice(sessionId, { isRunning: false });
     notifySlice(sessionId);
