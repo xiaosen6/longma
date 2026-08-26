@@ -44,6 +44,7 @@ WSL 里可以改代码、跑 `pnpm --filter fundet-desktop test` / `typecheck`�
 | 分享 | 截当前回合卡片为图片进剪贴板，不要「复制消息链接」 |
 | Mac 包 | 未签名。WSL 打出的 `.dmg` 是 xorriso ISO/HFS+，**不是**正式 UDIF；真 dmg 需 macOS 或 `macos-latest` CI |
 | 渲染进程 | `sandbox: true`（0.1.4 起），preload 必须是 CJS 产物（见 §5 坑表「沙箱 ESM preload」） |
+| 浏览器自动化 | 内置能力开关（默认关），非 MCP Servers 用户面；托管 Chrome 持久 profile「LongMa」 |
 | 约束 | 保持 `@fundet/*` 与 `window.fundet`；Windows 用 PowerShell 跑 Electron |
 
 ---
@@ -75,6 +76,8 @@ fundet-buddy-main/
 ├── memory.md                    # 本文件
 ├── packages/
 │   ├── agent-core/              # @fundet/agent-core：PiAgent + Maker + Session + memory
+│   ├── browser-runtime/         # @fundet/browser-runtime：vendored 浏览器内核（tsc 编译到 dist，external 运行时依赖）
+│   ├── browser-mcp/             # @fundet/browser-mcp：浏览器 MCP 门面（单 browser 工具，bundle 进主进程）
 │   └── shared/                  # 纯函数（agent-task / session-title / …）
 ├── apps/
 │   ├── desktop/                 # Electron 主工程（产品几乎全在这）
@@ -110,7 +113,8 @@ ChatPage / ChatInput
 | IPC 契约 | `src/shared/fundet-api.ts`、`preload/index.ts`、`main/ipc/channels.ts` |
 | Pi 装配 | `main/host/pi-host.ts`、`packages/agent-core/src/agents/pi/index.ts` |
 | 内置技能同步 | `main/host/skills.ts`、`resources/bundled-skills/*/SKILL.md` + `LONGMA_REVISION` |
-| 系统提示 | `main/host/system-prompt.md`（已列全四个技能 + `mcp__search__web_search` + curl/Git Bash 指引） |
+| 系统提示 | `main/host/system-prompt.md`（已列全四个技能 + `mcp__search__web_search` + 浏览器工具指引 + Git Bash 指引） |
+| 浏览器自动化 | `main/browser/{host,mcp-http,runtime-env}.ts`、`packages/browser-runtime|mcp`、`tools/pack-browser-deps.mjs`（打包闭包打平） |
 | 主题 token | `renderer/src/styles/globals.css` |
 | 上下文窗口 | `src/shared/context-window.ts`（GLM ≥5.2 → 1M，其它扫描默认 256k；不要用残缺 128k 覆盖更好推断） |
 | BYOK key | `main/host/secrets.ts`（Windows 打包走系统凭据；Linux dev 可降级 `plain:`） |
@@ -225,6 +229,18 @@ ChatPage / ChatInput
 - **日常 CI**（2026-08-26）：`ci.yml` 在 push main / PR 跑 `pnpm typecheck` + `pnpm test:unit`（ubuntu，`ELECTRON_SKIP_BINARY_DOWNLOAD=1`）。**依赖本地二进制的用例一律 skipIf 缺失即跳**（pi 集成测试、cindyBridgeSource 的 rg 用例——ripgrep-bin 不进 Git，别让 CI 为它下载）。发版 workflow 仍只管构建发布。
 - **应用内更新**（0.1.0 起）：设置 → 通用「版本与更新」；Win 后台下载完「重启更新」（托盘退出也会装）；Mac 未签名只检测版本 + 「下载新版本」跳 Release 页。启动 5s 首查 + 每 4h 静默查。dev 态（!isPackaged）不启用。
 
+### 4.7 浏览器自动化（2026-08-26，从 Cindy 移植）
+
+**形态**：设置 → 通用「浏览器自动化」开关（默认关）。开启后**新会话**注入内置 MCP `browser`（localhost streamable-HTTP + Bearer，每会话一份，底层共享 runtime 单例），模型工具 `mcp__browser__browser`（单工具 23 action：tabs/navigate/snapshot/screenshot/act/requests/extract/recipe…）+ `mcp__browser__list_tools`。审批**不进白名单**——跟会话权限三档走（默认 ask 每次问，想免打扰切自动/完全放行）。
+
+**内核**：`packages/browser-runtime` = Cindy browser-control-runtime 整包移植（vendored 上游 openclaw/MIT，lock 在 `upstream/browser-runtime.lock.json`）。playwright-core **connectOverCDP** 连自 spawn 的托管 Chrome：持久 profile「LongMa」（蓝 #2563EB，目录名钉死勿改否则丢登录态）、CDP 18800、**默认有头**（用户能登录，登录态跨会话）、复用用户系统 Chrome 不 playwright install。SSRF 只豁免代理 fake-IP 两段（198.18/15 + IPv6 ULA），localhost/RFC1918/metadata 全拦。56 站点配方内置（L2 用户层未接）。
+
+**宿主**：`main/browser/host.ts`——惰性单例 + usage 跟踪（没用过 quit 时**不发 stop**，stop 本身会拉起服务挂住退出）；`mcp-http.ts` 用 SDK StreamableHTTPServerTransport 挂 HTTP；登录入口 IPC `BROWSER_OPEN` = start+focus 绝不新开 tab。
+
+**打包架构（重要，改打包前先读 §5 对应坑）**：browser-runtime **tsc 编译到 dist/ 作为 external 运行时依赖**（`pnpm --filter @fundet/browser-runtime compile`，desktop prebuild/predev 钩子），其 npm 闭包（101 包：playwright-core/sharp/@img 二进制/express 树…）由 `tools/pack-browser-deps.mjs` 打平成真实文件（`.pnpm` 符号链接去引用），经 electron-builder `extraResources` 落到 **resources/node_modules**（asar 外；Electron 主进程模块解析从 asar 向上走到这里；.node 原生二进制免 asarUnpack）。desktop 的 package.json **不声明**这些运行时依赖（只有 devDeps 供类型/vite 解析）——electron-builder 的 pnpm collector 见到 express 树会死循环。MCP SDK 与 browser-runtime 在 vite main 里显式 `rollupOptions.external`。
+
+**验证**：单测 41（runtime，含 SSRF 契约）+ 91（门面）；真机 `RUN_BROWSER_START_E2E=1` vitest 全链 start→status→stop；dev/preview/打包产物三层 CDP 冒烟全过（托管 Chrome 拉起、强杀零残留）。
+
 ---
 
 ## 5. 环境与坑
@@ -252,6 +268,9 @@ ChatPage / ChatInput
 | 断流重试后 UI 假死 | 主进程 abort 复核/stall 看门狗会把卡死会话 close，但渲染层必须订阅 `agent:status-changed`（`onStatusChanged`）清 `isRunning`，否则停止按钮失效、界面永久转圈。已在 `sessionStore.initGlobalListeners` 挂上 |
 | 沙箱渲染进程加载不了 ESM preload | `sandbox: true` 后 `window.fundet` 消失、React 空挂且无报错日志。沙箱只支持 CJS preload：electron.vite.config.ts 显式 `output.format='cjs'` + `entryFileNames:'[name].js'`，`main/index.ts` 的 preload 指 `../preload/index.js`（不再是 .mjs）。沙箱下 preload 可用 API：contextBridge/ipcRenderer/webUtils/process.platform。已 dev 真机验证（CDP 查 window.fundet + IPC 往返）；**下个发版前照例冒烟打包产物** |
 | Windows 悬浮 no-drag 挖洞不可靠 | app-region 悬浮层挖洞在 Electron 37/Windows 真机鼠标下失效（hover/点击被 drag 区吞掉，合成输入却正常）。修法：drag 区不与控件重叠——`drag-region` 用 `mr-[150px]` / 内部 absolute 层 `right-[150px]` 在窗口按钮左侧截止（ChatPage 两条头部都是这个结构） |
+| **rollup 渲染 vendored browser-runtime 丢代码** | 把 browser-runtime 源码交给 vite bundle，chunk 渲染会在拼接边界**整段丢模块代码**（esbuild "Unterminated string literal"，断点随代码布局漂移；chunk 文件名带未替换占位符 `!~{001}~`）；动态 import 被拆 chunk 时还会反向 import 入口 chunk → 主进程顶层副作用重跑 → **启动/首调即僵死**（CPU 0%，CDP 接受连接永不响应）。Cindy 用 manualChunks 钉单 chunk 规避（其 vite.main.config.ts 有坑记录），electron-vite 4 下钉了照样炸。**根治**：runtime tsc 编译到 dist + external 运行时依赖，vendored 源码永不过 rollup |
+| **electron-builder 26 + pnpm collector 遇 express 树死循环** | desktop dependencies 里出现 `@modelcontextprotocol/sdk`（依赖 express@5）后 "searching for node modules" 永久卡死；实测 express@4/@5 单独出现即卡（Cindy 没事是 electron-forge 不做依赖树收集）。**修法**：这批运行时依赖不进 desktop dependencies，`tools/pack-browser-deps.mjs` 打平闭包 → extraResources 到 `resources/node_modules`（asar 外，主进程模块解析向上可及） |
+| sharp 的 @img 平台二进制 | pnpm 对 sharp 的 optionalDependencies（@img/sharp-\<plat\> 等）**不在任何 node_modules 建符号链接**，只落 .pnpm store——dev 里 require('@img/...') 其实也是坏的（仅截图路径触发才发现）。pack 脚本从 store 扫 `@img+sharp-*` 并走闭包；dev 要用截图再处理 |
 
 Pi pin：`tools/pi/latest.json` → **0.83.0**。
 
@@ -353,7 +372,7 @@ GEO 只审计用户给出的站点（CLI 自抓），不是通用搜索。
 - [x] `system-prompt.md` 四个技能 + `mcp__search__web_search`。
 - [ ] **讨论后再做**：
   - Exa MCP / DDG 免 key 兜底
-  - 通用网页抓取/crawl（给搜索读正文、打开任意链接用）。**不是 GEO 缺口**——`geo` CLI 已自抓目标站
+  - ~~通用网页抓取/crawl~~（2026-08-26 已被浏览器自动化覆盖：`mcp__browser__browser` 的 navigate/snapshot/extract 就是读正文的正规解法，SPA/反爬可用）
   - 模型原生托管 web_search（改 Pi 发送层）
   - 我方云 `/search` 或 Cindy 式网关
   - 已开会话热挂搜索 MCP（现在要新开对话）
@@ -391,7 +410,7 @@ GEO 只审计用户给出的站点（CLI 自抓），不是通用搜索。
 
 **电脑操作**：**不自研**——spawn 外部 Rust 二进制 **cua-driver**（github.com/trycua/cua，stdio MCP；macOS TCC 权限归因外包给 CuaDriver.app）；每个 Cindy 会话一个 driver 子进程、换代自愈。门面 `lizi-mcps/src/computer`（约 1100 行、零 Electron 依赖，deps 注入）：`list_tools`/`call_tool` 两工具；定位四模（AX element_index + 窗口本地坐标 + SOM + zoom 放大镜）；**snapshot 代际**防旧 index 打新 UI（STALE_SNAPSHOT）；护栏全在 MCP 层（路径钳制 workingDir、pid 身份验证 fail-closed、replay 预算）；**开关级授权 auto-approve，不逐次弹窗**；品牌化 agent 光标 overlay。零厂商 computer-use API 引用，任何 MCP 模型可用。
 
-**对龙马的启示**：两处都是「两工具 MCP 门面（list_tools/call_tool）+ deps 注入 + host 分离」；龙马的 search MCP + auto-approve 白名单正是同一形态的最小先例。若将来做：门面层可手写移植（无 Electron 依赖），浏览器内核 vendor 还是薄接 playwright-core 需另议；cua-driver 走外部二进制分发（license/安装引导是大头，Cindy 为此写了 ~2000 行）。
+**对龙马的启示**：两处都是「两工具 MCP 门面（list_tools/call_tool）+ deps 注入 + host 分离」；龙马的 search MCP 正是同一形态的最小先例。**浏览器自动化已按此移植落地（2026-08-26，见 §4.7）**；电脑操作（cua-driver 路线）仍为讨论项——门面 ~1100 行零 Electron 依赖可移植，外部二进制分发/权限引导是大头（Cindy 写了 ~2000 行），且纯 AX 模式外需要多模态模型。
 
 ---
 
