@@ -1,6 +1,6 @@
 # LongMa 项目记忆（memory.md）
 
-> 最后更新：2026-08-23。给任何接手的人/AI：先读本文，再读 `README.md`（用户向）。Cindy 源码只读对照，**禁止修改、禁止 fork 进本仓**。
+> 最后更新：2026-08-26。给任何接手的人/AI：先读本文，再读 `README.md`（用户向）。Cindy 源码只读对照，**禁止修改、禁止 fork 进本仓**。
 >
 > 仓库路径：`/mnt/d/AI/TenCent/fundet-buddy-main`（Windows：`D:\AI\TenCent\fundet-buddy-main`）。
 > Cindy 对照：`/mnt/d/AI/Fundet/cindy`（只读）。
@@ -43,6 +43,7 @@ WSL 里可以改代码、跑 `pnpm --filter fundet-desktop test` / `typecheck`�
 | 复制 | 必须走 Electron `clipboard` IPC（权限处理器曾拒绝 `navigator.clipboard`） |
 | 分享 | 截当前回合卡片为图片进剪贴板，不要「复制消息链接」 |
 | Mac 包 | 未签名。WSL 打出的 `.dmg` 是 xorriso ISO/HFS+，**不是**正式 UDIF；真 dmg 需 macOS 或 `macos-latest` CI |
+| 渲染进程 | `sandbox: true`（0.1.4 起），preload 必须是 CJS 产物（见 §5 坑表「沙箱 ESM preload」） |
 | 约束 | 保持 `@fundet/*` 与 `window.fundet`；Windows 用 PowerShell 跑 Electron |
 
 ---
@@ -109,7 +110,7 @@ ChatPage / ChatInput
 | IPC 契约 | `src/shared/fundet-api.ts`、`preload/index.ts`、`main/ipc/channels.ts` |
 | Pi 装配 | `main/host/pi-host.ts`、`packages/agent-core/src/agents/pi/index.ts` |
 | 内置技能同步 | `main/host/skills.ts`、`resources/bundled-skills/*/SKILL.md` + `LONGMA_REVISION` |
-| 系统提示 | `main/host/system-prompt.md`（**仍写「两个技能」+ MCP，与产品不一致，见待办**） |
+| 系统提示 | `main/host/system-prompt.md`（已列全四个技能 + `mcp__search__web_search` + curl/Git Bash 指引） |
 | 主题 token | `renderer/src/styles/globals.css` |
 | 上下文窗口 | `src/shared/context-window.ts`（GLM ≥5.2 → 1M，其它扫描默认 256k；不要用残缺 128k 覆盖更好推断） |
 | BYOK key | `main/host/secrets.ts`（Windows 打包走系统凭据；Linux dev 可降级 `plain:`） |
@@ -122,7 +123,7 @@ ChatPage / ChatInput
 
 - agent-core 从 Cindy maker-core 裁成仅 Pi；401 等消息级错误不再被 translator 吞掉。
 - Maker + Session + 草稿会话（空草稿不进侧栏；`ensureDraftSession` 复用一个空草稿）。
-- 记忆：压缩即记忆（digest + MEMORY.md）。`memory_search` / `memory_write` **未**暴露给模型。
+- 记忆：**产品面已固定关闭**（`pi-host.ts` 里 `memoryEnabled: false`、`makerMemoryEnabled` getter 恒 false；内核仍装配 manager，避免改 agent-core）。`memory_search` / `memory_write` 未暴露给模型。
 - MCP：主进程桥仍在（stdio 经 `mcp-bridge.ts`，http 直通）。**设置 UI 已删除 MCP Servers。**
 - 权限三档：ask / 自动 / 完全放行；审批超时 10 分钟 deny。
 - Pi extraDirs 支持（热更新）；subagent 扩展只读（read/grep/find/ls），GEO 走 bash CLI 不靠 subagent。
@@ -143,12 +144,13 @@ ChatPage / ChatInput
 - 会话重命名：侧栏 hover 铅笔 / 双击标题；顶栏铅笔（hover 显示）/ 双击。Enter 提交、Esc 取消。
 - 点击本地图片预览（`LocalImagePreview` + `longma-file://`，失败回退 data URL）。
 - 设置：头像/字体/供应商（split pane + 预设向导，无 Cindy OAuth）。
+- 长会话渲染（2026-08-26）：`AssistantMessage`/`WorkGroupBlock` memo 化（流式 100ms 刷新只重渲染末条；工作组按 children 逐项引用比较）。未做列表虚拟化——超长会话仍卡再上 virtualization。
 - 厂商 Logo；模型 context window 扫描（GLM 5.2/5.3 = 1M）。
 - 米色 + dark 主题。
 
 ### 4.3 拖文件进对话 + Canvas 全类型预览（2026-08-22 已完成并单测）
 
-**文档正文提取（0.1.3 起）**：拖入 PDF/Word 时主进程先把正文抽成纯文本随消息发给模型（`main/doc-text.ts`：unpdf 提 PDF、mammoth 提 docx；200k 字符/30MB 上限；扫描件、老式 .doc、损坏文件各给一句中文说明；失败不阻断发送）。扫描件 PDF 无文字层，要读只能走多模态视觉模型，未做。
+**文档正文提取（0.1.3 起）**：拖入 PDF/Word 时主进程先把正文抽成纯文本随消息发给模型（`main/doc-text.ts`：unpdf 提 PDF、mammoth 提 docx；200k 字符/30MB 上限；扫描件、老式 .doc、损坏文件各给一句中文说明；失败不阻断发送；多篇文档并行提取，file 块后各跟自己的正文块）。扫描件 PDF 无文字层，要读只能走多模态视觉模型，未做。
 
 **拖入**
 
@@ -168,7 +170,7 @@ ChatPage / ChatInput
 
 **测试**
 
-- `pnpm --filter fundet-desktop test`：36 项（file-kind、file-name、preview-url、fs-local stage、collectArtifacts、search providers、search MCP 协议）。
+- `pnpm --filter fundet-desktop test`：54 项（file-kind、file-name、preview-url、fs-local stage、collectArtifacts、search providers、search MCP 协议、doc-text 提取、IM 去重 dedup、IM 回合收口 turn-collector）。
 - `pnpm --filter fundet-desktop typecheck` 通过。
 - Electron 真机拖拽需 PowerShell `pnpm dev:win`（本环境 WSL 未跑 GUI）。
 
@@ -210,11 +212,17 @@ ChatPage / ChatInput
 
 入站文字 → 本机 Pi 会话（`permissionMode: auto`，工作目录默认 `userData/im-workspace`）→ 最终回复打回 IM。群聊飞书/钉钉/企微需要 @。电脑必须开着龙马。没有 Cindy 账号。
 
-### 4.6 打包
+健壮性（2026-08-26）：
+
+- **入站去重**（`im/dedup.ts`）：按渠道稳定消息 id（飞书 `message_id`、钉钉 `headers.messageId`、企微 `msgid`、微信 `messageId`），TTL 10min + 容量 2000。长连断线重连重推不再跑两遍回合。
+- **单回合兜底超时**（`im/turn-collector.ts`）：10 分钟（agent-core 的 45min turn-stall 看门狗对 IM 太长，一条卡住会堵死该聊天的排队）。超时 abort 会话、回一句提示放行队列；会话拒收时 dispose 释放订阅。
+
+### 4.6 打包与 CI
 
 - Win：PowerShell `pnpm dist:win` → `LongMa-Setup-<version>-x64.exe`（约 130MB）。`npmRebuild: false`（better-sqlite3 预编译）。
 - Mac dmg：`Actions → dist-mac` 手动出包（UDIF 双架构， artifacts 自取）。
 - **发版**：推 `v*` tag → `release.yml` 双平台构建并发布 GitHub Release（自动带 latest.yml/latest-mac.yml，应用内更新靠它）。
+- **日常 CI**（2026-08-26）：`ci.yml` 在 push main / PR 跑 `pnpm typecheck` + `pnpm test:unit`（ubuntu，`ELECTRON_SKIP_BINARY_DOWNLOAD=1`，pi 集成测试自动 skip）。发版 workflow 仍只管构建发布。
 - **应用内更新**（0.1.0 起）：设置 → 通用「版本与更新」；Win 后台下载完「重启更新」（托盘退出也会装）；Mac 未签名只检测版本 + 「下载新版本」跳 Release 页。启动 5s 首查 + 每 4h 静默查。dev 态（!isPackaged）不启用。
 
 ---
@@ -242,6 +250,7 @@ ChatPage / ChatInput
 | Windows 原生模块 | `npmRebuild: false`，不要本机 node-gyp |
 | 技能改了用户目录不更新 | bump `LONGMA_REVISION` |
 | 断流重试后 UI 假死 | 主进程 abort 复核/stall 看门狗会把卡死会话 close，但渲染层必须订阅 `agent:status-changed`（`onStatusChanged`）清 `isRunning`，否则停止按钮失效、界面永久转圈。已在 `sessionStore.initGlobalListeners` 挂上 |
+| 沙箱渲染进程加载不了 ESM preload | `sandbox: true` 后 `window.fundet` 消失、React 空挂且无报错日志。沙箱只支持 CJS preload：electron.vite.config.ts 显式 `output.format='cjs'` + `entryFileNames:'[name].js'`，`main/index.ts` 的 preload 指 `../preload/index.js`（不再是 .mjs）。沙箱下 preload 可用 API：contextBridge/ipcRenderer/webUtils/process.platform。已 dev 真机验证（CDP 查 window.fundet + IPC 往返）；**下个发版前照例冒烟打包产物** |
 | Windows 悬浮 no-drag 挖洞不可靠 | app-region 悬浮层挖洞在 Electron 37/Windows 真机鼠标下失效（hover/点击被 drag 区吞掉，合成输入却正常）。修法：drag 区不与控件重叠——`drag-region` 用 `mr-[150px]` / 内部 absolute 层 `right-[150px]` 在窗口按钮左侧截止（ChatPage 两条头部都是这个结构） |
 
 Pi pin：`tools/pi/latest.json` → **0.83.0**。
@@ -360,6 +369,7 @@ GEO 只审计用户给出的站点（CLI 自抓），不是通用搜索。
 - [x] 上下文圆环放到输入卡下方右侧（对齐 Cindy，不在顶栏）。
 - [x] IM 个人机器人：飞书 / 钉钉 / 企微 / 微信扫码（2026-08-24）。电脑要开着；IM 会话默认 auto 权限。
 - [ ] 侧栏宽度拖拽。
+- [ ] 超长会话列表虚拟化（AssistantMessage/WorkGroupBlock 已 memo 化；仍卡再上 virtualization）。
 - [x] 真 Mac UDIF dmg（2026-08-25，GitHub Actions macos-latest，见 §4.6）；WSL dmg 已废弃不用
 - [ ] 未签名 Mac 公证（现状：新 macOS 对带 quarantine 的未签名 App 报「文件已损坏」，用户须 `sudo xattr -cr /Applications/LongMa.app`；根治要 Apple 开发者证书 + CI notarize）。
 - [ ] 文件夹拖入 composer（Cindy 有 extraDirs；龙马暂拒文件夹）。
@@ -393,7 +403,7 @@ pnpm --filter fundet-desktop typecheck
 pnpm --filter @fundet/agent-core test
 ```
 
-桌面测试脚本：`apps/desktop/package.json` → `node --test --experimental-strip-types src/shared/*.test.ts src/main/fs-local.test.ts src/renderer/src/lib/artifacts.test.ts`。
+桌面测试脚本：`apps/desktop/package.json` → `node --test --experimental-strip-types src/shared/*.test.ts src/main/fs-local.test.ts src/main/doc-text.test.ts src/main/search/*.test.ts src/main/im/*.test.ts src/renderer/src/lib/artifacts.test.ts`。
 
 ---
 
