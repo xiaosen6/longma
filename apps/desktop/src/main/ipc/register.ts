@@ -58,6 +58,7 @@ import { getHost } from '../host/pi-host.js';
 import { importSkillFile, listSkills, uninstallSkill } from '../host/skills.js';
 import { FUNDET_INVOKE, FUNDET_PUSH } from './channels.js';
 import { resolveUnderWorkDir, stageBytesIntoWorkDir, stageFileIntoWorkDir } from '../fs-local.js';
+import { documentExtractSupport, extractDocumentText } from '../doc-text.js';
 import { mimeFromExt } from '../../shared/file-kind.ts';
 import type {
   FetchModelsInput,
@@ -248,7 +249,10 @@ function settleInteraction(requestId: string, decision: InteractionDecision): bo
   return true;
 }
 
-function buildUserMessage(text: string, attachments?: SessionAttachment[]): UserMessage {
+async function buildUserMessage(
+  text: string,
+  attachments?: SessionAttachment[],
+): Promise<UserMessage> {
   const files = attachments ?? [];
   if (files.length === 0) return { type: 'user', content: text };
   const blocks: UserContentBlock[] = [];
@@ -258,6 +262,10 @@ function buildUserMessage(text: string, attachments?: SessionAttachment[]): User
       blocks.push({ type: 'image', path: a.path, mimeType: a.mimeType });
     } else {
       blocks.push({ type: 'file', path: a.path, mimeType: a.mimeType });
+      // PDF/Word：路径引用之外再附提取出的正文，模型才真正读得到内容
+      if (documentExtractSupport(a.path)) {
+        blocks.push({ type: 'text', text: await extractDocumentText(a.path) });
+      }
     }
   }
   return { type: 'user', content: blocks };
@@ -327,7 +335,7 @@ export function registerIpcHandlers(): void {
         session.id,
         input.text.trim() || attachments.map((a) => a.name).join(' ') || '',
       );
-      const result = await session.send(buildUserMessage(input.text, attachments));
+      const result = await session.send(await buildUserMessage(input.text, attachments));
       return result.accepted ? { accepted: true } : { accepted: false, reason: result.reason };
     },
   );
