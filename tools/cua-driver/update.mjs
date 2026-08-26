@@ -79,20 +79,19 @@ async function download(platformKey, version) {
       t.on('error', reject);
     });
   }
-  // 归一：可执行文件放平台目录根部
-  const found = (function find(dir) {
-    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-      const f = path.join(dir, e.name);
-      if (e.isDirectory()) {
-        const r = find(f);
-        if (r) return r;
-      } else if (e.name === p.binFile || e.name.replace(/\.exe$/, '') === 'cua-driver') return f;
+  // 归一：zip/tar 常含单一顶层目录，把其内容全部提升到平台目录根
+  // （driver 运行时按相对路径找 cua-driver-uia.exe / cua_driver_sdk.dll 等伴生文件）
+  const entries = fs.readdirSync(destDir, { withFileTypes: true });
+  const dirs = entries.filter((e) => e.isDirectory());
+  if (dirs.length === 1 && entries.length === 1) {
+    const inner = path.join(destDir, dirs[0].name);
+    for (const e of fs.readdirSync(inner)) {
+      fs.renameSync(path.join(inner, e), path.join(destDir, e));
     }
-    return null;
-  })(destDir);
-  if (!found) throw new Error(`解包后未找到 ${p.binFile}`);
-  if (found !== path.join(destDir, p.binFile)) {
-    fs.renameSync(found, path.join(destDir, p.binFile));
+    fs.rmdirSync(inner);
+  }
+  if (!fs.existsSync(path.join(destDir, p.binFile))) {
+    throw new Error(`解包归一后未找到 ${p.binFile}`);
   }
   fs.writeFileSync(path.join(destDir, 'VERSION'), version);
   console.log(`✓ ${platformKey} cua-driver v${version} → ${path.join(destDir, p.binFile)}`);
