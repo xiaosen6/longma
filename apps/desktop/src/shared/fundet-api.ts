@@ -14,6 +14,8 @@ import type { ImBotsStatus, ImChannelId, ImSaveInput } from './im-bots.ts';
 export type { ImBotsStatus, ImChannelId, ImChannelStatus, ImSaveInput } from './im-bots.ts';
 import type { BrowserStatus } from './browser-settings.ts';
 export type { BrowserStatus } from './browser-settings.ts';
+import type { ComputerStatus } from './computer-settings.ts';
+export type { ComputerStatus } from './computer-settings.ts';
 
 export type ProviderApi = 'anthropic-messages' | 'openai-responses' | 'openai-completions';
 
@@ -257,6 +259,9 @@ export interface FundetApi {
   setBrowserEnabled(enabled: boolean): Promise<void>;
   /** 打开/拉起托管浏览器窗口（登录用）：start + focus，绝不新开 tab */
   openBrowserForLogin(): Promise<void>;
+
+  computerStatus(): Promise<ComputerStatus>;
+  setComputerEnabled(enabled: boolean): Promise<void>;
 
   openExternal(url: string): Promise<void>;
 

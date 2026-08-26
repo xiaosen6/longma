@@ -58,6 +58,8 @@ export const FUNDET_INVOKE = {
   BROWSER_STATUS: 'browser:status',
   BROWSER_SET_ENABLED: 'browser:set-enabled',
   BROWSER_OPEN: 'browser:open',
+  COMPUTER_STATUS: 'computer:status',
+  COMPUTER_SET_ENABLED: 'computer:set-enabled',
   OPEN_EXTERNAL: 'shell:open-external',
   IM_STATUS: 'im:status',
   IM_SAVE: 'im:save',

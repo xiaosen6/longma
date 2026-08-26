@@ -58,6 +58,8 @@ import { getHost } from '../host/pi-host.js';
 import { createConsoleLogger } from '@fundet/agent-core';
 import { ensureBrowserRuntime } from '../browser/host.js';
 import { BROWSER_ENABLED_SETTING } from '../../shared/browser-settings.ts';
+import { COMPUTER_ENABLED_SETTING } from '../../shared/computer-settings.ts';
+import { disableCuaDriverTelemetry, resolveCuaDriverCommand } from '../computer/driver.ts';
 import { getBoolSetting, setBoolSetting } from '../db/settings.js';
 import { importSkillFile, listSkills, uninstallSkill } from '../host/skills.js';
 import { FUNDET_INVOKE, FUNDET_PUSH } from './channels.js';
@@ -664,6 +666,22 @@ export function registerIpcHandlers(): void {
     if (!runtime) throw new Error('浏览器运行时不可用：本机未检测到 Chromium 系浏览器');
     await runtime.call({ action: 'start' });
     await runtime.call({ action: 'focus' });
+  });
+
+  // ---------- 电脑操作 ----------
+  ipcMain.handle(FUNDET_INVOKE.COMPUTER_STATUS, async () => ({
+    enabled: getBoolSetting(COMPUTER_ENABLED_SETTING, false),
+    driverAvailable: Boolean(resolveCuaDriverCommand()),
+  }));
+
+  ipcMain.handle(FUNDET_INVOKE.COMPUTER_SET_ENABLED, async (_e, enabled: boolean) => {
+    setBoolSetting(COMPUTER_ENABLED_SETTING, Boolean(enabled));
+    // 开启时顺手关掉 driver 的无内容遥测（本地优先产品；异步执行，不在这个
+    // IPC 里等它——telemetry 子命令可能与 mcp 子进程争全局锁，绝不能放会话装配路径）
+    if (enabled) {
+      const command = resolveCuaDriverCommand();
+      if (command) disableCuaDriverTelemetry(command);
+    }
   });
 
   // ---------- skills ----------

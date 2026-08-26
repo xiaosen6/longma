@@ -32,6 +32,8 @@ import type {
 } from '@fundet/agent-core';
 import { SEARCH_MCP_SERVER_NAME } from '../../shared/search-engines.ts';
 import { BROWSER_ENABLED_SETTING, BROWSER_MCP_SERVER_NAME } from '../../shared/browser-settings.ts';
+import { COMPUTER_ENABLED_SETTING, COMPUTER_MCP_SERVER_NAME } from '../../shared/computer-settings.ts';
+import { resolveCuaDriverCommand } from '../computer/driver.ts';
 import { listMcpServers, type McpServerView } from '../db/mcp-servers.js';
 import { getBoolSetting } from '../db/settings.js';
 import { startSearchMcpServer } from '../search/mcp-server.ts';
@@ -284,6 +286,41 @@ export function createPreparePiExtraSpawnConfig(logger: Logger) {
       }
     } catch (err) {
       logger.error('浏览器 MCP 启动失败（跳过，其余 server 照常）', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+
+    // 电脑操作（设置 → 通用，默认关）：cua-driver 是外部 Rust 二进制（stdio
+    // MCP server，子命令 mcp），直接经 StdioMcpHttpProxy 挂载——截屏/输入
+    // 能力全在 driver 内。审批不进白名单，跟会话权限三档走。
+    try {
+      if (getBoolSetting(COMPUTER_ENABLED_SETTING, false)) {
+        const command = resolveCuaDriverCommand();
+        if (!command) {
+          logger.warn('电脑操作已开启但 cua-driver 二进制缺失（tools/cua-driver/update.mjs 下载 / 重装应用）');
+        } else {
+          const proxy = new StdioMcpHttpProxy(
+            {
+              id: 'builtin-computer',
+              name: COMPUTER_MCP_SERVER_NAME,
+              type: 'stdio',
+              enabled: true,
+              command,
+              args: ['mcp'],
+              url: null,
+              headers: {},
+              createdAt: 0,
+            },
+            token,
+            logger.child(`mcp:${COMPUTER_MCP_SERVER_NAME}`),
+          );
+          const url = await proxy.start();
+          disposers.push(() => proxy.dispose());
+          servers.push({ name: COMPUTER_MCP_SERVER_NAME, url });
+        }
+      }
+    } catch (err) {
+      logger.error('电脑操作 MCP 启动失败（跳过，其余 server 照常）', {
         error: err instanceof Error ? err.message : String(err),
       });
     }

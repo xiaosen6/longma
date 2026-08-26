@@ -46,6 +46,7 @@ WSL 里可以改代码、跑 `pnpm --filter fundet-desktop test` / `typecheck`�
 | 渲染进程 | `sandbox: true`（0.1.4 起），preload 必须是 CJS 产物（见 §5 坑表「沙箱 ESM preload」） |
 | 浏览器自动化 | 内置能力开关（默认关），非 MCP Servers 用户面；托管 Chrome 持久 profile「LongMa」 |
 | 视觉发图 | 模型按 id 推断视觉 + 每模型「视觉」开关；/models 列表不带能力元数据，别指望拉取时自动识别 |
+| 电脑操作 | 内置能力开关（默认关）；cua-driver 外部二进制，遥测已关、审批跟会话档 |
 | 约束 | 保持 `@fundet/*` 与 `window.fundet`；Windows 用 PowerShell 跑 Electron |
 
 ---
@@ -233,6 +234,20 @@ ChatPage / ChatInput
 - **QQ「原图」常是 PNG 套 .jpeg 扩展名**：mime 按扩展名报 image/jpeg、字节是 PNG，严格端点拒收。`file-kind.ts` 加 `sniffImageMime` 魔数嗅探（PNG/JPEG/WebP/GIF），staging 时读头 16 字节纠正。
 
 配套：供应商预设新增「火山方舟（按量，含视觉模型）」（ark /api/v3 + doubao vision 系列，doubao-1.5-vision-pro 带 maxTokens:12288——glm-4v-flash max_tokens 上限 1024 同类坑，wizard 现在透传 maxTokens）；列模型失败报错带实际请求 URL 与 Base URL 形态指引；`shared/friendly-error.ts` 把 1210 content.type/max_tokens 类供应商错误转成中文行动指引（sessionStore error 卡片）。真机端到端已验证：QQ 图 → 嗅探 image/png → glm-4v-flash 真实理解并描述图片。
+
+### 4.9 电脑操作 / Computer Use（2026-08-27，v1）
+
+**形态**：设置 → 通用「电脑操作」开关（默认关）。开启后**新会话**注入 `mcp__computer__*`（cua-driver 0.22.1，trycua/cua 的 Rust 驱动，MIT，**stdio MCP 子进程**，子命令 `mcp`）——57 个工具：截屏/窗口/点击/输入/按键/滚动/AX 树/zoom/录制回放 + driver 自带 browser_*（系统提示引导优先 `mcp__browser__*`，driver 的作后备）。工作流引导：start_session → 观察（list_windows/get_window_state）→ 动作 → 验证。审批不进白名单，跟会话权限三档（建议自动/完全放行会话使用）。
+
+**架构（与 Cindy 不同，v1 透传）**：不搬 Cindy 的 1100 行门面层（代际护栏/路径钳制/progressive 列为二期），直接用龙马现成的 `StdioMcpHttpProxy` 把 driver 挂成 stdio MCP server（每会话一个子进程，dispose 随会话回收）。
+
+**驱动分发**：`tools/cua-driver/update.mjs`（tag 前缀 `cua-driver-rs-v`，asset `cua-driver-rs-<v>-windows-x86_64.zip` 等，GitHub 下载不稳需断点重试），落 `apps/cua-driver-bin/<plat>/`（含 cua-driver-uia.exe/cua_driver_sdk.dll 等伴生文件，缺一不可）；打包经 extraResources → resources/cua-driver/<plat>；CI 两个 workflow 已加下载步。dev 需手动跑一次下载器。
+
+**两个坑**：
+- **telemetry disable 子命令与 mcp 子进程争全局锁**：在会话装配路径（哪怕 spawnSync/异步并发）调它会挂死 createSession。只能放在用户开开关的 IPC 里 fire-and-forget，且等它跑完再建会话。
+- driver 默认发送无内容遥测——开关开启时自动 `cua-driver telemetry disable`（本地优先）。
+
+**验证**：driver 握手 + 57 工具清单 ✓；dev 真机：computer 开关 → 建会话成功（prepare 含 proxy initialize 预热）、开关还原、IPC 全程活 ✓。未真点鼠标（留给用户体验）。多模态观察（get_window_state vision/som）需要视觉模型。
 
 ### 4.6 打包与 CI
 

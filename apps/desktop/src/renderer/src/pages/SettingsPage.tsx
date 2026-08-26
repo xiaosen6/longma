@@ -30,6 +30,7 @@ import { SearchPanel } from './settings/SearchPanel';
 import { ImBotPanel } from './settings/ImBotPanel';
 import { UpdateCard } from '../components/settings/UpdateCard';
 import { BrowserSection } from '../components/settings/BrowserSection';
+import { ComputerSection } from '../components/settings/ComputerSection';
 
 const THEME_OPTIONS: Array<{
   value: ThemeMode;
@@ -249,6 +250,7 @@ export function SettingsPage(): React.JSX.Element {
 
                 <UpdateCard />
                 <BrowserSection />
+                <ComputerSection />
               </div>
             )}
 

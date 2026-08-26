@@ -52,6 +52,10 @@ extraResources:
     to: icon.ico
   - from: resources-browser/node_modules
     to: node_modules
+  - from: ../../apps/cua-driver-bin/win32-x64
+    to: cua-driver/win32-x64
+    filter:
+      - '**/*'
   - from: resources/bundled-skills
     to: bundled-skills
     filter:
@@ -79,6 +83,8 @@ win:
       to: pi/win32-x64
     - from: ../../apps/ripgrep-bin/win32-x64
       to: ripgrep-bin/win32-x64
+    - from: ../../apps/cua-driver-bin/win32-x64
+      to: cua-driver/win32-x64
 
 nsis:
   oneClick: false
@@ -104,6 +110,8 @@ mac:
       to: pi/darwin-${arch}
     - from: ../../apps/ripgrep-bin/darwin-${arch}
       to: ripgrep-bin/darwin-${arch}
+    - from: ../../apps/cua-driver-bin/darwin-universal
+      to: cua-driver/darwin-universal
 
 dmg:
   artifactName: LongMa-${version}-${arch}.dmg

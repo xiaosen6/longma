@@ -42,6 +42,9 @@ jobs:
       - run: node tools/ripgrep/update.mjs --platform=win32-x64
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: node tools/cua-driver/update.mjs --platform=win32-x64
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: pnpm --filter fundet-desktop build
       - run: pnpm --filter fundet-desktop run dist:win:publish
         env:
@@ -67,6 +70,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: node tools/ripgrep/update.mjs --platform=darwin-arm64
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: node tools/cua-driver/update.mjs --platform=darwin-universal
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: node tools/ripgrep/update.mjs --platform=darwin-x64

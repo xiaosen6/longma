@@ -11,3 +11,5 @@ tools/screenshots/
 apps/desktop/dist/
 packages/browser-runtime/dist
 apps/desktop/resources-browser/
+apps/cua-driver-bin/
+tools/cua-driver/updates/
