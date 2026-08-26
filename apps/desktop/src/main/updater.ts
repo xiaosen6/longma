@@ -4,9 +4,13 @@
  * 仅打包版启用；dev 态（!app.isPackaged）全部空转。
  */
 import { app, BrowserWindow, ipcMain, shell } from 'electron';
-import { autoUpdater } from 'electron-updater';
+// electron-updater 是 CJS 且 autoUpdater 挂在 getter 上，ESM 静态命名导出分析
+// 扫不出来（dev 被 vite 互操作掩盖，打包版启动即炸）。必须 default import 再解构。
+import electronUpdater from 'electron-updater';
 import { FUNDET_INVOKE, FUNDET_PUSH } from './ipc/channels.js';
 import type { UpdateState } from '../shared/fundet-api.js';
+
+const { autoUpdater } = electronUpdater;
 
 const RELEASES_URL = 'https://github.com/xiaosen6/longma/releases';
 const CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
