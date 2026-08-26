@@ -39,6 +39,9 @@ jobs:
       - run: node tools/pi/update.mjs 0.83.0 --platform=win32-x64
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: node tools/ripgrep/update.mjs --platform=win32-x64
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: pnpm --filter fundet-desktop build
       - run: pnpm --filter fundet-desktop exec electron-builder --win --x64 --publish always
         env:
@@ -61,6 +64,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: node tools/pi/update.mjs 0.83.0 --platform=darwin-x64
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: node tools/ripgrep/update.mjs --platform=darwin-arm64
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: node tools/ripgrep/update.mjs --platform=darwin-x64
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: pnpm --filter fundet-desktop build

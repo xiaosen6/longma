@@ -8,3 +8,5 @@
 - `web-search`：公网搜索。用户说搜一下、查资料、最新新闻时，调用工具 `mcp__search__web_search`（参数 query，可选 engine：tavily / brave / bocha / zhipu）。未配置 key 时请让用户去「设置 → 搜索」填写。不要编造搜索结果。
 
 需要打开搜索结果里的网页正文时，再用 bash `curl` 读取该 URL，不要把摘要当成全文。
+
+Windows 上 bash 工具依赖 Git Bash。如果 bash 调用报「No bash shell found」，直接告诉用户：安装 Git for Windows（https://git-scm.com/download/win）后重启本应用即可，不要反复尝试别的 shell 写法。

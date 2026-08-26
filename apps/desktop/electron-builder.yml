@@ -60,6 +60,8 @@ linux:
   extraResources:
     - from: ../../apps/pi-bin/linux-x64
       to: pi/linux-x64
+    - from: ../../apps/ripgrep-bin/linux-x64
+      to: ripgrep-bin/linux-x64
 
 win:
   icon: icon.ico
@@ -68,6 +70,8 @@ win:
   extraResources:
     - from: ../../apps/pi-bin/win32-x64
       to: pi/win32-x64
+    - from: ../../apps/ripgrep-bin/win32-x64
+      to: ripgrep-bin/win32-x64
 
 nsis:
   oneClick: false
@@ -91,6 +95,8 @@ mac:
   extraResources:
     - from: ../../apps/pi-bin/darwin-${arch}
       to: pi/darwin-${arch}
+    - from: ../../apps/ripgrep-bin/darwin-${arch}
+      to: ripgrep-bin/darwin-${arch}
 
 dmg:
   artifactName: LongMa-${version}-${arch}.dmg

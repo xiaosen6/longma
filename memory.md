@@ -223,6 +223,7 @@ ChatPage / ChatInput
 | --- | --- |
 | 发版 | 推 `v*` tag（须与 desktop `package.json` version 一致）→ `.github/workflows/release.yml` 出 Win exe + Mac dmg 并发布 Release。手动出包用 `dist-mac.yml` |
 | 应用内更新 | electron-updater + GitHub Releases（公开仓免鉴权）。**mac 未签名 electron-updater 拒绝替换安装**，只做版本检测 + 跳 Release 页；Win NSIS 未签名可自动更新 |
+| electron-updater ESM 炸 | 它是 CJS 且 `autoUpdater` 挂 getter，ESM 静态命名导出扫不出 → 打包版启动即 SyntaxError（dev 被 vite 互操作掩盖）。必须 `import pkg from 'electron-updater'` 再解构。**发版前必须冒烟跑一遍打包产物**（`dist/win-unpacked/LongMa.exe`），typecheck/dev 绿不代表打包能起 |
 | WSL Electron 窗口蓝点 | `pnpm dev:win` 在 PowerShell |
 | WSL vite/rollup 缺 linux native | 构建/打包在 Windows；WSL 只改代码+node:test |
 | 剪贴板无反应 | 权限 handler 曾 deny all；只放行 clipboard + IPC writeText/capturePage |

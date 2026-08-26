@@ -2807,7 +2807,9 @@ export class PiAgent extends BaseAgent {
           if (decision.verdict === 'ask') {
             // 审阅器故障降级来的 ask 提示一次:用户需要知道自己为何突然开始被问,
             // 否则 Auto 档看起来像坏了。模型判定的 ask 不提示(那是正常工作)。
-            if (decision.unavailable) notifyAutoReviewUnavailable();
+            // 龙马没配审阅器(reviewAutoPermissionAction):auto 档是确定性本地判定,
+            // 「service hiccup」文案纯属误导,不弹。
+            if (decision.unavailable && this.deps.reviewAutoPermissionAction) notifyAutoReviewUnavailable();
             // policy turn + auto 的灰区语义对齐 Codex:只有渠道 policy 明确命中的调用
             // 才打扰 owner；普通 Auto-Review ask 直接 fail-closed，不再额外弹微信确认。
             // 无 policy 的 Desktop auto 会话维持既有逐次确认行为。
