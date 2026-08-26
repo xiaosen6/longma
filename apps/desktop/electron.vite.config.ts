@@ -21,6 +21,13 @@ export default defineConfig({
       outDir: 'out/preload',
       rollupOptions: {
         input: { index: resolve(__dirname, 'src/preload/index.ts') },
+        // sandbox:true 下渲染进程只能加载 CJS preload（ESM preload 沙箱不支持，
+        // window.fundet 会注入失败）。package.json 是 type:module，须显式压回 CJS。
+        output: {
+          format: 'cjs',
+          entryFileNames: '[name].js',
+          chunkFileNames: '[name].js',
+        },
       },
     },
   },

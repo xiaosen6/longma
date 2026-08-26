@@ -138,10 +138,13 @@ function createWindow(): void {
     autoHideMenuBar: true,
     ...chrome,
     webPreferences: {
-      preload: path.join(__dirname, '../preload/index.mjs'),
+      // CJS（沙箱渲染进程加载不了 ESM preload），见 electron.vite.config.ts
+      preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      // preload 只用 contextBridge/ipcRenderer/webUtils（沙箱均可用）；
+      // 渲染层零 Node 面。
+      sandbox: true,
     },
   });
   win.setMenuBarVisibility(false);
