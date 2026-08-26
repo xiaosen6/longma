@@ -1,4 +1,5 @@
 import {
+  existsSync,
   linkSync,
   lstatSync,
   mkdtempSync,
@@ -106,6 +107,19 @@ function loadReviewSearchHelpers(
 }
 
 describe('cindy-bridge extension source', () => {
+  // 托管 ripgrep 二进制不进 Git（tools/ripgrep/update.mjs 下载）；本机没有就跳过
+  // 依赖它的用例，与 pi 集成测试的 skip 口径一致
+  const managedRipgrepPath = path.resolve(
+    process.cwd(),
+    '..',
+    '..',
+    'apps',
+    'ripgrep-bin',
+    `${process.platform}-${process.arch}`,
+    'rg',
+  );
+  const managedRipgrepAvailable = existsSync(managedRipgrepPath);
+
   it('is valid standalone TypeScript for the Pi runtime to load', () => {
     const result = ts.transpileModule(CINDY_BRIDGE_EXTENSION_SOURCE, {
       compilerOptions: {
@@ -323,7 +337,7 @@ describe('cindy-bridge extension source', () => {
     },
   );
 
-  it.skipIf(process.platform === "win32")(
+  it.skipIf(process.platform === "win32" || !managedRipgrepAvailable)(
     "keeps safe pnpm links visible to Pi Grep and managed Find while rejecting unsafe layouts",
     async () => {
       const tempRoot = mkdtempSync(
@@ -358,15 +372,6 @@ describe('cindy-bridge extension source', () => {
         writeFileSync(sourcePath, "export const safe = true;");
         linkSync(sourcePath, mirrorPath);
 
-        const managedRipgrepPath = path.resolve(
-          process.cwd(),
-          "..",
-          "..",
-          "apps",
-          "ripgrep-bin",
-          `${process.platform}-${process.arch}`,
-          "rg",
-        );
         expect(statSync(managedRipgrepPath).isFile()).toBe(true);
         const helpers = loadReviewSearchHelpers(workingDir, {
           managedRipgrepPath,
