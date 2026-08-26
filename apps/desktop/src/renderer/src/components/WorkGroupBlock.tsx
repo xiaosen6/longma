@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { ChevronRight, Layers } from 'lucide-react';
 import type { DisplayItem } from '../stores/sessionStore';
 import { cn } from '../lib/cn';
@@ -21,7 +21,22 @@ function workDurationMs(children: WorkChild[], streaming: boolean): number | und
   return ms > 0 ? ms : undefined;
 }
 
-export function WorkGroupBlock({
+// groupWorkItems 每次 items 变化都会新建 children 数组（元素引用不变），默认浅比较
+// 恒不等；按元素逐项比较引用，历史工作组在流式期间不再重渲染。
+function workGroupPropsEqual(
+  prev: { childrenItems: WorkChild[]; streaming: boolean; workDir?: string; onOpenFile?: (path: string) => void },
+  next: { childrenItems: WorkChild[]; streaming: boolean; workDir?: string; onOpenFile?: (path: string) => void },
+): boolean {
+  return (
+    prev.streaming === next.streaming &&
+    prev.workDir === next.workDir &&
+    prev.onOpenFile === next.onOpenFile &&
+    prev.childrenItems.length === next.childrenItems.length &&
+    prev.childrenItems.every((c, i) => c === next.childrenItems[i])
+  );
+}
+
+function WorkGroupBlockImpl({
   childrenItems,
   streaming,
   workDir,
@@ -116,6 +131,8 @@ export function WorkGroupBlock({
     </div>
   );
 }
+
+export const WorkGroupBlock = memo(WorkGroupBlockImpl, workGroupPropsEqual);
 
 export function groupWorkItems(
   items: DisplayItem[],

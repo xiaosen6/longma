@@ -28,7 +28,7 @@ export function registerFileProtocolHandler(): void {
     if (!parsed) return new Response('Bad request', { status: 400 });
     try {
       const resolved = resolveUnderWorkDir(parsed.relPath || '.', parsed.workDir);
-      if (!fs.statSync(resolved).isFile()) {
+      if (!(await fs.promises.stat(resolved)).isFile()) {
         return new Response('Not a file', { status: 404 });
       }
       const range = request.headers.get('Range');

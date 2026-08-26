@@ -257,17 +257,23 @@ async function buildUserMessage(
   if (files.length === 0) return { type: 'user', content: text };
   const blocks: UserContentBlock[] = [];
   if (text.trim()) blocks.push({ type: 'text', text });
-  for (const a of files) {
+  // 多篇 PDF/Word 并行提取（串行时大文件会拖慢整条发送）；保持每个
+  // file 块后紧跟自己的正文块，配对顺序不变
+  const extracted = await Promise.all(
+    files.map(async (a) =>
+      a.kind !== 'image' && documentExtractSupport(a.path)
+        ? await extractDocumentText(a.path)
+        : '',
+    ),
+  );
+  files.forEach((a, i) => {
     if (a.kind === 'image') {
       blocks.push({ type: 'image', path: a.path, mimeType: a.mimeType });
     } else {
       blocks.push({ type: 'file', path: a.path, mimeType: a.mimeType });
-      // PDF/Word：路径引用之外再附提取出的正文，模型才真正读得到内容
-      if (documentExtractSupport(a.path)) {
-        blocks.push({ type: 'text', text: await extractDocumentText(a.path) });
-      }
+      if (extracted[i]) blocks.push({ type: 'text', text: extracted[i] });
     }
-  }
+  });
   return { type: 'user', content: blocks };
 }
 

@@ -5,7 +5,7 @@
  * 逐词淡入（DESIGN.md §14.4 第五类 sanctioned motion 的简化版，详见
  * lib/streamWordFade.ts），reduced-motion 下不挂。终版渲染零 span 包装。
  */
-import { useRef, type ReactNode } from 'react';
+import { memo, useRef, type ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -32,7 +32,9 @@ function flattenText(node: ReactNode): string {
   return '';
 }
 
-export function AssistantMessage({
+// 长会话里历史消息的 text/workDir/onOpenFile 都不变；不 memo 的话流式期间
+// 每 100ms 全列表重渲染、react-markdown 重解析全部历史。
+function AssistantMessageImpl({
   text,
   streaming,
   workDir,
@@ -110,3 +112,5 @@ export function AssistantMessage({
     </div>
   );
 }
+
+export const AssistantMessage = memo(AssistantMessageImpl);
