@@ -222,7 +222,7 @@ ChatPage / ChatInput
 - Win：PowerShell `pnpm dist:win` → `LongMa-Setup-<version>-x64.exe`（约 130MB）。`npmRebuild: false`（better-sqlite3 预编译）。
 - Mac dmg：`Actions → dist-mac` 手动出包（UDIF 双架构， artifacts 自取）。
 - **发版**：推 `v*` tag → `release.yml` 双平台构建并发布 GitHub Release（自动带 latest.yml/latest-mac.yml，应用内更新靠它）。
-- **日常 CI**（2026-08-26）：`ci.yml` 在 push main / PR 跑 `pnpm typecheck` + `pnpm test:unit`（ubuntu，`ELECTRON_SKIP_BINARY_DOWNLOAD=1`，pi 集成测试自动 skip）。发版 workflow 仍只管构建发布。
+- **日常 CI**（2026-08-26）：`ci.yml` 在 push main / PR 跑 `pnpm typecheck` + `pnpm test:unit`（ubuntu，`ELECTRON_SKIP_BINARY_DOWNLOAD=1`）。**依赖本地二进制的用例一律 skipIf 缺失即跳**（pi 集成测试、cindyBridgeSource 的 rg 用例——ripgrep-bin 不进 Git，别让 CI 为它下载）。发版 workflow 仍只管构建发布。
 - **应用内更新**（0.1.0 起）：设置 → 通用「版本与更新」；Win 后台下载完「重启更新」（托盘退出也会装）；Mac 未签名只检测版本 + 「下载新版本」跳 Release 页。启动 5s 首查 + 每 4h 静默查。dev 态（!isPackaged）不启用。
 
 ---
