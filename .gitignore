@@ -6,5 +6,6 @@ out/
 apps/pi-bin/
 apps/ripgrep-bin/
 tools/pi/updates/
+tools/ripgrep/updates/
 tools/screenshots/
 apps/desktop/dist/
