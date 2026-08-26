@@ -7,7 +7,6 @@ import os from 'node:os';
 import path from 'node:path';
 import { app } from 'electron';
 import { randomUUID } from 'node:crypto';
-import type { Session } from '@fundet/agent-core';
 import type { ImChannelId } from '../../shared/im-bots.ts';
 import { getSetting, setSetting } from '../db/settings.js';
 import { listProviders } from '../db/providers.js';
@@ -19,6 +18,8 @@ import { getDb } from '../db/client.js';
 import { sessions } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { broadcastSessionListChanged } from './runtime.ts';
+import { collectFinalText } from './turn-collector.ts';
+import { createInboundDedup } from './dedup.ts';
 
 const CHANNEL_LABEL: Record<ImChannelId, string> = {
   wechat: '微信',
@@ -32,6 +33,8 @@ export interface ImInbound {
   chatId: string;
   senderName: string;
   text: string;
+  /** 渠道侧的稳定消息 id（message_id / msgid / messageId）；长连重连重推时靠它去重 */
+  dedupeKey?: string;
 }
 
 const queues = new Map<string, Promise<string>>();
@@ -69,29 +72,6 @@ function resolveModel(): { providerId: string; model: string } {
   return { providerId: preferred.id, model };
 }
 
-async function collectFinalText(session: Session): Promise<string> {
-  return new Promise((resolve) => {
-    let last = '';
-    const unsub = session.onEvent((event) => {
-      if (event.type === 'text') {
-        const data = event.data as { text?: string; isFinal?: boolean };
-        if (typeof data.text === 'string' && data.text) last = data.text;
-      }
-      if (event.type === 'done') {
-        unsub();
-        resolve(last.trim() || '（没有文字回复）');
-      }
-      if (event.type === 'error') {
-        const data = event.data as { isTerminal?: boolean; message?: string };
-        if (data.isTerminal) {
-          unsub();
-          resolve(last.trim() || `出错了：${data.message ?? '未知错误'}`);
-        }
-      }
-    });
-  });
-}
-
 async function runTurn(msg: ImInbound): Promise<string> {
   const text = msg.text.trim();
   if (!text) return '';
@@ -122,16 +102,24 @@ async function runTurn(msg: ImInbound): Promise<string> {
     wireSession(session);
   }
   insertMessage(session.id, 'user', { text, source: msg.channel });
-  const waiting = collectFinalText(session);
+  const collector = collectFinalText(session);
   const sent = await session.send(text);
   if (!sent.accepted) {
+    collector.dispose();
     console.warn('[longma:im] 会话拒收', { sessionId: session.id, reason: sent.reason });
     return `没发出去：${sent.reason ?? '未知原因'}`;
   }
-  return waiting;
+  return collector.promise;
 }
 
+/** 长连重连重推去重窗口（按渠道消息 id） */
+const inboundDedup = createInboundDedup();
+
 export function handleImMessage(msg: ImInbound): Promise<string> {
+  if (msg.dedupeKey && inboundDedup.seen(msg.dedupeKey)) {
+    console.warn('[longma:im] 丢弃重推的重复消息', { channel: msg.channel, key: msg.dedupeKey });
+    return Promise.resolve('');
+  }
   const key = mapKey(msg.channel, msg.chatId);
   const prev = queues.get(key) ?? Promise.resolve('');
   const next = prev

@@ -82,6 +82,7 @@ async function pollLoop(transport: TencentIlinkTransport, stored: WechatCredenti
           chatId: msg.senderId,
           senderName: msg.senderId.slice(-6),
           text: msg.text,
+          dedupeKey: msg.messageId,
         });
         if (!reply) continue;
         const chunks = chunkImText(reply, 1800);

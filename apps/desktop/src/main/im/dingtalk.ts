@@ -62,6 +62,7 @@ export async function startDingTalk(): Promise<void> {
         chatId: conversationId,
         senderName,
         text,
+        dedupeKey: String(message.headers?.messageId ?? '') || undefined,
       });
       const hook = webhooks.get(conversationId);
       if (replyText && hook) await replyWebhook(hook, replyText);

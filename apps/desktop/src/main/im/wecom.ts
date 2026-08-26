@@ -46,6 +46,7 @@ export async function startWecom(): Promise<void> {
         chatId,
         senderName: body.from.userid.slice(-6),
         text,
+        dedupeKey: String(body.msgid ?? '') || undefined,
       });
       if (!replyText || gen !== generation) return;
       try {

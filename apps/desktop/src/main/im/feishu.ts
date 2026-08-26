@@ -78,6 +78,7 @@ export async function startFeishu(): Promise<void> {
         chatId,
         senderName: senderId.slice(-6),
         text,
+        dedupeKey: String(message.message_id ?? '') || undefined,
       });
       if (replyText) await reply(chatId, replyText);
     },
