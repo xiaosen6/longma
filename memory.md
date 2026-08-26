@@ -385,6 +385,14 @@ GEO 只审计用户给出的站点（CLI 自抓），不是通用搜索。
 - 自建搜索索引。
 - 保证 GEO 能让 ChatGPT 引用。
 
+### 7.4 调研备查：Cindy 自动操作浏览器 / 电脑操作（2026-08-26，仅调研未实现）
+
+**浏览器自动化**：三层——MCP 门面 `lizi-mcps/src/browser`（单 `browser` 工具 + 23 个 action；截图落盘返路径、结果 JSON 200KB 硬顶）→ host 双后端（外置 Chrome / 侧栏 webview，`apps/desktop/src/main/mcp-integrations/browser.ts`）→ **vendored 内核** `packages/browser-control-runtime`（同步上游 133 文件 + shim，playwright-core **connectOverCDP** 连自 spawn 的托管 Chrome，持久 profile「Cindy」保登录态，默认 headed 让用户能登录；复用用户系统 Chrome 不 playwright install）。安全：SSRF 判定 vendored + 契约测试锁住；导航只限 http(s) 协议、私网放行是产品取舍。Token 阶梯：站点配方（内置 56 站可成长）→ 读 API → extract → scoped snapshot → screenshot。
+
+**电脑操作**：**不自研**——spawn 外部 Rust 二进制 **cua-driver**（github.com/trycua/cua，stdio MCP；macOS TCC 权限归因外包给 CuaDriver.app）；每个 Cindy 会话一个 driver 子进程、换代自愈。门面 `lizi-mcps/src/computer`（约 1100 行、零 Electron 依赖，deps 注入）：`list_tools`/`call_tool` 两工具；定位四模（AX element_index + 窗口本地坐标 + SOM + zoom 放大镜）；**snapshot 代际**防旧 index 打新 UI（STALE_SNAPSHOT）；护栏全在 MCP 层（路径钳制 workingDir、pid 身份验证 fail-closed、replay 预算）；**开关级授权 auto-approve，不逐次弹窗**；品牌化 agent 光标 overlay。零厂商 computer-use API 引用，任何 MCP 模型可用。
+
+**对龙马的启示**：两处都是「两工具 MCP 门面（list_tools/call_tool）+ deps 注入 + host 分离」；龙马的 search MCP + auto-approve 白名单正是同一形态的最小先例。若将来做：门面层可手写移植（无 Electron 依赖），浏览器内核 vendor 还是薄接 playwright-core 需另议；cua-driver 走外部二进制分发（license/安装引导是大头，Cindy 为此写了 ~2000 行）。
+
 ---
 
 ## 8. 命令速查
