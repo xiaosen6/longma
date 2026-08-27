@@ -11,6 +11,7 @@
  */
 import { useState } from 'react';
 import {
+  Brain,
   Check,
   ChevronDown,
   Cpu,
@@ -18,7 +19,7 @@ import {
   Sparkles,
   TriangleAlert,
 } from 'lucide-react';
-import type { PermissionMode } from '@fundet/agent-core';
+import type { Effort, PermissionMode } from '@fundet/agent-core';
 import type { ProviderView } from '../../../shared/fundet-api.js';
 import { formatTokenCount, preferScannedContextWindow } from '../../../shared/context-window.js';
 import { cn } from '../lib/cn';
@@ -280,6 +281,58 @@ export function PermissionSelector({
             toneClass={o.mode === active.mode ? toneOf(o.mode) : undefined}
             onSelect={() => {
               onSelect(o.mode);
+              setOpen(false);
+            }}
+          />
+        ))}
+      </div>
+    </ChipShell>
+  );
+}
+
+
+// ---------------------------------------------------------------------------
+// EffortSelector：思考等级（对齐 Cindy 的 effort 档位选择）
+// ---------------------------------------------------------------------------
+
+const EFFORT_OPTIONS: Array<{ effort: Effort | null; label: string }> = [
+  { effort: null, label: '默认（跟随模型）' },
+  { effort: 'minimal', label: '极简' },
+  { effort: 'low', label: '低' },
+  { effort: 'medium', label: '中' },
+  { effort: 'high', label: '高' },
+  { effort: 'xhigh', label: '超高' },
+  { effort: 'max', label: '最大' },
+];
+
+export function EffortSelector({
+  current,
+  onSelect,
+}: {
+  /** null = 跟随模型默认 */
+  current: Effort | null;
+  onSelect: (effort: Effort | null) => void;
+}): React.JSX.Element {
+  const [open, setOpen] = useState(false);
+  const active = EFFORT_OPTIONS.find((o) => o.effort === current) ?? EFFORT_OPTIONS[0];
+  return (
+    <ChipShell
+      icon={<Brain size={14} className="shrink-0 text-current" />}
+      label={`思考·${active.label}`}
+      panelWidth={220}
+      panelAriaLabel="选择思考等级"
+      open={open}
+      onOpenChange={setOpen}
+    >
+      <div role="listbox" aria-label="选择思考等级" className="flex flex-col gap-0.5">
+        {EFFORT_OPTIONS.map((o) => (
+          <OptionRow
+            key={o.effort ?? 'default'}
+            selected={o.effort === active.effort}
+            icon={<Brain size={17} className="shrink-0 text-primary" />}
+            label={o.label}
+            onSelect={() => {
+              onSelect(o.effort);
               setOpen(false);
             }}
           />

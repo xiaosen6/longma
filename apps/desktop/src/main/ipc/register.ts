@@ -418,9 +418,11 @@ export function registerIpcHandlers(): void {
     },
   );
 
-  ipcMain.handle(FUNDET_INVOKE.SESSION_SET_EFFORT, async (_e, id: string, effort: Effort) => {
+  ipcMain.handle(FUNDET_INVOKE.SESSION_SET_EFFORT, async (_e, id: string, effort: Effort | null) => {
     const session = getHost().maker.getSession(id);
-    if (session) {
+    // null = 回模型默认：pi 的 set_thinking_level 没有 unset，活会话本轮保持
+    // 当前档位，只清库让后续/lazy-create 的会话回到模型默认
+    if (session && effort !== null) {
       await session.setEffort(effort);
     } else {
       const row = getDb().select({ id: sessions.id }).from(sessions).where(eq(sessions.id, id)).get();

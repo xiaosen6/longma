@@ -45,7 +45,7 @@ import { SessionRenameInput } from '../components/SessionRenameInput';
 import { MessageStream } from '../components/MessageStream';
 import { PermissionPrompt } from '../components/PermissionPrompt';
 import { RunningStatus } from '../components/RunningStatus';
-import { ModelSelector, PermissionSelector } from '../components/SelectorChips';
+import { EffortSelector, ModelSelector, PermissionSelector } from '../components/SelectorChips';
 import { FolderPickerChip } from '../components/FolderPickerChip';
 import { Sidebar } from '../components/Sidebar';
 import { BrandMark } from '../components/BrandMark';
@@ -391,6 +391,25 @@ export function ChatPage(): React.JSX.Element {
     [activeId],
   );
 
+  const effort = (activeMeta?.effort as Effort | null) ?? null;
+  const selectEffort = useCallback(
+    async (value: Effort | null): Promise<void> => {
+      if (!activeId) return;
+      // 草稿：纯本地，随首条消息 create 落库
+      if (isDraftSession(activeId)) {
+        updateDraftSession(activeId, { effort: value });
+        return;
+      }
+      try {
+        await window.fundet.setSessionEffort(activeId, value);
+        await refreshSessionList();
+      } catch (err) {
+        setNotice(`切换思考等级失败：${err instanceof Error ? err.message : String(err)}`);
+      }
+    },
+    [activeId],
+  );
+
   // ---------- 渲染 ----------
 
   const pendingPermission =
@@ -688,6 +707,10 @@ export function ChatPage(): React.JSX.Element {
                           <PermissionSelector
                             current={permissionMode}
                             onSelect={(m) => void selectPermission(m)}
+                          />
+                          <EffortSelector
+                            current={effort}
+                            onSelect={(e) => void selectEffort(e)}
                           />
                         </>
                       }

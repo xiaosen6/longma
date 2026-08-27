@@ -132,6 +132,7 @@ ChatPage / ChatInput
 - 记忆：**产品面已固定关闭**（`pi-host.ts` 里 `memoryEnabled: false`、`makerMemoryEnabled` getter 恒 false；内核仍装配 manager，避免改 agent-core）。`memory_search` / `memory_write` 未暴露给模型。
 - MCP：主进程桥仍在（stdio 经 `mcp-bridge.ts`，http 直通）。**设置 UI 已删除 MCP Servers。**
 - 权限三档：ask / 自动 / 完全放行；审批超时 10 分钟 deny。
+- 思考等级（2026-08-28）：composer「思考」chip，默认+极简/低/中/高/超高/最大；回默认只清库（活会话本轮保持当前档，pi 无 unset）；草稿随首条消息 create 落库。按模型 efforts 过滤选项是后续优化（pi 会 assert 校验，不支持的档位报错经 setNotice 呈现）。
 - Pi extraDirs 支持（热更新）；subagent 扩展只读（read/grep/find/ls），GEO 走 bash CLI 不靠 subagent。
 
 ### 4.2 UI / 交互（Cindy 风格，品牌 LongMa）

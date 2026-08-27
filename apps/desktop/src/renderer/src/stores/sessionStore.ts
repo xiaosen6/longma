@@ -839,7 +839,7 @@ export async function renameSession(sessionId: string, title: string): Promise<v
 /** 草稿上切模型 / 权限档位：只改本地（会话还不存在，没有 main 侧可同步） */
 export function updateDraftSession(
   sessionId: string,
-  patch: { providerId?: string; model?: string; permissionMode?: string; workDir?: string },
+  patch: { providerId?: string; model?: string; permissionMode?: string; workDir?: string; effort?: string | null },
 ): void {
   const draft = drafts.get(sessionId);
   if (!draft) return;
@@ -851,6 +851,7 @@ export function updateDraftSession(
       ...(patch.model !== undefined ? { model: patch.model } : {}),
       ...(patch.permissionMode !== undefined ? { permissionMode: patch.permissionMode } : {}),
       ...(patch.workDir !== undefined ? { workDir: patch.workDir } : {}),
+      ...(patch.effort !== undefined ? { effort: patch.effort } : {}),
     },
   });
   rebuildCombinedList();

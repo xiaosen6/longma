@@ -224,7 +224,7 @@ export interface FundetApi {
   deleteTurn(sessionId: string, afterCreatedAt: number, untilCreatedAt: number): Promise<void>;
   forkSession(sessionId: string, upToCreatedAt: number): Promise<string>;
   setSessionModel(id: string, model: string, providerId?: string): Promise<void>;
-  setSessionEffort(id: string, effort: Effort): Promise<void>;
+  setSessionEffort(id: string, effort: Effort | null): Promise<void>;
   setSessionPermissionMode(id: string, mode: PermissionMode): Promise<void>;
   renameSession(id: string, title: string): Promise<void>;
 
