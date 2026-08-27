@@ -46,6 +46,7 @@ import {
   CINDY_SUBAGENT_EXTENSION_FILENAME,
   CINDY_SUBAGENT_EXTENSION_SOURCE,
 } from './cindy-subagent-source.js';
+import { augmentPathWithGit } from './windows-git-path-lite.js';
 import { normalizePiToolForAutoReview } from './auto-review-policy.js';
 import {
   createAutoReviewUnavailableNotice,
@@ -1293,6 +1294,9 @@ export class PiAgent extends BaseAgent {
         if (key.toLowerCase() === PI_MANAGED_RG_PATH_ENV.toLowerCase()) delete spawnEnv[key];
       }
       if (managedRipgrepPath) spawnEnv[PI_MANAGED_RG_PATH_ENV] = managedRipgrepPath;
+      // Windows：把注册表/常见安装位的 Git Bash 目录前置进 PATH（客户机装了
+      // Git 但没勾 Add to PATH 时 pi 的 bash 工具仍可用；Cindy 同主题模块的轻量版）
+      augmentPathWithGit(spawnEnv);
       mergeLoopbackNoProxy(spawnEnv);
       proc = new PiRpcProcess({
         binaryPath: this.deps.binaryPath,
