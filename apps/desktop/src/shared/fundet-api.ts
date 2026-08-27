@@ -255,6 +255,8 @@ export interface FundetApi {
   setDefaultSearchEngine(id: SearchEngineId | null): Promise<void>;
   testSearch(query: string, engine?: SearchEngineId): Promise<SearchTestResult>;
 
+  usageHistory(days?: number): Promise<Array<{ day: string; model: string; tokens: number; costUsd: number }>>;
+
   browserStatus(): Promise<BrowserStatus>;
   setBrowserEnabled(enabled: boolean): Promise<void>;
   /** 打开/拉起托管浏览器窗口（登录用）：start + focus，绝不新开 tab */

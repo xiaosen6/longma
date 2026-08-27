@@ -46,6 +46,7 @@ import { MessageStream } from '../components/MessageStream';
 import { PermissionPrompt } from '../components/PermissionPrompt';
 import { RunningStatus } from '../components/RunningStatus';
 import { EffortSelector, ModelSelector, PermissionSelector } from '../components/SelectorChips';
+import { UsageCard } from '../components/UsageCard';
 import { FolderPickerChip } from '../components/FolderPickerChip';
 import { Sidebar } from '../components/Sidebar';
 import { BrandMark } from '../components/BrandMark';
@@ -440,6 +441,23 @@ export function ChatPage(): React.JSX.Element {
         onResizeStart={startSidebarResize}
       />
 
+      {/* Canvas 开关钉在窗口右上（WindowControls 左侧），不随主列/Canvas 面板
+          宽度变化漂移——对齐 Cindy「折叠 toggle 钉在窗口层，不跟面板跑」 */}
+      {activeId && (
+        <button
+          type="button"
+          title="Canvas"
+          onClick={() => setCanvasOpen((v) => !v)}
+          className={cn(
+            'no-drag fixed top-0 z-40 flex h-[46px] w-10 items-center justify-center hover:bg-hover',
+            hasFramelessControls() ? 'right-[138px]' : 'right-0',
+            canvasOpen ? 'text-primary' : 'text-muted',
+          )}
+        >
+          <PanelRight size={14} />
+        </button>
+      )}
+
       <main className="flex min-w-0 flex-1 flex-col">
         {!activeId ? (
           // 空态（对齐 cindy-02 首页解剖）：品牌 wordmark 居中 + 引导卡
@@ -495,6 +513,9 @@ export function ChatPage(): React.JSX.Element {
                   {notice && <p className="mt-2 text-13 text-error">{notice}</p>}
                 </div>
               )}
+              <div className="w-full">
+                <UsageCard />
+              </div>
             </div>
           </div>
           </div>
@@ -612,16 +633,6 @@ export function ChatPage(): React.JSX.Element {
                     ) : null}
                   </>
                 )}
-              </div>
-              <div className="no-drag relative flex shrink-0 items-center gap-2 text-12 text-muted">
-                <button
-                  type="button"
-                  title="Canvas"
-                  onClick={() => setCanvasOpen((v) => !v)}
-                  className={`flex h-7 w-7 items-center justify-center rounded-full hover:bg-hover ${canvasOpen ? 'text-primary' : 'text-muted'}`}
-                >
-                  <PanelRight size={14} />
-                </button>
               </div>
             </header>
 

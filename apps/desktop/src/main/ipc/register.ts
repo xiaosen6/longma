@@ -38,6 +38,7 @@ import {
   type McpServerInput,
 } from '../db/mcp-servers.js';
 import { deleteProviderKey, hasProviderKey, writeProviderKey } from '../host/secrets.js';
+import { addUsageDelta, getUsageHistory } from '../db/usage.js';
 import {
   SEARCH_ENGINES,
   isSearchEngineId,
@@ -139,8 +140,29 @@ export function wireSession(session: Session): void {
   if (wiredSessions.has(session.id)) return;
   wiredSessions.add(session.id);
 
+  // 用量历史：turn 级增量累计。tokenUsage/costUsd 是会话累计值，做差取增量；
+  // 模型归属按会话当前 model（中途换模型轻微误归属，v1 接受）
+  const sessionModel =
+    getDb().select({ model: sessions.model }).from(sessions).where(eq(sessions.id, session.id)).get()?.model ?? 'unknown';
+  let lastTokens = 0;
+  let lastCostUsd = 0;
   session.onEvent((event) => {
     persistEvent(session.id, event);
+    const data = event.data as { tokenUsage?: number; costUsd?: number } | undefined;
+    if (data && typeof data.tokenUsage === 'number') {
+      const dTokens = data.tokenUsage - lastTokens;
+      const dCost = typeof data.costUsd === 'number' ? data.costUsd - lastCostUsd : 0;
+      // 计数器只会涨；骤降 = 会话重置，丢弃这一跳防负增量
+      if (dTokens > 0 || dCost > 0) {
+        try {
+          addUsageDelta(sessionModel, Math.max(0, dTokens), Math.max(0, dCost));
+        } catch {
+          /* 用量累计失败不影响会话 */
+        }
+      }
+      lastTokens = data.tokenUsage;
+      if (typeof data.costUsd === 'number') lastCostUsd = data.costUsd;
+    }
     broadcast(FUNDET_PUSH.AGENT_EVENT, { sessionId: session.id, event });
   });
 
@@ -675,6 +697,9 @@ export function registerIpcHandlers(): void {
     await runtime.call({ action: 'start' });
     await runtime.call({ action: 'focus' });
   });
+
+  // ---------- 用量历史 ----------
+  ipcMain.handle(FUNDET_INVOKE.USAGE_HISTORY, async (_e, days?: number) => getUsageHistory(Math.min(90, Math.max(1, days ?? 30))));
 
   // ---------- 电脑操作 ----------
   ipcMain.handle(FUNDET_INVOKE.COMPUTER_STATUS, async () => ({

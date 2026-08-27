@@ -8,7 +8,7 @@
  * - settings：main 进程开关
  * - mcp_servers：用户配置的外部 MCP
  */
-import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core';
+import { primaryKey, sqliteTable, text, integer, real, index } from 'drizzle-orm/sqlite-core';
 
 export const sessions = sqliteTable('sessions', {
   id: text('id').primaryKey(),
@@ -96,3 +96,11 @@ export interface ProviderModelSpec {
   /** 显式声明的输入模态；缺省时按 id 推断（shared/model-input.ts） */
   input?: Array<'text' | 'image'>;
 }
+
+/** 每日用量累计（turn 级增量落库；tokenUsage/costUsd 均为会话累计值做差） */
+export const usageDaily = sqliteTable('usage_daily', {
+  day: text('day').notNull(),
+  model: text('model').notNull(),
+  tokens: integer('tokens').notNull(),
+  costUsd: real('cost_usd').notNull(),
+}, (t) => [primaryKey({ columns: [t.day, t.model] })]);

@@ -151,6 +151,8 @@ ChatPage / ChatInput
 - 会话重命名：侧栏 hover 铅笔 / 双击标题；顶栏铅笔（hover 显示）/ 双击。Enter 提交、Esc 取消。
 - 点击本地图片预览（`LocalImagePreview` + `longma-file://`，失败回退 data URL）。
 - 设置：头像/字体/供应商（split pane + 预设向导，无 Cindy OAuth）。
+- Canvas 开关钉窗口右上（2026-08-28）：原 toggle 在会话顶栏右簇，Canvas 展开挰窄主列导致按钮左漂 380px；且面板自带的 X 被 WindowControls（138px 宽、z-50 盖顶）压住点不到。改为 fixed 钉在 WindowControls 左侧（right-138px），开/关位置恒定；CanvasPane 自带 X 删除。对齐 Cindy「折叠 toggle 钉窗口层不跟面板跑」。
+- 用量历史（2026-08-28，精简版对齐 Cindy 首页仪表盘）：usage_daily 表（migration 0004，day×model 主键）+ wireSession 里对 status/done 事件的 tokenUsage/costUsd 做差累计增量（计数器骤降=会话重置，丢跳防负）+ USAGE_HISTORY IPC；新对话首页空态渲染 UsageCard（30 天柱状图按模型堆叠、title 逐模型明细、今日/合计行），无数据整卡不渲染。中途换模型轻微误归属 v1 接受； Cindy 的连击/异常检测未搬。
 - Canvas 不再被数据变化强制打开（2026-08-28）：贴附件/新产物只更新 canvasPath，仅用户点击（附件芯片/顶栏按钮）才展开——此前 latestArtifact effect 每回合强制 setCanvasOpen(true)，用户「关不掉」。输入卡下方新增会话短 id（前 8 位）。
 - 长会话渲染（2026-08-26）：`AssistantMessage`/`WorkGroupBlock` memo 化（流式 100ms 刷新只重渲染末条；工作组按 children 逐项引用比较）。未做列表虚拟化——超长会话仍卡再上 virtualization。
 - 厂商 Logo；模型 context window 扫描（GLM 5.2/5.3 = 1M）。

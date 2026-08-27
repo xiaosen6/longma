@@ -8,7 +8,7 @@ import {
   Globe,
   Image as ImageIcon,
   Music,
-  X,
+
 } from 'lucide-react';
 import { cn } from '../lib/cn';
 import { basename, type Artifact, type ArtifactKind } from '../lib/artifacts';
@@ -43,16 +43,8 @@ export function CanvasPane({
 
   return (
     <aside className="flex h-full w-[380px] shrink-0 flex-col border-l border-board bg-surface">
-      <div className="flex h-[46px] shrink-0 items-center justify-between gap-2 border-b border-board px-3">
+      <div className="flex h-[46px] shrink-0 items-center border-b border-board px-3">
         <span className="text-13 font-medium text-primary">Canvas</span>
-        <button
-          type="button"
-          title="关闭"
-          onClick={onClose}
-          className="flex h-7 w-7 items-center justify-center rounded-full text-muted hover:bg-hover hover:text-primary"
-        >
-          <X size={14} />
-        </button>
       </div>
       {artifacts.length === 0 ? (
         <div className="px-4 py-8 text-13 text-muted">

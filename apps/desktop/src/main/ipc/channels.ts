@@ -56,6 +56,7 @@ export const FUNDET_INVOKE = {
   SEARCH_SET_DEFAULT: 'search:set-default',
   SEARCH_TEST: 'search:test',
   BROWSER_STATUS: 'browser:status',
+  USAGE_HISTORY: 'usage:history',
   BROWSER_SET_ENABLED: 'browser:set-enabled',
   BROWSER_OPEN: 'browser:open',
   COMPUTER_STATUS: 'computer:status',
