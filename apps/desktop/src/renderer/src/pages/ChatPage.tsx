@@ -67,6 +67,28 @@ export function ChatPage(): React.JSX.Element {
   const [skills, setSkills] = useState<SkillView[]>([]);
   const [input, setInput] = useState('');
   const [notice, setNotice] = useState('');
+
+  // 侧栏宽度拖拽（200–400px 夹紧；持久化到 localStorage）
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const saved = Number(localStorage.getItem('longma.sidebar-width'));
+    return saved >= 200 && saved <= 400 ? saved : 260;
+  });
+  const startSidebarResize = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = sidebarWidth;
+    const move = (ev: PointerEvent): void => {
+      const next = Math.min(400, Math.max(200, startW + ev.clientX - startX));
+      setSidebarWidth(next);
+      localStorage.setItem('longma.sidebar-width', String(next));
+    };
+    const up = (): void => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  }, [sidebarWidth]);
   const [workDir, setWorkDir] = useState(getDefaultWorkDir);
   const [canvasOpen, setCanvasOpen] = useState(false);
   const [canvasPath, setCanvasPath] = useState<string | null>(null);
@@ -395,6 +417,8 @@ export function ChatPage(): React.JSX.Element {
           }
         }}
         showNewHint={sessions.length === 0 && !activeId}
+        width={sidebarWidth}
+        onResizeStart={startSidebarResize}
       />
 
       <main className="flex min-w-0 flex-1 flex-col">

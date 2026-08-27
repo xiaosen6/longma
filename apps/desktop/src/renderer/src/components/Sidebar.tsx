@@ -32,6 +32,9 @@ interface SidebarProps {
   onRename: (id: string, title: string) => Promise<void>;
   /** 空态常驻说明框：点「新对话」开启，开启后收起 */
   showNewHint?: boolean;
+  width?: number;
+  /** 拖拽条按下时回调（renderer 侧管理拖拽逻辑） */
+  onResizeStart?: (e: React.PointerEvent) => void;
 }
 
 function formatTime(ts: number): string {
@@ -197,10 +200,19 @@ export function Sidebar({
   onDelete,
   onRename,
   showNewHint,
+  width = 260,
+  onResizeStart,
 }: SidebarProps): React.JSX.Element {
   const profile = useSyncExternalStore(subscribeProfile, getProfile, getProfile);
   return (
-    <aside className="relative z-20 flex h-full w-[260px] shrink-0 flex-col border-r border-board bg-surface">
+    <aside
+      className="relative z-20 flex h-full shrink-0 flex-col border-r border-board bg-surface"
+      style={{ width }}
+    >
+      <div
+        className="absolute top-0 right-0 z-30 h-full w-[3px] cursor-col-resize hover:bg-accent/40"
+        onPointerDown={onResizeStart}
+      />
       {/* 顶行：图形 logo + 字标 */}
       <div className="drag-region flex h-[46px] shrink-0 items-center gap-2 px-4">
         <BrandMark size={22} />

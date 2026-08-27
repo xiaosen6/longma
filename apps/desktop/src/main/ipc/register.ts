@@ -188,6 +188,12 @@ async function ensureSession(input: SessionSendInput): Promise<Session> {
       `会话 ${input.sessionId} 不在内存（model=${row.model}）。请带 create 参数重发，或新建会话。`,
     );
   }
+  // workDir 不存在时 pi spawn 会 ENOENT——提前拦截并给中文指引
+  if (create.workDir && !fs.existsSync(path.resolve(create.workDir))) {
+    throw new Error(
+      '工作目录不存在：' + create.workDir + '。可能已被移动或删除，请用输入框旁的文件夹按钮重新选择。',
+    );
+  }
   const session = await maker.createSession({
     agentKind: 'pi',
     id: create.sessionId ?? input.sessionId,

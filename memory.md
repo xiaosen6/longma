@@ -413,12 +413,12 @@ GEO 只审计用户给出的站点（CLI 自抓），不是通用搜索。
 
 - [x] `system-prompt.md` 四个技能 + `mcp__search__web_search`（2026-08-23）。
 - [ ] 真 key 全链路冒烟（历史 Kimi coding 端点 401）。
-- [ ] workDir 不存在时 pi spawn ENOENT 提示不直观。
+- [x] workDir 不存在时提前拦截 + 中文指引（2026-08-28，ensureSession 前 fs 校验）。
 - [ ] memory_search / memory_write 未暴露给模型。
 - [x] 侧栏会话重命名（hover 铅笔 + 双击；顶栏也可改）。改名不 bump `updatedAt`。
 - [x] 上下文圆环放到输入卡下方右侧（对齐 Cindy，不在顶栏）。
 - [x] IM 个人机器人：飞书 / 钉钉 / 企微 / 微信扫码（2026-08-24）。电脑要开着；IM 会话默认 auto 权限。
-- [ ] 侧栏宽度拖拽。
+- [x] 侧栏宽度拖拽（2026-08-28：右缘 3px 拖拽条，200–400px 夹紧，localStorage 持久化）。
 - [ ] 超长会话列表虚拟化（AssistantMessage/WorkGroupBlock 已 memo 化；仍卡再上 virtualization）。
 - [x] 真 Mac UDIF dmg（2026-08-25，GitHub Actions macos-latest，见 §4.6）；WSL dmg 已废弃不用
 - [ ] 未签名 Mac 公证（现状：新 macOS 对带 quarantine 的未签名 App 报「文件已损坏」，用户须 `sudo xattr -cr /Applications/LongMa.app`；根治要 Apple 开发者证书 + CI notarize）。
