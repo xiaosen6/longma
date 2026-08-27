@@ -45,6 +45,9 @@ jobs:
       - run: node tools/cua-driver/update.mjs --platform=win32-x64
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # hash-warm：逼 Defender 先扫完新解包的二进制，防 electron-builder copyfile EBUSY
+      - run: Get-ChildItem -Recurse apps/cua-driver-bin | ForEach-Object { if (-not $_.PSIsContainer) { Get-FileHash $_.FullName | Out-Null } }
+        if: runner.os == 'Windows'
       - run: pnpm --filter fundet-desktop build
       - run: pnpm --filter fundet-desktop run dist:win:publish
         env:
@@ -75,6 +78,8 @@ jobs:
       - run: node tools/cua-driver/update.mjs --platform=darwin-universal
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: find apps/cua-driver-bin -type f -exec sh -c 'md5 "$1" > /dev/null' _ {} \;
+        if: runner.os == 'MacOS'
       - run: node tools/ripgrep/update.mjs --platform=darwin-x64
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

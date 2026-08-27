@@ -41,6 +41,7 @@ jobs:
       - run: node tools/cua-driver/update.mjs --platform=darwin-universal
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: find apps/cua-driver-bin -type f -exec sh -c 'md5 "$1" > /dev/null' _ {} \;
 
       # better-sqlite3 的 npm 包自带全平台预编译 .node，单 runner 可同时出 x64+arm64
       - run: pnpm dist:mac
