@@ -49,7 +49,18 @@ jobs:
       - run: Get-ChildItem -Recurse apps/cua-driver-bin | ForEach-Object { if (-not $_.PSIsContainer) { Get-FileHash $_.FullName | Out-Null } }
         if: runner.os == 'Windows'
       - run: pnpm --filter fundet-desktop build
-      - run: pnpm --filter fundet-desktop run dist:win:publish
+      # EBUSY 重试：electron-builder 拷 fresh 解包的 cua-driver 二进制偶被 AV 锁定
+      # （copyfile 无重试），整体最多打 3 次，每次重试前清掉半成品 dist
+      - name: Package & publish (EBUSY retry)
+        run: |
+          for i in 1 2 3; do
+            pnpm --filter fundet-desktop run dist:win:publish && exit 0
+            echo "::warning::attempt $i failed (likely EBUSY), retrying in 30s"
+            sleep 30
+            rm -rf apps/desktop/dist
+          done
+          exit 1
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
