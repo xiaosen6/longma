@@ -254,7 +254,7 @@ ChatPage / ChatInput
 
 - Win：PowerShell `pnpm dist:win` → `LongMa-Setup-<version>-x64.exe`（约 130MB）。`npmRebuild: false`（better-sqlite3 预编译）。
 - Mac dmg：`Actions → dist-mac` 手动出包（UDIF 双架构， artifacts 自取）。
-- **0.2.0 已发版**（2026-08-27）：浏览器自动化 + 电脑操作 + 视觉修复 + pi 预检。发版链路三修：vendor js 被 .gitignore 全局 dist/ 误伤没进仓（改 /dist/）；cua-driver zip 解包需整体提升顶层目录（伴生 dll 同目录）；dist:*:publish 脚本必须配 predist 打平钩子（CI 曾漏浏览器闭包）；GitHub Actions 当日事件延迟严重 + 同名 tag 重推会被去重（删 tag 重打）。
+- **0.2.1 已发版**（2026-08-28）：视觉 Cindy 化（预设标注+编辑勾选，推断退役）、Canvas 不强制打开、会话短 id、「自动操作」独立 tab、侧栏拖拽、workDir 中文提示。此前 0.2.0 已发（2026-08-27）：浏览器自动化 + 电脑操作 + 视觉修复 + pi 预检。发版链路三修：vendor js 被 .gitignore 全局 dist/ 误伤没进仓（改 /dist/）；cua-driver zip 解包需整体提升顶层目录（伴生 dll 同目录）；dist:*:publish 脚本必须配 predist 打平钩子（CI 曾漏浏览器闭包）；GitHub Actions 当日事件延迟严重 + 同名 tag 重推会被去重（删 tag 重打）。
 - **发版**：推 `v*` tag → `release.yml` 双平台构建并发布 GitHub Release（自动带 latest.yml/latest-mac.yml，应用内更新靠它）。
 - **日常 CI**（2026-08-26）：`ci.yml` 在 push main / PR 跑 `pnpm typecheck` + `pnpm test:unit`（ubuntu，`ELECTRON_SKIP_BINARY_DOWNLOAD=1`）。**依赖本地二进制的用例一律 skipIf 缺失即跳**（pi 集成测试、cindyBridgeSource 的 rg 用例——ripgrep-bin 不进 Git，别让 CI 为它下载）。发版 workflow 仍只管构建发布。
 - **应用内更新**（0.1.0 起）：设置 → 通用「版本与更新」；Win 后台下载完「重启更新」（托盘退出也会装）；Mac 未签名只检测版本 + 「下载新版本」跳 Release 页。启动 5s 首查 + 每 4h 静默查。dev 态（!isPackaged）不启用。
