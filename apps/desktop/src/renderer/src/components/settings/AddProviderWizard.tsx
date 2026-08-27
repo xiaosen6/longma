@@ -27,7 +27,7 @@ export function AddProviderWizard({
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [fetching, setFetching] = useState(false);
-  const [rows, setRows] = useState<Array<{ id: string; contextWindow?: number; maxTokens?: number; checked: boolean }>>([]);
+  const [rows, setRows] = useState<Array<{ id: string; contextWindow?: number; maxTokens?: number; input?: Array<'text' | 'image'>; checked: boolean }>>([]);
 
   useEffect(() => {
     if (!open) {
@@ -59,6 +59,7 @@ export function AddProviderWizard({
         id: m.id,
         contextWindow: preferScannedContextWindow(m.id, m.contextWindow),
         ...(m.maxTokens ? { maxTokens: m.maxTokens } : {}),
+        ...(m.input ? { input: m.input } : {}),
         checked: true,
       })),
     );
@@ -80,12 +81,13 @@ export function AddProviderWizard({
       }
       setRows((cur) => {
         const prev = new Map(cur.map((x) => [x.id, x]));
-        const next: Array<{ id: string; contextWindow?: number; maxTokens?: number; checked: boolean }> = r.models!.map((m) => {
+        const next: Array<{ id: string; contextWindow?: number; maxTokens?: number; input?: Array<'text' | 'image'>; checked: boolean }> = r.models!.map((m) => {
           const old = prev.get(m.id);
           return {
             id: m.id,
             contextWindow: preferScannedContextWindow(m.id, m.contextWindow, old?.contextWindow),
             ...(old?.maxTokens ? { maxTokens: old.maxTokens } : {}),
+            ...(old?.input ? { input: old.input } : {}),
             checked: old?.checked ?? Boolean(preset.models.some((x) => x.id === m.id)),
           };
         });
@@ -115,6 +117,7 @@ export function AddProviderWizard({
         id: r.id.trim(),
         ...(r.contextWindow ? { contextWindow: r.contextWindow } : {}),
         ...(r.maxTokens ? { maxTokens: r.maxTokens } : {}),
+        ...(r.input ? { input: r.input } : {}),
         enabled: true,
       }));
     if (!name.trim() || models.length === 0) {

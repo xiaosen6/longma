@@ -45,7 +45,7 @@ WSL 里可以改代码、跑 `pnpm --filter fundet-desktop test` / `typecheck`�
 | Mac 包 | 未签名。WSL 打出的 `.dmg` 是 xorriso ISO/HFS+，**不是**正式 UDIF；真 dmg 需 macOS 或 `macos-latest` CI |
 | 渲染进程 | `sandbox: true`（0.1.4 起），preload 必须是 CJS 产物（见 §5 坑表「沙箱 ESM preload」） |
 | 浏览器自动化 | 内置能力开关（默认关），非 MCP Servers 用户面；托管 Chrome 持久 profile「LongMa」 |
-| 视觉发图 | 对齐 Cindy：预设标注 + 编辑对话框「视觉」勾选，只信库值（推断方案已删）；/models 不带能力元数据 |
+| 视觉发图 | 对齐 Cindy：预设标注 + 编辑对话框「视觉」勾选，只信库值（推断方案已删）。**坑（0.2.5 修）：编辑对话框 save() 曾把 input/maxTokens 静默丢弃**——勾视觉保存后白勾；回填/保存/扫描三处都要透传字段；pi providers 是每次 startSession 重解析的，改完新会话即生效无需重启 |
 | 电脑操作 | 内置能力开关（默认关）；cua-driver 外部二进制，遥测已关、审批跟会话档 |
 | 约束 | 保持 `@fundet/*` 与 `window.fundet`；Windows 用 PowerShell 跑 Electron |
 

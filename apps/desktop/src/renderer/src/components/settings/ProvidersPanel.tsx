@@ -31,7 +31,7 @@ function CustomProviderDialog({
   const [name, setName] = useState('');
   const [api, setApi] = useState<ProviderApi>('openai-completions');
   const [baseUrl, setBaseUrl] = useState('');
-  const [models, setModels] = useState<Array<{ id: string; contextWindow?: number; input?: Array<'text' | 'image'> }>>([{ id: '' }]);
+  const [models, setModels] = useState<Array<{ id: string; contextWindow?: number; maxTokens?: number; input?: Array<'text' | 'image'> }>>([{ id: '' }]);
   const [key, setKey] = useState('');
   const [error, setError] = useState('');
   const [fetching, setFetching] = useState(false);
@@ -48,6 +48,8 @@ function CustomProviderDialog({
         ? editing.models.map((m) => ({
             id: m.id,
             contextWindow: preferScannedContextWindow(m.id, m.contextWindow),
+            ...(m.maxTokens ? { maxTokens: m.maxTokens } : {}),
+            ...(m.input ? { input: m.input } : {}),
           }))
         : [{ id: '' }],
     );
@@ -86,6 +88,8 @@ function CustomProviderDialog({
       .map((m) => ({
         id: m.id.trim(),
         ...(m.contextWindow && m.contextWindow > 0 ? { contextWindow: m.contextWindow } : {}),
+        ...(m.maxTokens ? { maxTokens: m.maxTokens } : {}),
+        ...(m.input ? { input: m.input } : {}),
         enabled: true as const,
       }))
       .filter((m) => m.id);
