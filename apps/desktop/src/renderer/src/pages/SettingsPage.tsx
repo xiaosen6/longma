@@ -42,11 +42,12 @@ const THEME_OPTIONS: Array<{
   { value: 'system', label: '跟随系统', previewBg: '' },
 ];
 
-type SettingsTab = 'general' | 'providers' | 'search' | 'im' | 'skills';
+type SettingsTab = 'general' | 'providers' | 'automation' | 'search' | 'im' | 'skills';
 
 const TAB_LABELS: Record<SettingsTab, string> = {
   general: '通用',
   providers: '模型供应商',
+  automation: '自动操作',
   search: '搜索',
   im: 'IM 机器人',
   skills: '技能',
@@ -249,12 +250,18 @@ export function SettingsPage(): React.JSX.Element {
                 />
 
                 <UpdateCard />
-                <BrowserSection />
-                <ComputerSection />
               </div>
             )}
 
             {tab === 'providers' && <ProvidersPanel />}
+
+            {tab === 'automation' && (
+              <div className="flex flex-col gap-[14px]">
+                <SectionTitle>自动操作</SectionTitle>
+                <BrowserSection />
+                <ComputerSection />
+              </div>
+            )}
 
             {tab === 'search' && <SearchPanel />}
 
