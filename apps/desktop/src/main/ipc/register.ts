@@ -146,22 +146,40 @@ export function wireSession(session: Session): void {
     getDb().select({ model: sessions.model }).from(sessions).where(eq(sessions.id, session.id)).get()?.model ?? 'unknown';
   let lastTokens = 0;
   let lastCostUsd = 0;
+  let lastSplit = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
   session.onEvent((event) => {
     persistEvent(session.id, event);
-    const data = event.data as { tokenUsage?: number; costUsd?: number } | undefined;
+    const data = event.data as {
+      tokenUsage?: number; costUsd?: number;
+      inputTokens?: number; outputTokens?: number;
+      cacheReadTokens?: number; cacheWriteTokens?: number;
+    } | undefined;
     if (data && typeof data.tokenUsage === 'number') {
       const dTokens = data.tokenUsage - lastTokens;
       const dCost = typeof data.costUsd === 'number' ? data.costUsd - lastCostUsd : 0;
       // 计数器只会涨；骤降 = 会话重置，丢弃这一跳防负增量
       if (dTokens > 0 || dCost > 0) {
         try {
-          addUsageDelta(sessionModel, Math.max(0, dTokens), Math.max(0, dCost));
+          addUsageDelta(sessionModel, {
+            tokens: Math.max(0, dTokens),
+            costUsd: Math.max(0, dCost),
+            inputTokens: Math.max(0, (data.inputTokens ?? 0) - lastSplit.input),
+            outputTokens: Math.max(0, (data.outputTokens ?? 0) - lastSplit.output),
+            cacheReadTokens: Math.max(0, (data.cacheReadTokens ?? 0) - lastSplit.cacheRead),
+            cacheWriteTokens: Math.max(0, (data.cacheWriteTokens ?? 0) - lastSplit.cacheWrite),
+          });
         } catch {
           /* 用量累计失败不影响会话 */
         }
       }
       lastTokens = data.tokenUsage;
       if (typeof data.costUsd === 'number') lastCostUsd = data.costUsd;
+      lastSplit = {
+        input: data.inputTokens ?? lastSplit.input,
+        output: data.outputTokens ?? lastSplit.output,
+        cacheRead: data.cacheReadTokens ?? lastSplit.cacheRead,
+        cacheWrite: data.cacheWriteTokens ?? lastSplit.cacheWrite,
+      };
     }
     broadcast(FUNDET_PUSH.AGENT_EVENT, { sessionId: session.id, event });
   });

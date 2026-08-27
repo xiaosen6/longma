@@ -103,4 +103,8 @@ export const usageDaily = sqliteTable('usage_daily', {
   model: text('model').notNull(),
   tokens: integer('tokens').notNull(),
   costUsd: real('cost_usd').notNull(),
+  inputTokens: integer('input_tokens').notNull().default(0),
+  outputTokens: integer('output_tokens').notNull().default(0),
+  cacheReadTokens: integer('cache_read_tokens').notNull().default(0),
+  cacheWriteTokens: integer('cache_write_tokens').notNull().default(0),
 }, (t) => [primaryKey({ columns: [t.day, t.model] })]);

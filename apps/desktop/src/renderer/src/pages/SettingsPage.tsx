@@ -30,6 +30,7 @@ import { SearchPanel } from './settings/SearchPanel';
 import { ImBotPanel } from './settings/ImBotPanel';
 import { UpdateCard } from '../components/settings/UpdateCard';
 import { BrowserSection } from '../components/settings/BrowserSection';
+import { UsageHistoryPanel } from './settings/UsageHistoryPanel';
 import { ComputerSection } from '../components/settings/ComputerSection';
 
 const THEME_OPTIONS: Array<{
@@ -42,12 +43,13 @@ const THEME_OPTIONS: Array<{
   { value: 'system', label: '跟随系统', previewBg: '' },
 ];
 
-type SettingsTab = 'general' | 'providers' | 'automation' | 'search' | 'im' | 'skills';
+type SettingsTab = 'general' | 'providers' | 'automation' | 'usage' | 'search' | 'im' | 'skills';
 
 const TAB_LABELS: Record<SettingsTab, string> = {
   general: '通用',
   providers: '模型供应商',
   automation: '自动操作',
+  usage: '用量历史',
   search: '搜索',
   im: 'IM 机器人',
   skills: '技能',
@@ -262,6 +264,8 @@ export function SettingsPage(): React.JSX.Element {
                 <ComputerSection />
               </div>
             )}
+
+            {tab === 'usage' && <UsageHistoryPanel />}
 
             {tab === 'search' && <SearchPanel />}
 

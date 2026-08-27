@@ -169,6 +169,10 @@ export function usageSnapshotOf(ctx: PiTranslateContext): UsageSnapshot {
     contextTokens: ctx.contextTokens,
     contextWindow: ctx.contextWindow,
     costUsd: ctx.costUsd,
+    inputTokens: ctx.turnInput,
+    outputTokens: ctx.turnOutput,
+    cacheReadTokens: ctx.turnCacheRead,
+    cacheWriteTokens: ctx.turnCacheWrite,
   };
 }
 

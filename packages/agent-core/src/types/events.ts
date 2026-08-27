@@ -320,6 +320,11 @@ export interface UsageSnapshot {
   contextTokens: number;
   contextWindow: number;
   costUsd: number;
+  /** 以下为 pi 侧累计拆分（可选：其它 agent 不一定透出）。均为会话累计值。 */
+  inputTokens?: number;
+  outputTokens?: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
 }
 
 /**

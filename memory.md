@@ -152,7 +152,8 @@ ChatPage / ChatInput
 - 点击本地图片预览（`LocalImagePreview` + `longma-file://`，失败回退 data URL）。
 - 设置：头像/字体/供应商（split pane + 预设向导，无 Cindy OAuth）。
 - Canvas 开关钉窗口右上（2026-08-28）：原 toggle 在会话顶栏右簇，Canvas 展开挰窄主列导致按钮左漂 380px；且面板自带的 X 被 WindowControls（138px 宽、z-50 盖顶）压住点不到。改为 fixed 钉在 WindowControls 左侧（right-138px），开/关位置恒定；CanvasPane 自带 X 删除。对齐 Cindy「折叠 toggle 钉窗口层不跟面板跑」。
-- 用量历史（2026-08-28，对齐 Cindy HomeUsageDashboard 形态）：usage_daily 表（migration 0004，day×model 主键）+ wireSession 增量采集（同前）+ USAGE_HISTORY IPC；首页空态渲染 **UsageDashboard 可折叠卡**——统计条（今日花费[>2×前7日均值且≥$1 标 warning]/Token 今今日+30天/连续活跃含最长/近30天总额）+ 近 20 周 GitHub 风格热力图（强度=日花费，4 分位桶，color-mix --accent）+ 右栏 30 天每日堆叠柱（按模型分段，无花费日高度回退 token）+ 模型图例；折叠态一行摘要存 localStorage。中途换模型轻微误归属 v1 接受；预算列（本月/月度）BYOK 无来源未放
+- 设置「用量历史」页（2026-08-29，对齐 Cindy 同名设置页）：SettingsPage 新 tab（自动操作与搜索之间）；概览 5 格（今日/近30天 token、连续活跃·最长、缓存命中率、用到的模型数）+ 20 周热力图（强度=token）+ 30 天堆叠柱（带 y 轴刻度）+ 按 Agent 表（pi 100%）+ 按模型表（总/占比条/输入/输出/缓存读取/缓存写入/缓存命中率）。数据支撑：agent-core UsageSnapshot 透出 input/output/cacheRead/cacheWrite 累计拆分（translator 账本本来就有）+ migration 0005 给 usage_daily 加四列 + wireSession 做差采集；拆分数据自该版起积累（此前行全 0 → 命中率「—」）。**坑：drizzle 迁移多语句必须 '--> statement-breakpoint' 分隔**，否则 migrate 整条炸。
+- 首页折叠仪表盘（2026-08-28，对齐 Cindy HomeUsageDashboard 形态）：usage_daily 表（migration 0004，day×model 主键）+ wireSession 增量采集（同前）+ USAGE_HISTORY IPC；首页空态渲染 **UsageDashboard 可折叠卡**——统计条（今日花费[>2×前7日均值且≥$1 标 warning]/Token 今今日+30天/连续活跃含最长/近30天总额）+ 近 20 周 GitHub 风格热力图（强度=日花费，4 分位桶，color-mix --accent）+ 右栏 30 天每日堆叠柱（按模型分段，无花费日高度回退 token）+ 模型图例；折叠态一行摘要存 localStorage。中途换模型轻微误归属 v1 接受；预算列（本月/月度）BYOK 无来源未放
 - Canvas 不再被数据变化强制打开（2026-08-28）：贴附件/新产物只更新 canvasPath，仅用户点击（附件芯片/顶栏按钮）才展开——此前 latestArtifact effect 每回合强制 setCanvasOpen(true)，用户「关不掉」。输入卡下方新增会话短 id（前 8 位）。
 - 长会话渲染（2026-08-26）：`AssistantMessage`/`WorkGroupBlock` memo 化（流式 100ms 刷新只重渲染末条；工作组按 children 逐项引用比较）。未做列表虚拟化——超长会话仍卡再上 virtualization。
 - 厂商 Logo；模型 context window 扫描（GLM 5.2/5.3 = 1M）。

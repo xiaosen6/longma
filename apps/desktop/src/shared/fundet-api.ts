@@ -255,7 +255,7 @@ export interface FundetApi {
   setDefaultSearchEngine(id: SearchEngineId | null): Promise<void>;
   testSearch(query: string, engine?: SearchEngineId): Promise<SearchTestResult>;
 
-  usageHistory(days?: number): Promise<Array<{ day: string; model: string; tokens: number; costUsd: number }>>;
+  usageHistory(days?: number): Promise<Array<{ day: string; model: string; tokens: number; costUsd: number; inputTokens: number; outputTokens: number; cacheReadTokens: number; cacheWriteTokens: number }>>;
 
   browserStatus(): Promise<BrowserStatus>;
   setBrowserEnabled(enabled: boolean): Promise<void>;
