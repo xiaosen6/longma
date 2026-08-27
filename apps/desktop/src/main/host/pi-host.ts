@@ -24,7 +24,6 @@ import { readProviderKey } from './secrets.js';
 import { resolvePiBinaryPath, resolveRipgrepPath } from './pi-binary.js';
 import { createFundetMemoryManager } from './memory.js';
 import { SEARCH_MCP_SERVER_NAME } from '../../shared/search-engines.ts';
-import { effectiveModelInput } from '../../shared/model-input.ts';
 import { createPreparePiExtraSpawnConfig } from './mcp-bridge.js';
 import systemPrompt from './system-prompt.md?raw';
 
@@ -56,12 +55,9 @@ function buildPiNativeProviders(logger: Logger): PiNativeProvidersResult {
         ...(m.reasoning !== undefined ? { reasoning: m.reasoning } : {}),
         ...(m.contextWindow !== undefined ? { contextWindow: m.contextWindow } : {}),
         ...(m.maxTokens !== undefined ? { maxTokens: m.maxTokens } : {}),
-        // 输入模态：显式库值优先（设置里按模型开过「视觉」），缺省按 id 推断
-        // —— 没有这个标记，发带图消息会被 PiAgent 以
-        // PiImageInputUnsupportedError 直接拒发（存量 DB 无 input 字段，靠推断兜底）
-        ...(effectiveModelInput(m.id, m.input)
-          ? { input: effectiveModelInput(m.id, m.input) }
-          : {}),
+        // 输入模态：只信库值（预设标注 / 编辑对话框勾选，对齐 Cindy 方案）。
+        // 没有该标记发图会被 PiAgent 拒发（PiImageInputUnsupportedError）
+        ...(m.input && m.input.includes('image') ? { input: m.input } : {}),
       }));
     if (models.length === 0) {
       logger.warn(`provider "${p.name}" 没有模型，跳过`, { providerId: p.id });

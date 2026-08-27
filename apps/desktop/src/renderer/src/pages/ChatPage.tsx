@@ -121,11 +121,11 @@ export function ChatPage(): React.JSX.Element {
   }, [activeId]);
 
   const latestArtifact = artifacts[artifacts.length - 1]?.path;
+  // 只跟踪最新产物路径（顶栏 Canvas 按钮用），不强制打开——
+  // 产物每回合都在变，强制开会让用户"关不掉"（对齐 Cindy：数据变化不打扰用户）。
   useEffect(() => {
-    if (!latestArtifact) return;
-    setCanvasOpen(true);
-    setCanvasPath(latestArtifact);
-  }, [latestArtifact]);
+    if (latestArtifact && canvasPath === null) setCanvasPath(latestArtifact);
+  }, [latestArtifact, canvasPath]);
 
   const openCanvas = useCallback((p: string) => {
     setCanvasPath(p);
@@ -236,10 +236,7 @@ export function ChatPage(): React.JSX.Element {
       return next;
     });
     const last = incoming[incoming.length - 1];
-    if (last) {
-      setCanvasOpen(true);
-      setCanvasPath(last.path);
-    }
+    if (last) setCanvasPath(last.path);
   }, []);
 
   const sessionWorkDir = activeMeta?.workDir || workDir;
@@ -685,6 +682,14 @@ export function ChatPage(): React.JSX.Element {
                   {slice.usage.costUsd > 0 && (
                     <span className="text-12 tabular-nums text-muted">
                       ${slice.usage.costUsd.toFixed(4)}
+                    </span>
+                  )}
+                  {activeId && !activeId.startsWith('draft-') && (
+                    <span
+                      className="font-mono text-10 text-muted select-text"
+                      title={'会话 ID：' + activeId}
+                    >
+                      {activeId.slice(0, 8)}
                     </span>
                   )}
                   <ContextCapacityRing

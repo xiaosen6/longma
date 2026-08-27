@@ -45,7 +45,7 @@ WSL 里可以改代码、跑 `pnpm --filter fundet-desktop test` / `typecheck`�
 | Mac 包 | 未签名。WSL 打出的 `.dmg` 是 xorriso ISO/HFS+，**不是**正式 UDIF；真 dmg 需 macOS 或 `macos-latest` CI |
 | 渲染进程 | `sandbox: true`（0.1.4 起），preload 必须是 CJS 产物（见 §5 坑表「沙箱 ESM preload」） |
 | 浏览器自动化 | 内置能力开关（默认关），非 MCP Servers 用户面；托管 Chrome 持久 profile「LongMa」 |
-| 视觉发图 | 模型按 id 推断视觉 + 每模型「视觉」开关；/models 列表不带能力元数据，别指望拉取时自动识别 |
+| 视觉发图 | 对齐 Cindy：预设标注 + 编辑对话框「视觉」勾选，只信库值（推断方案已删）；/models 不带能力元数据 |
 | 电脑操作 | 内置能力开关（默认关）；cua-driver 外部二进制，遥测已关、审批跟会话档 |
 | 约束 | 保持 `@fundet/*` 与 `window.fundet`；Windows 用 PowerShell 跑 Electron |
 
@@ -150,6 +150,7 @@ ChatPage / ChatInput
 - 会话重命名：侧栏 hover 铅笔 / 双击标题；顶栏铅笔（hover 显示）/ 双击。Enter 提交、Esc 取消。
 - 点击本地图片预览（`LocalImagePreview` + `longma-file://`，失败回退 data URL）。
 - 设置：头像/字体/供应商（split pane + 预设向导，无 Cindy OAuth）。
+- Canvas 不再被数据变化强制打开（2026-08-28）：贴附件/新产物只更新 canvasPath，仅用户点击（附件芯片/顶栏按钮）才展开——此前 latestArtifact effect 每回合强制 setCanvasOpen(true)，用户「关不掉」。输入卡下方新增会话短 id（前 8 位）。
 - 长会话渲染（2026-08-26）：`AssistantMessage`/`WorkGroupBlock` memo 化（流式 100ms 刷新只重渲染末条；工作组按 children 逐项引用比较）。未做列表虚拟化——超长会话仍卡再上 virtualization。
 - 厂商 Logo；模型 context window 扫描（GLM 5.2/5.3 = 1M）。
 - 米色 + dark 主题。
@@ -228,7 +229,7 @@ ChatPage / ChatInput
 客户报障：火山引擎多模态模型粘贴图片报 `PiImageInputUnsupportedError`。根因两层：
 
 - **模型无 input:image 标记**：PiAgent 发图前校验模型 input 含 'image'（assertImageInputSupported），providers 库的模型从不带该字段 → 一律拒发。修复三层：
-  1. `shared/model-input.ts` 按 id 推断视觉家族（glm-4v*/glm-4.5v、doubao-*-vision*、gpt-4o/4.1/5、o3/o4、claude、gemini、qwen-vl、deepseek-vl 等）。**注意 glm-4.5/5.x 无 V 是纯文本**（bigmodel 实测 code 1210）。
+  1. ~~按 id 推断视觉家族~~（2026-08-28 改为对齐 Cindy：**只信库值**——providerPresets 预置标注 input、编辑对话框每模型「视觉」勾选；推断模块 model-input.ts 已删除。注意 glm-4.5/5.x 无 V 是纯文本，bigmodel 实测 code 1210。）
   2. 设置 → 模型供应商每模型行「视觉」开关（Eye 图标，写库 input 字段覆盖推断）。
   3. pi-host 映射 input：库值优先、缺省回落推断（存量 DB 免迁移直接生效）。
 - **QQ「原图」常是 PNG 套 .jpeg 扩展名**：mime 按扩展名报 image/jpeg、字节是 PNG，严格端点拒收。`file-kind.ts` 加 `sniffImageMime` 魔数嗅探（PNG/JPEG/WebP/GIF），staging 时读头 16 字节纠正。

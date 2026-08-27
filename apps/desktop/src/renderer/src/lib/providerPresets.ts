@@ -7,7 +7,7 @@ export interface ProviderPreset {
   regionHint?: "cn" | "global";
   api: ProviderApi;
   baseUrl: string;
-  models: Array<{ id: string; contextWindow?: number; maxTokens?: number }>;
+  models: Array<{ id: string; contextWindow?: number; maxTokens?: number; input?: Array<'text' | 'image'> }>;
 }
 
 /** Cindy catalog/providers.json 的预设，收成 LongMa 单 runtime（Pi BYOK）。 */
@@ -20,10 +20,12 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     "baseUrl": "https://api.openai.com/v1",
     "models": [
       {
-        "id": "gpt-5.4"
+        "id": "gpt-5.4",
+        "input": ["text", "image"]
       },
       {
-        "id": "gpt-5.4-mini"
+        "id": "gpt-5.4-mini",
+        "input": ["text", "image"]
       }
     ]
   },
@@ -36,14 +38,17 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     "models": [
       {
         "id": "claude-opus-4",
+        "input": ["text", "image"],
         "contextWindow": 1000000
       },
       {
         "id": "claude-sonnet-4",
+        "input": ["text", "image"],
         "contextWindow": 1000000
       },
       {
         "id": "claude-haiku-4-5",
+        "input": ["text", "image"],
         "contextWindow": 200000
       }
     ]
@@ -56,7 +61,8 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     "baseUrl": "https://api.x.ai/v1",
     "models": [
       {
-        "id": "grok-4.5"
+        "id": "grok-4.5",
+        "input": ["text", "image"]
       },
       {
         "id": "grok-4.3"
@@ -104,6 +110,11 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     "api": "openai-completions",
     "baseUrl": "https://open.bigmodel.cn/api/paas/v4",
     "models": [
+      {
+        "id": "glm-4v-flash",
+        "input": ["text", "image"],
+        "maxTokens": 1024
+      },
       {
         "id": "glm-5.3",
         "contextWindow": 1000000
@@ -364,14 +375,17 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     "models": [
       {
         "id": "gemini-3.6-flash",
+        "input": ["text", "image"],
         "contextWindow": 1000000
       },
       {
         "id": "gemini-3.5-flash",
+        "input": ["text", "image"],
         "contextWindow": 1000000
       },
       {
         "id": "gemini-3.5-flash-lite",
+        "input": ["text", "image"],
         "contextWindow": 1000000
       }
     ]

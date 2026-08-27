@@ -4,7 +4,6 @@ import * as Switch from '@radix-ui/react-switch';
 import { Eye, MoreHorizontal, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import type { ProviderApi, ProviderView } from '../../../../shared/fundet-api.js';
 import { formatTokenCount, preferScannedContextWindow } from '../../../../shared/context-window.js';
-import { effectiveModelInput } from '../../../../shared/model-input.ts';
 import { cn } from '../../lib/cn';
 import { ProviderLogoMark } from '../icons/ProviderLogoMark';
 import { AddProviderWizard } from './AddProviderWizard';
@@ -32,7 +31,7 @@ function CustomProviderDialog({
   const [name, setName] = useState('');
   const [api, setApi] = useState<ProviderApi>('openai-completions');
   const [baseUrl, setBaseUrl] = useState('');
-  const [models, setModels] = useState<Array<{ id: string; contextWindow?: number }>>([{ id: '' }]);
+  const [models, setModels] = useState<Array<{ id: string; contextWindow?: number; input?: Array<'text' | 'image'> }>>([{ id: '' }]);
   const [key, setKey] = useState('');
   const [error, setError] = useState('');
   const [fetching, setFetching] = useState(false);
@@ -159,6 +158,22 @@ function CustomProviderDialog({
                       setModels((cur) => cur.map((x, j) => (j === i ? { ...x, id: e.target.value } : x)))
                     }
                   />
+                  <label className="flex w-[64px] shrink-0 cursor-pointer items-center gap-1 text-12 text-secondary">
+                    <input
+                      type="checkbox"
+                      checked={(m.input ?? []).includes('image')}
+                      onChange={(e) =>
+                        setModels((cur) =>
+                          cur.map((x, j) =>
+                            j === i
+                              ? { ...x, input: e.target.checked ? ['text', 'image'] : ['text'] }
+                              : x,
+                          ),
+                        )
+                      }
+                    />
+                    视觉
+                  </label>
                   <input
                     className={cn(FIELD, 'w-[110px]')}
                     value={m.contextWindow ? String(m.contextWindow) : ''}
@@ -440,26 +455,6 @@ export function ProvidersPanel(): React.JSX.Element {
                       <span className="min-w-0 flex-1 truncate text-14 text-primary">{m.id}</span>
                       <span className="w-14 shrink-0 text-right text-12 text-muted">
                         {m.contextWindow ? formatTokenCount(preferScannedContextWindow(m.id, m.contextWindow) ?? m.contextWindow) : ''}
-                      </span>
-                      <span
-                        title="视觉输入：允许向该模型发送图片（按模型 id 自动推断，可手动覆盖）"
-                        className="flex shrink-0 items-center gap-1"
-                      >
-                        <Eye
-                          size={13}
-                          className={
-                            effectiveModelInput(m.id, m.input)?.includes('image')
-                              ? 'text-accent'
-                              : 'text-muted/50'
-                          }
-                        />
-                        <Switch.Root
-                          checked={effectiveModelInput(m.id, m.input)?.includes('image') === true}
-                          onCheckedChange={(v) => void toggleModelVision(m.id, v)}
-                          className="h-[18px] w-[32px] cursor-pointer rounded-full bg-chip data-[state=checked]:bg-accent"
-                        >
-                          <Switch.Thumb className="block h-[14px] w-[14px] translate-x-[2px] rounded-full bg-card transition-transform data-[state=checked]:translate-x-[16px]" />
-                        </Switch.Root>
                       </span>
                       <Switch.Root
                         checked={m.enabled !== false}
