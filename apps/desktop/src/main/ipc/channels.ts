@@ -59,6 +59,8 @@ export const FUNDET_INVOKE = {
   USAGE_HISTORY: 'usage:history',
   BROWSER_SET_ENABLED: 'browser:set-enabled',
   BROWSER_OPEN: 'browser:open',
+  BROWSER_REAL_LOGINS: 'browser:real-logins',
+  BROWSER_SET_REAL_LOGINS: 'browser:set-real-logins',
   COMPUTER_STATUS: 'computer:status',
   COMPUTER_SET_ENABLED: 'computer:set-enabled',
   OPEN_EXTERNAL: 'shell:open-external',

@@ -53,6 +53,8 @@ export interface UsageTrackedRuntime extends BrowserControlRuntime {
   everCalled(): boolean;
   /** 退出清算开始：拒绝新调用，返回的 promise 在在途调用归零时结算 */
   beginQuiescence(): Promise<void>;
+  /** stop 后恢复可用（quit 清理不会调；登录态拷贝等场景 stop 后还要继续用） */
+  resumeAfterStop(): void;
 }
 
 function trackUsage(runtime: BrowserControlRuntime): UsageTrackedRuntime {
@@ -86,6 +88,10 @@ function trackUsage(runtime: BrowserControlRuntime): UsageTrackedRuntime {
       return new Promise((resolve) => {
         onIdle = resolve;
       });
+    },
+    resumeAfterStop(): void {
+      quiescing = false;
+      used = false;
     },
   };
 }
@@ -133,6 +139,26 @@ export async function disposeBrowserHost(): Promise<void> {
   } catch (err) {
     console.warn('[longma:browser] quit-time stop 失败（Chrome 靠 CDP 断连自退）', String(err));
   }
+}
+
+/**
+ * 停掉托管浏览器但保持 runtime 可用（登录态拷贝前必须停——Chrome 锁自己
+ * 的 user-data）。stop 后 vendored runtime 会在下次 action 时按需重启。
+ */
+export async function stopManagedRuntime(): Promise<void> {
+  const promise = hostPromise;
+  if (!promise) return;
+  const runtime = await promise.catch(() => null);
+  if (!runtime) return;
+  await runtime.beginQuiescence();
+  if (runtime.everCalled()) {
+    try {
+      await runtime.call({ action: 'stop' });
+    } catch {
+      /* stop 失败也继续：后续快照会报 PROFILE_LOCKED */
+    }
+  }
+  runtime.resumeAfterStop();
 }
 
 /** 浏览器 MCP server 的 mount 入口用：拿已就绪的 runtime 构造门面 deps（同步 getter） */

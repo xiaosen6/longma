@@ -309,6 +309,26 @@ export function ChatPage(): React.JSX.Element {
     [mergeAttachments, sessionWorkDir, stagePaths],
   );
 
+  // 终态错误卡的「重新发送」：重发本轮最后一条用户消息（含附件路径引用）
+  const resendLast = useCallback((): void => {
+    if (!activeId) return;
+    const lastUser = [...slice.items].reverse().find((it) => it.kind === 'user');
+    if (!lastUser || lastUser.kind !== 'user') return;
+    void (async () => {
+      try {
+        await window.fundet.sendMessage({
+          sessionId: activeId,
+          text: lastUser.text,
+          ...(lastUser.attachments && lastUser.attachments.length > 0
+            ? { attachments: lastUser.attachments }
+            : {}),
+        });
+      } catch (err) {
+        setNotice(`重新发送失败：${err instanceof Error ? err.message : String(err)}`);
+      }
+    })();
+  }, [activeId, slice.items]);
+
   const pickFiles = useCallback(async (): Promise<void> => {
     const picked = await window.fundet.pickFiles();
     if (picked && picked.length > 0) await stagePaths(picked);
@@ -655,6 +675,7 @@ export function ChatPage(): React.JSX.Element {
                   setNotice(`删除失败：${err instanceof Error ? err.message : String(err)}`);
                 }
               }}
+              onRetryError={resendLast}
             />
 
             {/* composer：审批悬挂时换成 PermissionPrompt；运行状态行在输入卡上方 */}

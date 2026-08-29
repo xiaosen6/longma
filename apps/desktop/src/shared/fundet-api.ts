@@ -261,6 +261,9 @@ export interface FundetApi {
   setBrowserEnabled(enabled: boolean): Promise<void>;
   /** 打开/拉起托管浏览器窗口（登录用）：start + focus，绝不新开 tab */
   openBrowserForLogin(): Promise<void>;
+  realLoginsStatus(): Promise<{ enabled: boolean; source: string | null }>;
+  /** 开=拷系统浏览器登录态进托管浏览器；关=清除。需停托管浏览器后操作 */
+  setRealLogins(enabled: boolean): Promise<void>;
 
   computerStatus(): Promise<ComputerStatus>;
   setComputerEnabled(enabled: boolean): Promise<void>;

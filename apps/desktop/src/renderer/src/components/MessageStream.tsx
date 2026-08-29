@@ -36,6 +36,8 @@ interface MessageStreamProps {
   onFork?: (createdAt: number) => Promise<void>;
   onAddToChat?: (text: string) => void;
   onDelete?: (assistantId: string) => Promise<void>;
+  /** 终态错误卡的「重新发送」：重发本轮最后一条用户消息 */
+  onRetryError?: () => void;
 }
 
 function isTurnTailAssistant(
@@ -116,6 +118,7 @@ export function MessageStream({
   onFork,
   onAddToChat,
   onDelete,
+  onRetryError,
 }: MessageStreamProps): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef(true);
@@ -245,9 +248,20 @@ export function MessageStream({
                   className="flex items-start gap-2 rounded-inner border border-error-border bg-error-bg px-3 py-2"
                 >
                   <AlertCircle size={14} className="mt-[2px] shrink-0 text-error" />
-                  <span className="min-w-0 text-13 break-all whitespace-pre-wrap text-error select-text">
-                    {item.message}
-                  </span>
+                  <div className="min-w-0 flex-1">
+                    <span className="block text-13 break-all whitespace-pre-wrap text-error select-text">
+                      {item.message}
+                    </span>
+                    {onRetryError && (
+                      <button
+                        type="button"
+                        onClick={onRetryError}
+                        className="mt-1.5 rounded-full border border-error-border px-2.5 py-0.5 text-12 text-error transition-colors hover:bg-error-bg/60"
+                      >
+                        重新发送
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             case 'notice':

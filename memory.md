@@ -442,6 +442,13 @@ GEO 只审计用户给出的站点（CLI 自抓），不是通用搜索。
 - 自建搜索索引。
 - 保证 GEO 能让 ChatGPT 引用。
 
+### 7.5 Cindy 移植批次二（2026-08-30，commit 17e1a7d~e376475 后续）
+
+- **使用我的浏览器登录态**（对齐 f1dd63ec 精简版）：main/browser/real-profile.ts——探测系统 Chrome/Edge/Brave（Local State mtime 排序）→ last_used profile → SQLite online-backup（better-sqlite3 backup，源浏览器开着也能一致性拷）→ 改写 Local State 指向 Default（名字标 LongMa）→ staging 原子发布进托管 user-data + 完成标记。开关在设置→自动操作→浏览器自动化内（需先开主开关），**拷贝/清除前强制 stopManagedRuntime**（host 新增，quiesce→stop→resumeAfterStop，vendored runtime 下次 action 按需重启）。关=清登录库恢复空白。Windows Chrome 运行时锁库 → PROFILE_LOCKED 中文提示（设计内）。与 Cindy 差异：他们是独立 Cindy-real 双身份避免清掉手写登录态，龙马 v1 直接覆盖托管 profile（确认弹窗声明），v2 可演进双身份。**未真测成功拷贝路径**（本机 Chrome 开着），实现照 Cindy proven 逻辑。
+- **终态错误只弹一次 + 重发按钮**：sessionStore error 事件——终态错误卡每轮只留一张（重复替换文案），瞬时重试提示原地更新不堆叠；错误卡新增「重新发送」按钮（resendLast 重发最后一条用户消息含附件路径）。
+- **流式自动跟随（257597b8）**：核对后不移植——他们根因是 window-anchoring 机制（我们没有），我们的贴底实现无同款病灶。
+- Cindy 对照仓曾消失（D:/AI/Fundet 不见了，非本会话所为），已用 gh-proxy 镜像 blobless 重克隆回原路径；**ghproxy 也能 git clone**。
+
 ### 7.4 调研备查：Cindy 自动操作浏览器 / 电脑操作（2026-08-26，仅调研未实现）
 
 **浏览器自动化**：三层——MCP 门面 `lizi-mcps/src/browser`（单 `browser` 工具 + 23 个 action；截图落盘返路径、结果 JSON 200KB 硬顶）→ host 双后端（外置 Chrome / 侧栏 webview，`apps/desktop/src/main/mcp-integrations/browser.ts`）→ **vendored 内核** `packages/browser-control-runtime`（同步上游 133 文件 + shim，playwright-core **connectOverCDP** 连自 spawn 的托管 Chrome，持久 profile「Cindy」保登录态，默认 headed 让用户能登录；复用用户系统 Chrome 不 playwright install）。安全：SSRF 判定 vendored + 契约测试锁住；导航只限 http(s) 协议、私网放行是产品取舍。Token 阶梯：站点配方（内置 56 站可成长）→ 读 API → extract → scoped snapshot → screenshot。

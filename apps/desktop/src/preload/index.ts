@@ -100,6 +100,8 @@ const api: FundetApi = {
   browserStatus: () => ipcRenderer.invoke(FUNDET_INVOKE.BROWSER_STATUS),
   setBrowserEnabled: (enabled) => ipcRenderer.invoke(FUNDET_INVOKE.BROWSER_SET_ENABLED, enabled),
   openBrowserForLogin: () => ipcRenderer.invoke(FUNDET_INVOKE.BROWSER_OPEN),
+  realLoginsStatus: () => ipcRenderer.invoke(FUNDET_INVOKE.BROWSER_REAL_LOGINS),
+  setRealLogins: (enabled) => ipcRenderer.invoke(FUNDET_INVOKE.BROWSER_SET_REAL_LOGINS, enabled),
 
   computerStatus: () => ipcRenderer.invoke(FUNDET_INVOKE.COMPUTER_STATUS),
   setComputerEnabled: (enabled) => ipcRenderer.invoke(FUNDET_INVOKE.COMPUTER_SET_ENABLED, enabled),

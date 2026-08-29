@@ -11,7 +11,11 @@ export function getSetting(key: string): string | null {
   return row?.value ?? null;
 }
 
-export function setSetting(key: string, value: string): void {
+export function setSetting(key: string, value: string | null): void {
+  if (value === null) {
+    getDb().delete(settings).where(eq(settings.key, key)).run();
+    return;
+  }
   getDb()
     .insert(settings)
     .values({ key, value })

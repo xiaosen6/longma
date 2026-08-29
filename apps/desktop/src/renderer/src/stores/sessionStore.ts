@@ -352,19 +352,29 @@ function applyEvent(sessionId: string, event: AgentEvent): 'immediate' | 'thrott
     case 'error': {
       const data = event.data as { message?: string; isTerminal?: boolean; willRetry?: boolean };
       const terminal = data.isTerminal ?? data.willRetry !== true;
+      const message = friendlyProviderError(data.message || '未知错误');
+      const s0 = getSlice(sessionId);
       if (terminal) {
-        appendItem(sessionId, {
-          kind: 'error',
-          id: nextId('e'),
-          message: friendlyProviderError(data.message || '未知错误'),
-        });
-        patchSlice(sessionId, { isRunning: false, streamingText: '' });
+        // 终态错误卡每轮只保留一张：重复错误替换末尾卡片文案（对齐 Cindy「终态错误横幅只弹一次」）
+        const last = s0.items[s0.items.length - 1];
+        if (last && last.kind === 'error') {
+          const items = s0.items.slice();
+          items[items.length - 1] = { ...last, message };
+          patchSlice(sessionId, { items, streamingText: '', isRunning: false });
+        } else {
+          appendItem(sessionId, { kind: 'error', id: nextId('e'), message });
+          patchSlice(sessionId, { isRunning: false, streamingText: '' });
+        }
       } else {
-        appendItem(sessionId, {
-          kind: 'notice',
-          id: nextId('n'),
-          text: data.message || '暂时性错误，重试中…',
-        });
+        // 瞬时重试提示原地更新（1/3 → 2/3 不堆多条）
+        const last = s0.items[s0.items.length - 1];
+        if (last && last.kind === 'notice') {
+          const items = s0.items.slice();
+          items[items.length - 1] = { ...last, text: message };
+          patchSlice(sessionId, { items });
+        } else {
+          appendItem(sessionId, { kind: 'notice', id: nextId('n'), text: message });
+        }
       }
       return 'immediate';
     }

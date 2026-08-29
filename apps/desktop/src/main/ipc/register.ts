@@ -57,7 +57,16 @@ import { searchWithEngine } from '../search/providers.ts';
 import { fetchProviderModels } from '../host/provider-models.js';
 import { getHost } from '../host/pi-host.js';
 import { createConsoleLogger } from '@fundet/agent-core';
-import { ensureBrowserRuntime } from '../browser/host.js';
+import { ensureBrowserRuntime, stopManagedRuntime } from '../browser/host.js';
+import {
+  clearCopiedLogins,
+  listInstalledChromium,
+  managedUserDataMember,
+  realLoginsApplied,
+  snapshotRealProfile,
+  RealProfileError,
+} from '../browser/real-profile.ts';
+import { setSetting, getSetting } from '../db/settings.js';
 import { BROWSER_ENABLED_SETTING } from '../../shared/browser-settings.ts';
 import { COMPUTER_ENABLED_SETTING } from '../../shared/computer-settings.ts';
 import { disableCuaDriverTelemetry, resolveCuaDriverCommand } from '../computer/driver.ts';
@@ -718,6 +727,36 @@ export function registerIpcHandlers(): void {
 
   // ---------- 用量历史 ----------
   ipcMain.handle(FUNDET_INVOKE.USAGE_HISTORY, async (_e, days?: number) => getUsageHistory(Math.min(90, Math.max(1, days ?? 30))));
+
+  // ---------- 系统浏览器登录态 ----------
+  const REAL_LOGINS_SOURCE_KEY = 'browser.realLogins.source';
+
+  ipcMain.handle(FUNDET_INVOKE.BROWSER_REAL_LOGINS, async () => {
+    const dir = managedUserDataMember().userDataDir;
+    return { enabled: realLoginsApplied(dir), source: getSetting(REAL_LOGINS_SOURCE_KEY) };
+  });
+
+  ipcMain.handle(FUNDET_INVOKE.BROWSER_SET_REAL_LOGINS, async (_e, enabled: boolean) => {
+    // 先停托管浏览器（锁自己的 user-data）；失败由快照阶段报 PROFILE_LOCKED
+    await stopManagedRuntime();
+    const dir = managedUserDataMember().userDataDir;
+    if (enabled) {
+      const installed = listInstalledChromium();
+      if (installed.length === 0) {
+        throw new Error('未检测到系统 Chrome / Edge / Brave，无法拷贝登录状态。');
+      }
+      try {
+        const result = snapshotRealProfile({ source: installed[0], destDir: dir });
+        setSetting(REAL_LOGINS_SOURCE_KEY, result.sourceKind);
+      } catch (err) {
+        if (err instanceof RealProfileError) throw new Error(err.message);
+        throw err;
+      }
+    } else {
+      clearCopiedLogins(dir);
+      setSetting(REAL_LOGINS_SOURCE_KEY, null);
+    }
+  });
 
   // ---------- 电脑操作 ----------
   ipcMain.handle(FUNDET_INVOKE.COMPUTER_STATUS, async () => ({
