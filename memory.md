@@ -1,10 +1,12 @@
 # LongMa 项目记忆（memory.md）
 
-> 最后更新：2026-08-26。给任何接手的人/AI：先读本文，再读 `README.md`（用户向）。Cindy 源码只读对照，**禁止修改、禁止 fork 进本仓**。
+> 最后更新：2026-08-30。给任何接手的人/AI：先读本文，再读 `README.md`（用户向）。Cindy 源码只读对照，**禁止修改、禁止 fork 进本仓**。
 >
 > 仓库路径：`/mnt/d/AI/TenCent/fundet-buddy-main`（Windows：`D:\AI\TenCent\fundet-buddy-main`）。
 > Cindy 对照：`/mnt/d/AI/Fundet/cindy`（只读）。
-> 历史名：仓库/包名仍大量使用 `fundet`（`@fundet/agent-core`、`window.fundet`、`FUNDET_*` IPC）。产品名与窗口标题是 **LongMa（龙马）**。
+> 历史名：仓库/包名大量使用 `fundet`（`@fundet/agent-core`、`window.fundet`、`FUNDET_*` IPC）。
+>
+> **双品牌（2026-08-30 起）**：同一套代码构建两个独立产品——**LongMa（龙马）** 和 **Fundet**。两品牌功能一模一样，只有名称、logo（红球经纬线）、自我介绍口径（Fundet=AI 助手，LongMa=AI 编程助手）和更新源不同。属于不同公司的产品。每次发版必须**同步出两套安装包**（4 个产物：双平台 × 双品牌），更新源各自独立。品牌配置见 `shared/brand.ts`，构建命令见 §8。
 
 ---
 
@@ -17,7 +19,13 @@ pnpm install
 pnpm dev:win
 ```
 
-打包 Windows：`pnpm dist:win` → `apps/desktop/dist/LongMa-Setup-0.0.1-x64.exe`。
+打包 Windows：`pnpm dist:win` → `apps/desktop/dist/LongMa-Setup-<version>-x64.exe`。
+
+Fundet 品牌构建（BRAND=fundet）：
+```powershell
+pnpm --filter fundet-desktop run build:fundet        # 仅构建（BRAND=fundet 的 vite build）
+pnpm --filter fundet-desktop run dist:win:fundet     # Fundet 安装包
+```
 
 WSL 里可以改代码、跑 `pnpm --filter fundet-desktop test` / `typecheck`；**不要**在 WSL 里 `pnpm dist` / `electron-vite build`（缺 `@rollup/rollup-linux-x64-gnu`，pnpm store 在 Windows 盘）。
 
@@ -25,7 +33,7 @@ WSL 里可以改代码、跑 `pnpm --filter fundet-desktop test` / `typecheck`�
 
 ## 1. 产品是什么
 
-**LongMa** = 本地优先桌面 Agent：聊天/Agent + 技能 + BYOK。模型请求走用户自己的 Key，不经过我们的云。
+**LongMa / Fundet** = 本地优先桌面 Agent（双品牌，同代码）：聊天/Agent + 技能 + BYOK + 浏览器自动化 + 电脑操作 + IM 机器人。模型请求走用户自己的 Key，不经过我们的云。
 
 - Electron 37 + electron-vite + React 19 + Tailwind 4。
 - Agent 底座只有 **Pi v0.83.0**（`earendil-works/pi`，bun 单二进制，`--mode rpc`）。
@@ -52,6 +60,8 @@ WSL 里可以改代码、跑 `pnpm --filter fundet-desktop test` / `typecheck`�
 ---
 
 ## 2. 硬约束（改代码前必守）
+
+0. **双品牌同步发版**：每次发版必须同时出 LongMa + Fundet 两套安装包（4 个产物）。渲染层/main 不得硬编码品牌名——统一走 `shared/brand.ts` 的 `brand.name`。新功能先在 longma 默认品牌下开发验证，fundet 构建只需 `BRAND=fundet` 切换。
 
 1. **不修改 Cindy 仓库。** 只读参考 `ChatInput` / Canvas / 插件搜索实现。
 2. **不 fork Cindy 进 LongMa。** 值得搬的交互用手写移植。
@@ -122,6 +132,20 @@ ChatPage / ChatInput
 | BYOK key | `main/host/secrets.ts`（Windows 打包走系统凭据；Linux dev 可降级 `plain:`） |
 
 ---
+
+## 3.5 版本历史速查
+
+| 版本 | 日期 | 要点 |
+| --- | --- | --- |
+| 0.2.7 | 08-30 | **双品牌首发**（Fundet 变体 + 独立更新源）；系统浏览器登录态；错误卡重发按钮 |
+| 0.2.6 | 08-30 | 系统浏览器登录态开关；错误卡重发；重试提示去重 |
+| 0.2.5 | 08-29 | 视觉勾选保存丢失修复 |
+| 0.2.4 | 08-29 | 设置用量历史页 + token 四列拆分 |
+| 0.2.3 | 08-28 | 用量仪表盘首页卡 + 撤思考 chip |
+| 0.2.2 | 08-28 | Canvas 开关钉窗口右上 + 首页用量卡首版 |
+| 0.2.1 | 08-28 | 视觉 Cindy 化 + Canvas 修复 + 会话短 id + 自动操作 tab + 侧栏拖拽 |
+| 0.2.0 | 08-27 | 浏览器自动化 + 电脑操作 + IM 去重/超时 + 视觉修复 + pi 预检 |
+| 0.1.x | 08-25~26 | 发版流水线 + 应用内更新 + IM 机器人 + 文档提取 |
 
 ## 4. 已完成（按主题，含 2026-08 产品轮）
 
@@ -419,6 +443,8 @@ GEO 只审计用户给出的站点（CLI 自抓），不是通用搜索。
   - 我方云 `/search` 或 Cindy 式网关
   - 已开会话热挂搜索 MCP（现在要新开对话）
   - 搜索/GEO 真机冒烟（WSL 无 Electron GUI；需 PowerShell `pnpm dev:win` + 真 Key / 真 URL）
+  - ~~Cindy 上游待移植批次二~~（2026-08-30 已完成：系统浏览器登录态 + 错误卡重发；自动跟随核对后不移植）
+  - Fundet logo 设计稿微调（当前为程序生成的红球经纬线近似，非设计师终稿）
 
 ### 7.2 已知债 / 不阻塞
 
@@ -492,4 +518,5 @@ pnpm --filter @fundet/agent-core test
 5. 改 bundled skill：升 `LONGMA_REVISION`。
 6. 新 IPC：`channels.ts` + `fundet-api.ts` + `preload` + `register.ts` 四处一起改。
 7. 用户附件路径：工作目录外必须 stage 进 `.longma-uploads`，否则 fail-closed 读不了、Canvas 协议 403。
+8. 双品牌：渲染层/main 不得新增硬编码品牌名——用 `brand.name`（shared/brand.ts）；发版推 tag 后 CI 自动出 4 产物（LongMa/Fundet × Win/Mac）。
 )
