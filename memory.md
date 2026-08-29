@@ -258,6 +258,7 @@ ChatPage / ChatInput
 
 - Win：PowerShell `pnpm dist:win` → `LongMa-Setup-<version>-x64.exe`（约 130MB）。`npmRebuild: false`（better-sqlite3 预编译）。
 - Mac dmg：`Actions → dist-mac` 手动出包（UDIF 双架构， artifacts 自取）。
+- **0.2.6 已发版**（2026-08-30）：系统浏览器登录态开关、错误卡重发按钮、重试提示去重。此前 0.2.5 已发（2026-08-29，视觉勾选保存修复）。
 - **0.2.5 已发版**（2026-08-29）：修复视觉勾选保存丢失（编辑对话框 save/回填/扫描三处丢 input/maxTokens）。客户侧升级后：编辑供应商勾「视觉」→保存→新建会话发图即生效。
 - **0.2.4 已发版**（2026-08-29）：设置「用量历史」页 + token 四列拆分采集。migration 0005 携带 statement-breakpoint 修复，客户库升级安全。
 - **0.2.3 已发版**（2026-08-28）：用量仪表盘完整形态 + 撤思考 chip。EBUSY 预热步不够，release.yml win 打包已改 3 次重试循环（每次清半成品 dist）后全绿。另：本机对 github release 资产 CDN 直连常断，**优先试 gh-proxy.com 镜像**（https://gh-proxy.com/ + 完整 github URL，实测 2.3MB/s 两分钟一个 dmg）；镜像不通再退 api.github.com asset 端点（带 token + Accept: application/octet-stream + curl -C - 续传，~50KB/s 慢速但可拉通）。：思考等级 chip、Canvas 开关钉窗口右上、用量历史卡、（0.2.1 的视觉 Cindy 化/侧栏拖拽等也首次进正式版——0.2.1 与 0.2.2 同日连发）。**发版坑 +1：EBUSY**——electron-builder 拷 fresh 解包的 cua-driver 二进制被 Defender 锁定，CI 连挂两次；workflow 已加「下载后 hash 全量预热」步（aec4bba），tag 必须含该 commit（重跑复用旧 tag commit 不带修复）。
