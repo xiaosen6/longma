@@ -1,6 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { createHashRouter, RouterProvider } from 'react-router-dom';
+import { brand } from '../../shared/brand.js';
 import './styles/globals.css';
 import { applyFonts } from './lib/fonts';
 import { initGlobalListeners } from './stores/sessionStore';
@@ -21,6 +22,8 @@ const router = createHashRouter([
   // 调试台保留：E2E 复验与原始事件流排查用
   { path: '/debug', element: <DebugPage /> },
 ]);
+
+document.title = brand.name;
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

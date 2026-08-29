@@ -1,5 +1,9 @@
 import { cn } from '../lib/cn';
-import logoUrl from '../assets/logo.png';
+import { brand } from '../../../shared/brand.ts';
+import longmaLogo from '../assets/logo.png';
+import fundetLogo from '../assets/logo-fundet.png';
+
+const logoUrl = brand.id === 'fundet' ? fundetLogo : longmaLogo;
 
 interface BrandMarkProps {
   /** 图形高度；宽度按原图比例 */

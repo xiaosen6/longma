@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { brand } from '../../../shared/brand.js';
 import { createPortal } from 'react-dom';
 import { Check, X } from 'lucide-react';
 import { AssistantMessage } from './AssistantMessage';
@@ -111,7 +112,7 @@ export function ShareTurnModal({
         >
           <div className="mb-5 flex items-center gap-2">
             <BrandMark size={22} />
-            <span className="text-15 font-medium tracking-tight">LongMa</span>
+            <span className="text-15 font-medium tracking-tight">{brand.name}</span>
           </div>
           {payload.userText.trim() ? (
             <div className="mb-4 flex justify-end">

@@ -17,6 +17,7 @@ import { CirclePlus, MessageSquare, Pencil, Trash2, UserRound } from 'lucide-rea
 import { Link } from 'react-router-dom';
 import type { SessionListItem } from '../../../shared/fundet-api.js';
 import { cn } from '../lib/cn';
+import { brand } from '../../../shared/brand.js';
 import { getProfile, subscribeProfile } from '../lib/profile';
 import { BrandMark } from './BrandMark';
 import { SessionRenameInput } from './SessionRenameInput';
@@ -217,7 +218,7 @@ export function Sidebar({
       <div className="drag-region flex h-[46px] shrink-0 items-center gap-2 px-4">
         <BrandMark size={22} />
         <span className="text-15 font-medium tracking-tight text-primary select-none">
-          LongMa
+          {brand.name}
         </span>
       </div>
 

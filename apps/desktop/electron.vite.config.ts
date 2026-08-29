@@ -1,10 +1,15 @@
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
+
+// 品牌变体：BRAND=fundet 时构建 Fundet 品牌（默认 longma），见 src/shared/brand.ts
+const BRAND = (process.env.BRAND ?? 'longma') as 'longma' | 'fundet';
+const brandDefine = { __BRAND__: JSON.stringify(BRAND) };
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { resolve } from 'node:path';
 
 export default defineConfig({
   main: {
+    define: brandDefine,
     // workspace 包是裸 TS 源码（exports 指向 src/*.ts），打包进产物；
     // 例外：@fundet/browser-runtime 是编译到 dist 的 external 运行时依赖 ——
     // vendored 源码绝不能过 vite/rollup（chunk 渲染会在拼接边界丢代码：
@@ -31,6 +36,7 @@ export default defineConfig({
     },
   },
   preload: {
+    define: brandDefine,
     plugins: [externalizeDepsPlugin()],
     build: {
       outDir: 'out/preload',
@@ -47,6 +53,7 @@ export default defineConfig({
     },
   },
   renderer: {
+    define: brandDefine,
     root: resolve(__dirname, 'src/renderer'),
     plugins: [react(), tailwindcss()],
     build: {

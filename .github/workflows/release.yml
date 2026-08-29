@@ -21,6 +21,10 @@ jobs:
       - run: gh release create "$GITHUB_REF_NAME" -R xiaosen6/longma --title "$GITHUB_REF_NAME" --notes ""
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Fundet 品牌变体发布到独立仓库（独立更新源）
+      - run: gh release create "$GITHUB_REF_NAME" -R xiaosen6/fundet --title "$GITHUB_REF_NAME" --notes ""
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   win:
     needs: create-release
@@ -100,3 +104,80 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+  # Fundet 品牌变体（同代码同 tag，独立名称/logo/更新源 → xiaosen6/fundet）
+  fundet-win:
+    needs: create-release
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.14.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: node tools/pi/update.mjs 0.83.0 --platform=win32-x64
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: node tools/ripgrep/update.mjs --platform=win32-x64
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: node tools/cua-driver/update.mjs --platform=win32-x64
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: pnpm --filter fundet-desktop build
+        env:
+          BRAND: fundet
+      - name: Package & publish (EBUSY retry)
+        run: |
+          for i in 1 2 3; do
+            pnpm --filter fundet-desktop run dist:win:fundet:publish && exit 0
+            echo "::warning::attempt $i failed (likely EBUSY), retrying in 30s"
+            sleep 30
+            rm -rf apps/desktop/dist
+          done
+          exit 1
+        shell: bash
+        env:
+          BRAND: fundet
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  fundet-mac:
+    needs: create-release
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.14.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: node tools/pi/update.mjs 0.83.0 --platform=darwin-arm64
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: node tools/pi/update.mjs 0.83.0 --platform=darwin-x64
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: node tools/ripgrep/update.mjs --platform=darwin-arm64
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: node tools/ripgrep/update.mjs --platform=darwin-x64
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: node tools/cua-driver/update.mjs --platform=darwin-universal
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: pnpm --filter fundet-desktop build
+        env:
+          BRAND: fundet
+      - name: Package & publish
+        run: pnpm --filter fundet-desktop run dist:mac:fundet:publish
+        env:
+          BRAND: fundet
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

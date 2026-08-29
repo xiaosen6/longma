@@ -12,7 +12,9 @@ import type { UpdateState } from '../shared/fundet-api.js';
 
 const { autoUpdater } = electronUpdater;
 
-const RELEASES_URL = 'https://github.com/xiaosen6/longma/releases';
+import { brand } from '../shared/brand.js';
+
+const RELEASES_URL = `https://github.com/${brand.updater.owner}/${brand.updater.repo}/releases`;
 const CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
 
 const state: UpdateState = {

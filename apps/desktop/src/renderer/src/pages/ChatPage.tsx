@@ -47,6 +47,7 @@ import { PermissionPrompt } from '../components/PermissionPrompt';
 import { RunningStatus } from '../components/RunningStatus';
 import { ModelSelector, PermissionSelector } from '../components/SelectorChips';
 import { UsageDashboard } from '../components/UsageDashboard';
+import { brand } from '../../../shared/brand.js';
 import { FolderPickerChip } from '../components/FolderPickerChip';
 import { Sidebar } from '../components/Sidebar';
 import { BrandMark } from '../components/BrandMark';
@@ -472,7 +473,7 @@ export function ChatPage(): React.JSX.Element {
               <div className="flex flex-col items-center gap-3 select-none">
                 <BrandMark size={56} />
                 <div className="text-[40px] leading-none font-medium tracking-tight text-primary">
-                  LongMa
+                  {brand.name}
                 </div>
               </div>
               {providers.length === 0 ? (

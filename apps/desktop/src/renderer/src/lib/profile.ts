@@ -1,3 +1,4 @@
+import { brand } from '../../../shared/brand.js';
 const KEY = 'longma.profile';
 
 export interface LocalProfile {
@@ -5,7 +6,7 @@ export interface LocalProfile {
   avatar: string | null;
 }
 
-const DEFAULT: LocalProfile = { name: 'LongMa', avatar: null };
+const DEFAULT: LocalProfile = { name: brand.name, avatar: null };
 const listeners = new Set<() => void>();
 
 function read(): LocalProfile {

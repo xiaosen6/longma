@@ -2,6 +2,7 @@
 // 所以这个副作用模块必须是 main 的第一条 import
 import './browser/runtime-env.js';
 import { app, BrowserWindow, dialog, Menu, nativeTheme, session, shell, Tray } from 'electron';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { initDatabase } from './db/client.js';
@@ -16,6 +17,7 @@ import {
   registerFileProtocolHandler,
   registerFileProtocolPrivileges,
 } from './file-protocol.js';
+import { brand } from '../shared/brand.js';
 
 registerFileProtocolPrivileges();
 
@@ -80,10 +82,10 @@ function setupTrayAndCloseBehavior(win: BrowserWindow): void {
     console.warn('[longma] 托盘创建失败，关闭按钮保持直接退出', err);
     return;
   }
-  tray.setToolTip('LongMa');
+  tray.setToolTip(brand.name);
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: '打开 LongMa', click: () => focusMainWindow() },
+      { label: `打开 ${brand.name}`, click: () => focusMainWindow() },
       { type: 'separator' },
       {
         label: '退出',
@@ -108,7 +110,7 @@ function setupTrayAndCloseBehavior(win: BrowserWindow): void {
     if (!trayHintShown && process.platform === 'win32') {
       trayHintShown = true;
       tray.displayBalloon({
-        title: 'LongMa',
+        title: brand.name,
         content: '已最小化到系统托盘，右键托盘图标可退出。',
       });
     }
@@ -137,7 +139,7 @@ function createWindow(): void {
     x: 80,
     y: 80,
     show: true,
-    title: 'LongMa',
+    title: brand.name,
     icon: resolveAppIcon(),
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#2a2828' : '#f2ebe1',
     autoHideMenuBar: true,
@@ -201,7 +203,7 @@ function bootstrap(): void {
     getHost();
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    dialog.showErrorBox('LongMa 启动失败', message);
+    dialog.showErrorBox(`${brand.name} 启动失败`, message);
     app.quit();
     return;
   }
@@ -252,6 +254,12 @@ function bootstrap(): void {
 // 关窗默认进托盘后，再点桌面图标/快捷方式会起到第二个实例（SQLite、pi 宿主会
 // 冲突）。单实例锁：后起的实例直接退（app.quit 不拦截 ready 后的初始化，所以
 // 整个 bootstrap 只在持锁实例里注册），由已有实例把隐藏窗口唤出来。
+// userData 显式按品牌隔离（Electron 默认按 package.json name 取，Fundet 构建
+// 会落到 fundet-desktop；且必须在 single-instance lock 之前设置才生效）
+const brandUserData = path.join(app.getPath('appData'), brand.name);
+fs.mkdirSync(brandUserData, { recursive: true }); // 锁文件需要目录先存在，否则单实例锁失败 → 静默退出
+app.setPath('userData', brandUserData);
+
 if (app.requestSingleInstanceLock()) {
   app.on('second-instance', () => focusMainWindow());
   bootstrap();

@@ -25,7 +25,13 @@ import { resolvePiBinaryPath, resolveRipgrepPath } from './pi-binary.js';
 import { createFundetMemoryManager } from './memory.js';
 import { SEARCH_MCP_SERVER_NAME } from '../../shared/search-engines.ts';
 import { createPreparePiExtraSpawnConfig } from './mcp-bridge.js';
-import systemPrompt from './system-prompt.md?raw';
+import systemPromptRaw from './system-prompt.md?raw';
+import { brand } from '../../shared/brand.js';
+
+// 品牌化自我介绍：LongMa=AI 编程助手 / Fundet=AI 助手
+const systemPrompt = systemPromptRaw
+  .replace('你是 LongMa', `你是 ${brand.name}`)
+  .replace('一个运行在本地的 AI 编程助手', brand.assistantRole);
 
 export interface FundetHost {
   maker: Maker;

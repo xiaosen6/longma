@@ -26,7 +26,12 @@
     "dist:win:publish": "electron-builder --win --x64 --publish always --config.electronDist=node_modules/electron/dist",
     "dist:mac:publish": "electron-builder --mac --x64 --arm64 --publish always",
     "predist:win:publish": "node ../../tools/pack-browser-deps.mjs",
-    "predist:mac:publish": "node ../../tools/pack-browser-deps.mjs"
+    "predist:mac:publish": "node ../../tools/pack-browser-deps.mjs",
+    "build:fundet": "node ../../tools/with-brand.mjs fundet electron-vite build",
+    "dist:win:fundet": "node ../../tools/with-brand.mjs fundet electron-builder --win --x64 --config electron-builder.fundet.yml --config.electronDist=node_modules/electron/dist",
+    "dist:mac:fundet": "node ../../tools/with-brand.mjs fundet electron-builder --mac --x64 --arm64 --config electron-builder.fundet.yml",
+    "dist:win:fundet:publish": "node ../../tools/with-brand.mjs fundet electron-builder --win --x64 --publish always --config electron-builder.fundet.yml --config.electronDist=node_modules/electron/dist",
+    "dist:mac:fundet:publish": "node ../../tools/with-brand.mjs fundet electron-builder --mac --x64 --arm64 --publish always --config electron-builder.fundet.yml"
   },
   "dependencies": {
     "@fundet/agent-core": "workspace:*",

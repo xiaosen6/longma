@@ -11,6 +11,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { Paperclip, X } from 'lucide-react';
 import { cn } from '../lib/cn';
+import { brand } from '../../../shared/brand.js';
 import { SendButton } from './SendButton';
 import { SlashPalette, type SlashItem } from './SlashPalette';
 import type { SessionAttachment } from '../../../shared/fundet-api.ts';
@@ -47,7 +48,7 @@ export function ChatInput({
   isRunning,
   disabled,
   sendDisabled,
-  placeholder = 'Hi LongMa!',
+  placeholder = `Hi ${brand.name}!`,
   leadingControls,
   trailingControls,
   slashItems = [],
