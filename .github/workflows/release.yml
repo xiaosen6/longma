@@ -18,11 +18,11 @@ jobs:
   create-release:
     runs-on: ubuntu-latest
     steps:
-      - run: gh release create "$GITHUB_REF_NAME" -R xiaosen6/longma --title "$GITHUB_REF_NAME" --notes ""
+      - run: gh release view "$GITHUB_REF_NAME" -R xiaosen6/longma > /dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" -R xiaosen6/longma --title "$GITHUB_REF_NAME" --notes ""
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       # Fundet 品牌变体发布到独立仓库（独立更新源）；GITHUB_TOKEN 只限本仓，跨仓用 PAT
-      - run: gh release create "$GITHUB_REF_NAME" -R xiaosen6/fundet --title "$GITHUB_REF_NAME" --notes ""
+      - run: gh release view "$GITHUB_REF_NAME" -R xiaosen6/fundet > /dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" -R xiaosen6/fundet --title "$GITHUB_REF_NAME" --notes ""
         env:
           GH_TOKEN: ${{ secrets.FUNDET_RELEASE_TOKEN }}
 
