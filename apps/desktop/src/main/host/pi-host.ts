@@ -29,9 +29,20 @@ import systemPromptRaw from './system-prompt.md?raw';
 import { brand } from '../../shared/brand.js';
 
 // 品牌化自我介绍：LongMa=AI 编程助手 / Fundet=AI 助手
-const systemPrompt = systemPromptRaw
-  .replace('你是 LongMa', `你是 ${brand.name}`)
-  .replace('一个运行在本地的 AI 编程助手', brand.assistantRole);
+const systemPrompt = (() => {
+  let prompt = systemPromptRaw
+    .replace('你是 LongMa', `你是 ${brand.name}`)
+    .replace('一个运行在本地的 AI 编程助手', brand.assistantRole);
+  // Fundet 品牌不预装技能——去掉技能列表段
+  if (!brand.bundledSkills) {
+    const skillStart = prompt.indexOf('本机预装了这些技能：');
+    const skillEnd = prompt.indexOf('需要打开搜索结果');
+    if (skillStart >= 0 && skillEnd > skillStart) {
+      prompt = prompt.slice(0, skillStart) + prompt.slice(skillEnd);
+    }
+  }
+  return prompt;
+})();
 
 export interface FundetHost {
   maker: Maker;

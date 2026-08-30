@@ -34,11 +34,6 @@ extraResources:
     to: icon.png
   - from: resources/fundet/icon.ico
     to: icon.ico
-  - from: resources/bundled-skills
-    to: bundled-skills
-    filter:
-      - '**/*'
-      - '**/.*'
   - from: resources-browser/node_modules
     to: node_modules
   - from: ../../apps/cua-driver-bin/win32-x64

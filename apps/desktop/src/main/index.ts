@@ -193,10 +193,13 @@ function bootstrap(): void {
   // 1) 数据库（含 better-sqlite3 原生模块自查日志）
   initDatabase();
   // 1b) 安装包预制技能 → ~/.agents/skills（Pi 启动后即可 /skill: 点名）
-  try {
-    ensureBundledSkills();
-  } catch (err) {
-    console.warn('[longma:skills] 预制技能同步失败（不阻断启动）', err);
+  // Fundet 品牌不预装技能
+  if (brand.bundledSkills) {
+    try {
+      ensureBundledSkills();
+    } catch (err) {
+      console.warn('[longma:skills] 预制技能同步失败（不阻断启动）', err);
+    }
   }
   // 2) pi 宿主装配（PiAgent + Maker 单例；二进制缺失会在这里抛错，早发现）
   try {

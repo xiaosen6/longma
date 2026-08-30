@@ -17,6 +17,8 @@ export interface BrandConfig {
   assistantRole: string;
   /** 应用内更新源（GitHub owner/repo；fundet 独立 Releases） */
   updater: { owner: string; repo: string };
+  /** 是否预装内置技能（Fundet 不预装） */
+  bundledSkills: boolean;
 }
 
 declare const __BRAND__: BrandId;
@@ -27,12 +29,14 @@ const BRANDS: Record<BrandId, BrandConfig> = {
     name: 'LongMa',
     assistantRole: '一个运行在本地的 AI 编程助手',
     updater: { owner: 'xiaosen6', repo: 'longma' },
+    bundledSkills: true,
   },
   fundet: {
     id: 'fundet',
     name: 'Fundet',
     assistantRole: '一个运行在本地的 AI 助手',
     updater: { owner: 'xiaosen6', repo: 'fundet' },
+    bundledSkills: false,
   },
 };
 
