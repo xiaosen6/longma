@@ -8,6 +8,16 @@
 >
 > **双品牌（2026-08-30 起）**：同一套代码构建两个独立产品——**LongMa（龙马）** 和 **Fundet**。两品牌功能一模一样，只有名称、logo（红球经纬线）、自我介绍口径（Fundet=AI 助手，LongMa=AI 编程助手）和更新源不同。属于不同公司的产品。每次发版必须**同步出两套安装包**（4 个产物：双平台 × 双品牌），更新源各自独立。品牌配置见 `shared/brand.ts`，构建命令见 §8。
 
+**Fundet 与 LongMa 的全部差异**：
+| 差异点 | LongMa | Fundet |
+| --- | --- | --- |
+| 名称 | LongMa（龙马） | Fundet |
+| 自我介绍 | AI 编程助手 | AI 助手 |
+| Logo | 蓝马头（assets/logo.png） | 红球经纬线（山东未来互联 logo 截取） |
+| 预装技能 | 4 个（Video/social/geo/web-search） | 无 |
+| 更新源 | github.com/xiaosen6/longma | github.com/xiaosen6/fundet |
+| userData | %APPDATA%\LongMa | %APPDATA%\Fundet |
+
 ---
 
 ## 0. 30 秒上手
@@ -444,7 +454,8 @@ GEO 只审计用户给出的站点（CLI 自抓），不是通用搜索。
   - 已开会话热挂搜索 MCP（现在要新开对话）
   - 搜索/GEO 真机冒烟（WSL 无 Electron GUI；需 PowerShell `pnpm dev:win` + 真 Key / 真 URL）
   - ~~Cindy 上游待移植批次二~~（2026-08-30 已完成：系统浏览器登录态 + 错误卡重发；自动跟随核对后不移植）
-  - Fundet logo 设计稿微调（当前为程序生成的红球经纬线近似，非设计师终稿）
+  - ~~Fundet logo~~（2026-08-30 已从公司 logo 图截取红色球体——山东未来互联科技，黑底透明化+像素级红色边界扫描）
+  - **Fundet 不预装技能**（brand.bundledSkills=false）：ensureBundledSkills 跳过、system-prompt 技能段 indexOf 切除、electron-builder.fundet.yml 不含 bundled-skills
 
 ### 7.2 已知债 / 不阻塞
 
