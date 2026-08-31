@@ -46,7 +46,7 @@ linux:
   icon: resources/fundet/icon.png
 
 win:
-  icon: resources/fundet/icon.png
+  icon: resources/fundet/icon.ico
   target:
     - nsis
   extraResources:

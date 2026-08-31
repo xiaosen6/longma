@@ -1,6 +1,6 @@
 {
   "name": "fundet-desktop",
-  "version": "0.2.7",
+  "version": "0.2.8",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@9.14.4",
@@ -31,7 +31,11 @@
     "dist:win:fundet": "node ../../tools/with-brand.mjs fundet electron-builder --win --x64 --config electron-builder.fundet.yml --config.electronDist=node_modules/electron/dist",
     "dist:mac:fundet": "node ../../tools/with-brand.mjs fundet electron-builder --mac --x64 --arm64 --config electron-builder.fundet.yml",
     "dist:win:fundet:publish": "node ../../tools/with-brand.mjs fundet electron-builder --win --x64 --publish always --config electron-builder.fundet.yml --config.electronDist=node_modules/electron/dist",
-    "dist:mac:fundet:publish": "node ../../tools/with-brand.mjs fundet electron-builder --mac --x64 --arm64 --publish always --config electron-builder.fundet.yml"
+    "dist:mac:fundet:publish": "node ../../tools/with-brand.mjs fundet electron-builder --mac --x64 --arm64 --publish always --config electron-builder.fundet.yml",
+    "predist:win:fundet": "node ../../tools/pack-browser-deps.mjs",
+    "predist:mac:fundet": "node ../../tools/pack-browser-deps.mjs",
+    "predist:win:fundet:publish": "node ../../tools/pack-browser-deps.mjs",
+    "predist:mac:fundet:publish": "node ../../tools/pack-browser-deps.mjs"
   },
   "dependencies": {
     "@fundet/agent-core": "workspace:*",
