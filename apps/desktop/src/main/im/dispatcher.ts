@@ -20,6 +20,7 @@ import { eq } from 'drizzle-orm';
 import { broadcastSessionListChanged } from './runtime.ts';
 import { collectFinalText } from './turn-collector.ts';
 import { createInboundDedup } from './dedup.ts';
+import { brand } from '../../shared/brand.ts';
 
 const CHANNEL_LABEL: Record<ImChannelId, string> = {
   wechat: '微信',
@@ -125,7 +126,7 @@ export function handleImMessage(msg: ImInbound): Promise<string> {
   const next = prev
     .catch(() => '')
     .then(() => runTurn(msg))
-    .catch((err) => `龙马出错：${err instanceof Error ? err.message : String(err)}`);
+    .catch((err) => ` ${brand.name} 出错：${err instanceof Error ? err.message : String(err)}`);
   queues.set(key, next);
   return next;
 }
@@ -140,5 +141,5 @@ export function chunkImText(text: string, size = 3500): string[] {
 }
 
 export function defaultImWorkDirHint(): string {
-  return path.join(app.getPath('home') || os.homedir(), 'LongMa-IM');
+  return path.join(app.getPath('home') || os.homedir(), `${brand.name}-IM`);
 }

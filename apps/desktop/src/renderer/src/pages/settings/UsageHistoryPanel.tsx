@@ -12,6 +12,7 @@
  * 无任何数据时渲染空态说明（Cindy 同款提示口径）。
  */
 import { useEffect, useMemo, useState } from 'react';
+import { brand } from '../../../../shared/brand.ts';
 
 interface UsageRow {
   day: string;
@@ -229,7 +230,7 @@ export function UsageHistoryPanel(): React.JSX.Element {
   if (view.empty) {
     return (
       <div className="text-13 leading-relaxed text-muted" style={{ paddingTop: 8 }}>
-        这台设备上龙马内部产生的 token 用量。记录从该功能上线起积累，不回填更早的历史。
+        这台设备上{brand.name}内部产生的 token 用量。记录从该功能上线起积累，不回填更早的历史。
         目前还没有任何用量记录——开始对话后这里会出现统计。
       </div>
     );
@@ -243,7 +244,7 @@ export function UsageHistoryPanel(): React.JSX.Element {
   return (
     <div className="flex flex-col gap-4" style={{ maxWidth: 860 }}>
       <p className="text-13 leading-relaxed text-muted">
-        这台设备上龙马内部产生的 token 用量。记录从该功能上线起积累，不回填更早的历史。
+        这台设备上{brand.name}内部产生的 token 用量。记录从该功能上线起积累，不回填更早的历史。
       </p>
 
       {/* 概览 */}

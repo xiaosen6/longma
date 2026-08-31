@@ -7,6 +7,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
+import { brand } from '../../shared/brand.js';
 import os from 'node:os';
 import path from 'node:path';
 import { BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron';

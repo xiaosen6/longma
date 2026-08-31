@@ -2,6 +2,7 @@ import { searchEngineMeta } from '../../shared/search-engines.ts';
 import { readSearchKey, resolveSearchEngine } from './config.ts';
 import type { SearchToolOutput } from './mcp-server.ts';
 import { searchWithEngine } from './providers.ts';
+import { brand } from '../../shared/brand.ts';
 
 /** 内置 MCP `web_search` 的执行体；设置页测试走同一套 HTTP 客户端。 */
 export async function handleWebSearch(args: Record<string, unknown>): Promise<SearchToolOutput> {
@@ -10,7 +11,7 @@ export async function handleWebSearch(args: Record<string, unknown>): Promise<Se
   const engine = resolveSearchEngine(typeof args.engine === 'string' ? args.engine : null);
   if (!engine) {
     return {
-      text: '还没有配置搜索引擎。请打开龙马「设置 → 搜索」，填写 Tavily、Brave、博查或智谱 Web Search 的 API key，然后重开对话。',
+      text: `还没有配置搜索引擎。请打开 ${brand.name} 「设置 → 搜索」，填写 Tavily、Brave、博查或智谱 Web Search 的 API key，然后重开对话。`,
       isError: true,
     };
   }

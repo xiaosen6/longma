@@ -12,6 +12,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import Database from 'better-sqlite3';
+import { brand } from '../../shared/brand.js';
 
 export type ChromiumKind = 'chrome' | 'edge' | 'brave';
 
@@ -121,9 +122,9 @@ export function rewriteLocalStateForManagedDefault(localStateRaw: string, source
   const sourceInfo = {
     ...((infoCache[sourceProfile] as Record<string, unknown>) ?? (infoCache['Default'] as Record<string, unknown>) ?? {}),
   };
-  sourceInfo['name'] = 'LongMa';
-  sourceInfo['shortcut_name'] = 'LongMa';
-  sourceInfo['user_name'] = 'LongMa';
+  sourceInfo['name'] = brand.name;
+  sourceInfo['shortcut_name'] = brand.name;
+  sourceInfo['user_name'] = brand.name;
   profile['last_used'] = 'Default';
   profile['last_active_profiles'] = ['Default'];
   profile['profiles_order'] = ['Default'];

@@ -32,6 +32,7 @@ import { UpdateCard } from '../components/settings/UpdateCard';
 import { BrowserSection } from '../components/settings/BrowserSection';
 import { UsageHistoryPanel } from './settings/UsageHistoryPanel';
 import { ComputerSection } from '../components/settings/ComputerSection';
+import { brand } from '../../../shared/brand.ts';
 
 const THEME_OPTIONS: Array<{
   value: ThemeMode;
@@ -201,7 +202,7 @@ export function SettingsPage(): React.JSX.Element {
                         setWorkDir(e.target.value);
                         setDefaultWorkDir(e.target.value);
                       }}
-                      placeholder="如 D:\\AI\\LongMa 或 /home/you/projects"
+                      placeholder={`如 D:\\AI\\${brand.name} 或 /home/you/projects`}
                       className={cn(FIELD_CLS, 'font-mono')}
                     />
                     <button
@@ -225,7 +226,7 @@ export function SettingsPage(): React.JSX.Element {
                   description="菜单、设置、对话和其它界面文字"
                   value={uiFont}
                   presets={UI_FONT_PRESETS}
-                  preview="LongMa 龙马 · The quick brown fox 0123456789"
+                  preview={`${brand.name} · The quick brown fox 0123456789`}
                   onChange={(f) => {
                     setUiFont(f);
                     setUiFontState(f);

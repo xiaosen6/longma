@@ -5,6 +5,7 @@
  */
 import { useEffect, useState } from 'react';
 import * as Switch from '@radix-ui/react-switch';
+import { brand } from '../../../../shared/brand.ts';
 
 export function BrowserSection(): React.JSX.Element {
   const [enabled, setEnabled] = useState(false);
@@ -85,7 +86,7 @@ export function BrowserSection(): React.JSX.Element {
               setRealLogins((s) => ({ ...s, enabled: v }));
               setRealError('');
               const confirmMsg = v
-                ? '将把系统浏览器（Chrome/Edge/Brave）当前 profile 的 Cookie 和已存密码拷贝进龙马专用浏览器，覆盖其中的登录状态。继续？'
+                ? `将把系统浏览器（Chrome/Edge/Brave）当前 profile 的 Cookie 和已存密码拷贝进${brand.name}专用浏览器，覆盖其中的登录状态。继续？`
                 : '将清除专用浏览器中的全部登录状态（包括你手动登录的网站）。继续？';
               if (!window.confirm(confirmMsg)) {
                 setRealLogins((s) => ({ ...s, enabled: prev }));

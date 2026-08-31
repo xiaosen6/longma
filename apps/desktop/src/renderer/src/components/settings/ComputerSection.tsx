@@ -6,6 +6,7 @@
  */
 import { useEffect, useState } from 'react';
 import * as Switch from '@radix-ui/react-switch';
+import { brand } from '../../../../shared/brand.ts';
 
 export function ComputerSection(): React.JSX.Element {
   const [enabled, setEnabled] = useState(false);
@@ -52,7 +53,7 @@ export function ComputerSection(): React.JSX.Element {
       </div>
       {!driverAvailable && (
         <p className="mt-2 border-t border-board pt-2 text-12 text-error">
-          操作驱动（cua-driver）未就绪：请重新安装龙马；开发环境运行
+          操作驱动（cua-driver）未就绪：请重新安装{brand.name}；开发环境运行
           node tools/cua-driver/update.mjs 下载。开启开关后新对话才会生效。
         </p>
       )}

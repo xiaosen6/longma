@@ -6,6 +6,7 @@ import { chunkImText, handleImMessage } from './dispatcher.ts';
 import { clearImCreds, readImCreds, writeImCreds } from './secrets.ts';
 import { setImRuntime } from './runtime.ts';
 import { getSetting, setSetting } from '../db/settings.js';
+import { brand } from '../../shared/brand.ts';
 
 const BASE = 'https://ilinkai.weixin.qq.com';
 const CURSOR_KEY = 'im.wechat.cursor';
@@ -28,7 +29,7 @@ function makeTransport(token?: string, observer?: WechatAuthorizationObserver): 
   return new TencentIlinkTransport({
     baseUrl: BASE,
     token,
-    botAgent: 'LongMa/0.0.1',
+    botAgent: `${brand.name}/0.0.1`,
     clientVersion: '0.0.1',
     fetch: globalThis.fetch.bind(globalThis),
     authorizationObserver: observer,

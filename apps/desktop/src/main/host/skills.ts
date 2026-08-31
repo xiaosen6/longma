@@ -11,6 +11,7 @@ import { app } from 'electron';
 import { parseFrontmatter, scanPiCustomizations } from '@fundet/agent-core';
 import { parseSkillMarkdown } from './skill-package.js';
 import { extractZip, findEntryInExtract } from './zip-extract.js';
+import { brand } from '../../shared/brand.js';
 
 /** 不用点开头：electron-builder extraResources 可能丢掉 dotfile */
 const BUNDLED_MARKER = 'LONGMA_REVISION';
@@ -264,7 +265,7 @@ export function uninstallSkill(skillDir: string): void {
     throw new Error('安装自带的技能不能卸载');
   }
   if (!isManagedSkillDir(resolved)) {
-    throw new Error('只能卸载 ~/.agents/skills 或项目 .agents/skills 下由 LongMa 管理的技能');
+    throw new Error(`只能卸载 ~/.agents/skills 或项目 .agents/skills 下由 ${brand.name} 管理的技能`);
   }
   fs.rmSync(resolved, { recursive: true, force: true });
 }

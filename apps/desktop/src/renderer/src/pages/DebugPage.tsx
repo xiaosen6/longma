@@ -15,6 +15,7 @@ import type {
   SessionDetail,
   SessionListItem,
 } from '../../../shared/fundet-api.js';
+import { brand } from '../../../shared/brand.ts';
 
 const sectionStyle: React.CSSProperties = {
   border: '1px solid #ccc',
@@ -223,7 +224,7 @@ export function DebugPage(): React.JSX.Element {
 
   return (
     <div style={{ padding: 16, fontFamily: 'system-ui, sans-serif', fontSize: 13 }}>
-      <h1 style={{ fontSize: 20 }}>LongMa 调试台</h1>
+      <h1 style={{ fontSize: 20 }}>{brand.name} 调试台</h1>
 
       {/* ---------- 设置区 ---------- */}
       <div style={sectionStyle}>

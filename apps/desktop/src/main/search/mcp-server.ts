@@ -5,6 +5,7 @@
  * 不在此文件 import 密钥/Electron，便于 node --test 直接打协议。
  */
 import { createServer, type Server } from 'node:http';
+import { brand } from '../../shared/brand.ts';
 import {
   SEARCH_ENGINE_IDS,
   SEARCH_MCP_TOOL_NAME,
@@ -28,7 +29,7 @@ export type SearchToolHandler = (args: Record<string, unknown>) => Promise<Searc
 const TOOL = {
   name: SEARCH_MCP_TOOL_NAME,
   description:
-    '使用用户在龙马「设置 → 搜索」里配置的引擎搜索公网，返回标题、链接、摘要。' +
+    `使用用户在 ${brand.name} 「设置 → 搜索」里配置的引擎搜索公网，返回标题、链接、摘要。` +
     '用户说搜一下、查资料、最新新闻、找网页时调用。' +
     'engine 可省略（用设置里的默认）；可选 tavily、brave、bocha、zhipu。' +
     '未配置任何 key 时会返回指引，把 message 原样告诉用户去设置页填写。',

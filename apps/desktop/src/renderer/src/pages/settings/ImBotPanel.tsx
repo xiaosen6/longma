@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ImBotsStatus, ImChannelId, ImChannelStatus, ProviderView } from '../../../../shared/fundet-api.js';
 import { cn } from '../../lib/cn';
+import { brand } from '../../../../shared/brand.ts';
 
 const FIELD =
   'w-full h-10 rounded-xl border border-board bg-card px-3 text-13 text-primary placeholder:text-placeholder outline-none focus-visible:border-[var(--input-focus-border)]';
@@ -40,7 +41,7 @@ export function ImBotPanel(): React.JSX.Element {
       await window.fundet.imSave({ id: ch.id, fields });
       setDrafts((d) => ({ ...d, [ch.id]: {} }));
       await refresh();
-      setNotice(`${ch.name} 已保存并尝试连接。电脑要开着龙马，消息才会进智能体。`);
+      setNotice(`${ch.name} 已保存并尝试连接。电脑要开着${brand.name}，消息才会进智能体。`);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -79,7 +80,7 @@ export function ImBotPanel(): React.JSX.Element {
       <div>
         <h2 className="text-16 leading-[1.2] font-medium text-primary">IM 机器人</h2>
         <p className="mt-1 text-13 text-secondary">
-          用你自己的账号或机器人，凭证只存在本机。私聊或群里 @ 龙马，任务在这台电脑上跑，结果回到消息串。电脑要开着应用。
+          用你自己的账号或机器人，凭证只存在本机。私聊或群里 @ {brand.name}，任务在这台电脑上跑，结果回到消息串。电脑要开着应用。
         </p>
       </div>
 

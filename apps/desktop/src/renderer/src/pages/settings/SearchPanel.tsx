@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { SearchEngineId, SearchStatus } from '../../../../shared/fundet-api.js';
 import { cn } from '../../lib/cn';
+import { brand } from '../../../../shared/brand.ts';
 
 const FIELD =
   'w-full h-10 rounded-xl border border-board bg-card px-3 text-13 text-primary placeholder:text-placeholder outline-none focus-visible:border-[var(--input-focus-border)]';
@@ -59,7 +60,7 @@ export function SearchPanel(): React.JSX.Element {
     setError('');
     setNotice('');
     try {
-      const out = await window.fundet.testSearch('LongMa desktop agent', id);
+      const out = await window.fundet.testSearch(`${brand.name} desktop agent`, id);
       if (!out.ok) setError(out.error || '测试失败');
       else setNotice(`${id} 可用，返回 ${out.results?.length ?? 0} 条。`);
     } catch (err) {

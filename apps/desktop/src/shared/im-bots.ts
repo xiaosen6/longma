@@ -1,3 +1,4 @@
+import { brand } from './brand.ts';
 /** 个人 IM 机器人渠道（借鉴 Cindy 设置 → IM 机器人 → 个人）。 */
 
 export const IM_CHANNEL_IDS = ['wechat', 'wecom', 'feishu', 'dingtalk'] as const;
@@ -22,7 +23,7 @@ export const IM_CHANNELS: readonly ImChannelMeta[] = [
   {
     id: 'wechat',
     name: '个人微信',
-    hint: '扫码连接个人微信，在微信私聊里把活派给龙马。',
+    hint: `扫码连接个人微信，在微信私聊里把活派给 ${brand.name}。`,
     signupUrl: 'https://ilinkai.weixin.qq.com',
     fields: [],
     qr: true,
