@@ -292,9 +292,9 @@ ChatPage / ChatInput
 
 - Win：PowerShell `pnpm dist:win` → `LongMa-Setup-<version>-x64.exe`（约 130MB）。`npmRebuild: false`（better-sqlite3 预编译）。
 - Mac dmg：`Actions → dist-mac` 手动出包（UDIF 双架构， artifacts 自取）。
-- **0.2.7 已发版**（2026-08-30）：**双品牌首发**——LongMa + Fundet 同 tag 同步发版。架构：shared/brand.ts + BRAND=fundet 构建期注入 __BRAND__（electron.vite define），渲染层/main 全部展示名走 brand.name；Fundet logo = 红球经纬线 SVG（sharp 生成 png/ico 全套）；system-prompt 品牌化（Fundet=AI 助手，LongMa=AI 编程助手）；updater 源按品牌（fundet → xiaosen6/fundet 独立 Releases）；electron-builder.fundet.yml（productName Fundet、userData 隔离 %APPDATA%\Fundet）。**发版链路新坑**：跨仓发布 GITHUB_TOKEN 只限本仓 403 → 用 PAT secret FUNDET_RELEASE_TOKEN（本机 gh auth token 已存入）；create-release 改幂等（view→create 防重跑撞）；fundet 仓库需先有 main 分支（空仓 422）→ 用最小 README init。fundet 构建命令： ERR_PNPM_NO_SCRIPT  Missing script: build:fundet
+- **0.2.7 已发版**（2026-08-30）：**双品牌首发**——LongMa + Fundet 同 tag 同步发版。架构：shared/brand.ts + BRAND=fundet 构建期注入 __BRAND__（electron.vite define），渲染层/main 全部展示名走 brand.name；Fundet logo = 从公司 logo 图（山东未来互联科技）截取的红色球体（黑底透明化，png/ico 全套；初版 SVG 生成已废弃）；system-prompt 品牌化（Fundet=AI 助手，LongMa=AI 编程助手）；updater 源按品牌（fundet → xiaosen6/fundet 独立 Releases）；electron-builder.fundet.yml（productName Fundet、userData 隔离 %APPDATA%\Fundet）。**发版链路新坑**：跨仓发布 GITHUB_TOKEN 只限本仓 403 → 用 PAT secret FUNDET_RELEASE_TOKEN（本机 gh auth token 已存入）；create-release 改幂等（view→create 防重跑撞）；fundet 仓库需先有 main 分支（空仓 422）→ 用最小 README init。fundet 构建命令： ERR_PNPM_NO_SCRIPT  Missing script: build:fundet
 
-Command "build:fundet" not found. Did you mean "pnpm run build"? / （tools/with-brand.mjs 包装器）。**注意**：fundet 仓库 public 但只放 README+发版资产（不推完整源码——用户拍板），代码维护仍走 longma 仓。userData 隔离坑：setPath 前必须 mkdir（见 §5）。
+Command "build:fundet" not found. Did you mean "pnpm run build"? / （tools/with-brand.mjs 包装器）。**注意**：fundet 仓库 public 但只放 README+发版资产（不推完整源码——用户拍板），代码维护仍走 longma 仓。userData 隔离坑：setPath 前必须 mkdir（见 §5）。**exe 图标「还是旧的」= Windows 图标缓存**（2026-08-31 客诉预判：提取 exe 内嵌图标验证过是正确红球；处置 `ie4uinit.exe -show` + 重启 explorer，或改文件名/重装触发刷新——客户报障先这么答）。
 - **0.2.6 已发版**（2026-08-30）：系统浏览器登录态开关、错误卡重发按钮、重试提示去重。此前 0.2.5 已发（2026-08-29，视觉勾选保存修复）。
 - **0.2.5 已发版**（2026-08-29）：修复视觉勾选保存丢失（编辑对话框 save/回填/扫描三处丢 input/maxTokens）。客户侧升级后：编辑供应商勾「视觉」→保存→新建会话发图即生效。
 - **0.2.4 已发版**（2026-08-29）：设置「用量历史」页 + token 四列拆分采集。migration 0005 携带 statement-breakpoint 修复，客户库升级安全。
