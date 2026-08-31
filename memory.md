@@ -147,6 +147,7 @@ ChatPage / ChatInput
 
 | 版本 | 日期 | 要点 |
 | --- | --- | --- |
+| 0.2.8 | 08-31 | **修复 v0.2.7 fundet 包启动崩溃 + 旧图标**（详见 §4.7a）；longma 侧仅版本号 |
 | 0.2.7 | 08-30 | **双品牌首发**（Fundet 变体 + 独立更新源）；系统浏览器登录态；错误卡重发按钮 |
 | 0.2.6 | 08-30 | 系统浏览器登录态开关；错误卡重发；重试提示去重 |
 | 0.2.5 | 08-29 | 视觉勾选保存丢失修复 |
@@ -295,6 +296,16 @@ ChatPage / ChatInput
 - **0.2.7 已发版**（2026-08-30）：**双品牌首发**——LongMa + Fundet 同 tag 同步发版。架构：shared/brand.ts + BRAND=fundet 构建期注入 __BRAND__（electron.vite define），渲染层/main 全部展示名走 brand.name；Fundet logo = 从公司 logo 图（山东未来互联科技）截取的红色球体（黑底透明化，png/ico 全套；初版 SVG 生成已废弃）；system-prompt 品牌化（Fundet=AI 助手，LongMa=AI 编程助手）；updater 源按品牌（fundet → xiaosen6/fundet 独立 Releases）；electron-builder.fundet.yml（productName Fundet、userData 隔离 %APPDATA%\Fundet）。**发版链路新坑**：跨仓发布 GITHUB_TOKEN 只限本仓 403 → 用 PAT secret FUNDET_RELEASE_TOKEN（本机 gh auth token 已存入）；create-release 改幂等（view→create 防重跑撞）；fundet 仓库需先有 main 分支（空仓 422）→ 用最小 README init。fundet 构建命令： ERR_PNPM_NO_SCRIPT  Missing script: build:fundet
 
 Command "build:fundet" not found. Did you mean "pnpm run build"? / （tools/with-brand.mjs 包装器）。**注意**：fundet 仓库 public 但只放 README+发版资产（不推完整源码——用户拍板），代码维护仍走 longma 仓。userData 隔离坑：setPath 前必须 mkdir（见 §5）。**exe 图标「还是旧的」= Windows 图标缓存**（2026-08-31 客诉预判：提取 exe 内嵌图标验证过是正确红球；处置 `ie4uinit.exe -show` + 重启 explorer，或改文件名/重装触发刷新——客户报障先这么答）。
+
+### 4.7a v0.2.7 fundet 包致命缺陷与 0.2.8 修复（2026-08-31）
+
+**客户实装 0.2.7 fundet 双症**：①启动即崩 `ERR_MODULE_NOT_FOUND @modelcontextprotocol/sdk`（main external 链第一个撞到的包，实际缺整个 browser 闭包 103 包）；②exe 图标还是初版 SVG 红球。根因三个，全已修（commit d45e844，tag v0.2.8）：
+
+1. **fundet 构建脚本缺 pre 钩子**：`dist:*:fundet(:publish)` 没配 `predist:*:fundet(:publish)`，`tools/pack-browser-deps.mjs` 从未跑 → `resources-browser/node_modules` 不存在。**electron-builder 的 extraResources `from` 指向缺失目录只警告不阻断** → CI 全绿但带病发布。修复=package.json 补 4 个钩子；本地干净实验（挪走 resources-browser 重打）证实钩子自动触发、103 包重建、Fundet.exe 启动 7 进程不崩。**规矩：以后新增任何 `dist:*` 脚本必须配对 pre 钩子。**
+2. **tag 时间线错位**：v0.2.7 tag（03:35）早于红球 logo 提交 69fd6de（17:14）→ CI 产物用 tag 里 c817935 的初版 SVG 图标。**规矩：发版前 `git merge-base --is-ancestor <资产commit> <tag>` 确认资产已进 tag。**
+3. **icon.ico 本身非法**：原文件头 type=6/count=0 四不像（sharp 不能写 ICO，疑为旧转换产物）——electron-builder 26 严格校验直接 fail。已重写为标准 ICO 容器（6+16 字节头）内嵌 PNG 帧（PNG-in-ICO，Vista+ 合法），win.icon 显式指 `resources/fundet/icon.ico`。
+
+**附带教训**：①Bash 管道 `| tail` 会吃掉真实退出码（构建失败 exit 0）——判成败必须看日志尾部内容；②验证打包类修复要在干净环境（本机残留 resources-browser 会掩盖钩子失效）；③CI 绿 ≠ 产物可用，**双品牌发版后至少人工装一次 fundet 包冒烟**（0.2.7 就是缺这步漏掉的）。
 - **0.2.6 已发版**（2026-08-30）：系统浏览器登录态开关、错误卡重发按钮、重试提示去重。此前 0.2.5 已发（2026-08-29，视觉勾选保存修复）。
 - **0.2.5 已发版**（2026-08-29）：修复视觉勾选保存丢失（编辑对话框 save/回填/扫描三处丢 input/maxTokens）。客户侧升级后：编辑供应商勾「视觉」→保存→新建会话发图即生效。
 - **0.2.4 已发版**（2026-08-29）：设置「用量历史」页 + token 四列拆分采集。migration 0005 携带 statement-breakpoint 修复，客户库升级安全。
