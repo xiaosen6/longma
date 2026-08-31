@@ -147,6 +147,7 @@ ChatPage / ChatInput
 
 | 版本 | 日期 | 要点 |
 | --- | --- | --- |
+| 0.2.9 | 08-31 | **界面硬编码「龙马」全清**（17 处→brand.name，用量历史/IM 机器人等；客户实测发现）；cua-driver 下载自动回退 |
 | 0.2.8 | 08-31 | **修复 v0.2.7 fundet 包启动崩溃 + 旧图标**（详见 §4.7a）；longma 侧仅版本号 |
 | 0.2.7 | 08-30 | **双品牌首发**（Fundet 变体 + 独立更新源）；系统浏览器登录态；错误卡重发按钮 |
 | 0.2.6 | 08-30 | 系统浏览器登录态开关；错误卡重发；重试提示去重 |
@@ -312,6 +313,14 @@ Command "build:fundet" not found. Did you mean "pnpm run build"? / （tools/with
 1. **上游删 release 留 tag → CI 4 job 全挂 404**：trycua/cua 删了 cua-driver-rs-v0.23.1 的 release（tag 残留），update.mjs 自动选版只看 matching-refs 不验资产 → 404。已改**候选版本从新到旧逐个试下载**（首个全平台成功即用，实证回退到 0.22.1），download 失败清 destDir，main 显式 `process.exit(0)` 防 fetch keep-alive socket 挂住 event loop。**上游删资产是常态，凡「昨天还能下今天 404」先查 releases vs tags 差集**（`gh api .../releases --jq '.[].tag_name'` vs matching-refs）。
 2. **删远端 tag 重推 → published Release 转 draft**：longma v0.2.8 曾删 tag 重推（带 update.mjs 修复），GitHub 把原 published release 转成 draft（资产保留），create-release 的 `gh release view` 对 draft 返回成功→幂等跳过 create→**无人负责把 draft 转 published**（releaseType: release 只在创建时生效）。fundet 没删过 tag 所以正常 published。**处置：删 tag 重推后必查 `gh api repos/<o>/<r>/releases --jq '.[]|{tag_name,draft}'`，draft 则 `gh release edit <tag> --draft=false`**。
 3. 0.2.8 CI 产物已真机冒烟：ghproxy 下载 → /S 静默装临时目录 → MCP SDK 在/Fundet.exe 4 进程活/exe 提取图标=红球，通过后清理。D 盘两包齐：`D:\LongMa-Setup-0.2.8-x64.exe` + `D:\Fundet-Setup-0.2.8-x64.exe`（ghproxy 9.2MB/s）。
+
+### 4.7c v0.2.9 品牌文案清扫（2026-08-31，commit 9b7ce88）
+
+客户实测发现 Fundet 设置页「用量历史」「IM 机器人」仍显示龙马——v0.2.7 品牌化只切了主要 UI，散落文案漏网。0.2.9 全局 grep「龙马/LongMa」清了 **17 文件**：用量历史空态+有数据态、IM 机器人页、Browser/Computer 设置节、字体预览、AVX2 弹窗、friendly-error 三条指引、IM 错误回执、搜索 MCP 工具描述/未配置指引、wechat botAgent UA、托管浏览器 profile 元数据（sourceInfo）、调试台、测试 query。**刻意保留**：MANAGED_PROFILE/`LongMa-IM` 等内部路径常量（改了破坏存量客户登录态/IM 目录）、注释、pi-host 的替换锚点。
+
+**工程规矩**：①渲染层/main 新增 UI 文案一律 `brand.name`，禁止硬编码品牌名（§9 已有条目，这次是它的补课）；②node --test 直跑链（main/im、main/search、shared）import shared 模块用 `.ts` 后缀（跟 search-engines.ts 一致），vite bundle 链（ipc/host/browser/index）用 `.js`——mcp-server.test 曾因 `.js` 后缀 ERR_MODULE_NOT_FOUND；③JSX 文本插值 `{brand.name}`、模板串 `` `${brand.name}` ``、**单引号串里 `${...}` 是死文本**（batch 脚本曾踩）；④批量 import 插入脚本对多行 `import type {` 会插错位（3 文件中招），typecheck+单测双闸兜住。
+
+0.2.9 发版全流程复用 4.7b 教训：CI 全绿后查 draft（两仓都 published 12 资产）→ ghproxy 下载 → 静默装冒烟 4 进程活 → 清理。**Gitee 已通**（08-31）：main + v0.2.6~0.2.9 tags 一次补齐；D 盘两包 0.2.9 就位。
 - **0.2.6 已发版**（2026-08-30）：系统浏览器登录态开关、错误卡重发按钮、重试提示去重。此前 0.2.5 已发（2026-08-29，视觉勾选保存修复）。
 - **0.2.5 已发版**（2026-08-29）：修复视觉勾选保存丢失（编辑对话框 save/回填/扫描三处丢 input/maxTokens）。客户侧升级后：编辑供应商勾「视觉」→保存→新建会话发图即生效。
 - **0.2.4 已发版**（2026-08-29）：设置「用量历史」页 + token 四列拆分采集。migration 0005 携带 statement-breakpoint 修复，客户库升级安全。
