@@ -306,6 +306,12 @@ Command "build:fundet" not found. Did you mean "pnpm run build"? / （tools/with
 3. **icon.ico 本身非法**：原文件头 type=6/count=0 四不像（sharp 不能写 ICO，疑为旧转换产物）——electron-builder 26 严格校验直接 fail。已重写为标准 ICO 容器（6+16 字节头）内嵌 PNG 帧（PNG-in-ICO，Vista+ 合法），win.icon 显式指 `resources/fundet/icon.ico`。
 
 **附带教训**：①Bash 管道 `| tail` 会吃掉真实退出码（构建失败 exit 0）——判成败必须看日志尾部内容；②验证打包类修复要在干净环境（本机残留 resources-browser 会掩盖钩子失效）；③CI 绿 ≠ 产物可用，**双品牌发版后至少人工装一次 fundet 包冒烟**（0.2.7 就是缺这步漏掉的）。
+
+### 4.7b v0.2.8 发版连环坑（2026-08-31，全已解，commit 8be1387/d45e844）
+
+1. **上游删 release 留 tag → CI 4 job 全挂 404**：trycua/cua 删了 cua-driver-rs-v0.23.1 的 release（tag 残留），update.mjs 自动选版只看 matching-refs 不验资产 → 404。已改**候选版本从新到旧逐个试下载**（首个全平台成功即用，实证回退到 0.22.1），download 失败清 destDir，main 显式 `process.exit(0)` 防 fetch keep-alive socket 挂住 event loop。**上游删资产是常态，凡「昨天还能下今天 404」先查 releases vs tags 差集**（`gh api .../releases --jq '.[].tag_name'` vs matching-refs）。
+2. **删远端 tag 重推 → published Release 转 draft**：longma v0.2.8 曾删 tag 重推（带 update.mjs 修复），GitHub 把原 published release 转成 draft（资产保留），create-release 的 `gh release view` 对 draft 返回成功→幂等跳过 create→**无人负责把 draft 转 published**（releaseType: release 只在创建时生效）。fundet 没删过 tag 所以正常 published。**处置：删 tag 重推后必查 `gh api repos/<o>/<r>/releases --jq '.[]|{tag_name,draft}'`，draft 则 `gh release edit <tag> --draft=false`**。
+3. 0.2.8 CI 产物已真机冒烟：ghproxy 下载 → /S 静默装临时目录 → MCP SDK 在/Fundet.exe 4 进程活/exe 提取图标=红球，通过后清理。D 盘两包齐：`D:\LongMa-Setup-0.2.8-x64.exe` + `D:\Fundet-Setup-0.2.8-x64.exe`（ghproxy 9.2MB/s）。
 - **0.2.6 已发版**（2026-08-30）：系统浏览器登录态开关、错误卡重发按钮、重试提示去重。此前 0.2.5 已发（2026-08-29，视觉勾选保存修复）。
 - **0.2.5 已发版**（2026-08-29）：修复视觉勾选保存丢失（编辑对话框 save/回填/扫描三处丢 input/maxTokens）。客户侧升级后：编辑供应商勾「视觉」→保存→新建会话发图即生效。
 - **0.2.4 已发版**（2026-08-29）：设置「用量历史」页 + token 四列拆分采集。migration 0005 携带 statement-breakpoint 修复，客户库升级安全。
