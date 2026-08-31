@@ -34,7 +34,7 @@ function argValue(flag) {
   return i >= 0 ? process.argv[i + 1] : undefined;
 }
 
-async function fetchLatestVersion() {
+async function fetchCandidateVersions() {
   const res = await fetch(MATCHING_REFS_URL, {
     headers: process.env.GITHUB_TOKEN ? { authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {},
   });
@@ -43,9 +43,9 @@ async function fetchLatestVersion() {
   const versions = refs
     .map((r) => /^refs\/tags\/cua-driver-rs-v(.+)$/.exec(r.ref)?.[1])
     .filter(Boolean)
-    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
   if (versions.length === 0) throw new Error('未找到 cua-driver-rs-v* tag');
-  return versions[versions.length - 1];
+  return versions;
 }
 
 async function download(platformKey, version) {
@@ -91,6 +91,7 @@ async function download(platformKey, version) {
     fs.rmdirSync(inner);
   }
   if (!fs.existsSync(path.join(destDir, p.binFile))) {
+    fs.rmSync(destDir, { recursive: true, force: true });
     throw new Error(`解包归一后未找到 ${p.binFile}`);
   }
   fs.writeFileSync(path.join(destDir, 'VERSION'), version);
@@ -100,15 +101,35 @@ async function download(platformKey, version) {
 async function main() {
   const version = process.argv[2] && !process.argv[2].startsWith('--')
     ? process.argv[2].replace(/^v/, '')
-    : await fetchLatestVersion();
+    : null;
   const platformArg = argValue('--platform');
   const targets = platformArg ? [platformArg] : [`${process.platform}-${process.arch === 'x64' ? 'x64' : process.arch}`];
   // macOS 用 universal 包
   const final = process.platform === 'darwin' ? ['darwin-universal'] : targets;
-  for (const t of final) await download(t, version);
+  if (version) {
+    await download(final[0], version);
+    for (const t of final.slice(1)) await download(t, version);
+    return;
+  }
+  // 自动选版：tag 存在不代表 release 资产还在（上游删过 v0.23.1 的 release
+  // 却留着 tag），从新到旧逐个试下载，首个全平台成功的版本即用。
+  let lastErr;
+  for (const v of await fetchCandidateVersions()) {
+    try {
+      for (const t of final) await download(t, v);
+      return;
+    } catch (err) {
+      lastErr = err;
+      console.log(`v${v} 下载失败（${err instanceof Error ? err.message : err}），尝试更旧版本…`);
+    }
+  }
+  throw lastErr ?? new Error('无可用 cua-driver 版本');
 }
 
-main().catch((err) => {
-  console.error(err instanceof Error ? err.message : String(err));
-  process.exit(1);
-});
+main().then(
+  () => process.exit(0), // fetch 的 keep-alive socket 会挂住 event loop，显式退出
+  (err) => {
+    console.error(err instanceof Error ? err.message : String(err));
+    process.exit(1);
+  },
+);
