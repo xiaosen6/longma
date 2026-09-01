@@ -7,6 +7,8 @@
 > 历史名：仓库/包名大量使用 `fundet`（`@fundet/agent-core`、`window.fundet`、`FUNDET_*` IPC）。
 >
 > **双品牌（2026-08-30 起）**：同一套代码构建两个独立产品——**LongMa（龙马）** 和 **Fundet**。两品牌功能一模一样，只有名称、logo（红球经纬线）、自我介绍口径（Fundet=AI 助手，LongMa=AI 编程助手）和更新源不同。属于不同公司的产品。每次发版必须**同步出两套安装包**（4 个产物：双平台 × 双品牌），更新源各自独立。品牌配置见 `shared/brand.ts`，构建命令见 §8。
+>
+> **⚠️ Fundet 已剥离为独立项目（2026-09-01）**：完整源码（v0.2.9 底子）复制到 `D:\AI\Fundet`（独立 git，commit 45eb138），由**另一个 AI 负责**，本仓 AI 只管 LongMa。Fundet 仓已做：默认品牌 fundet（无 BRAND env）、打包/CI 单仓化（发布 xiaosen6/fundet）、内部标识 Fundet 化（MANAGED_PROFILE/.fundet-uploads/Fundet-IM 等）、全文清洗（源码零「龙马」）、自有 memory.md+README、cindy/ 参考快照不入库。**本仓不变**：仍双品牌 CI（v0.2.10 起若要砍 fundet job 先问用户）；LongMa 内部常量仍用 LongMa 值（保护存量客户）；两仓以后独立演进，互搬改动注意品牌分叉（brand.ts/打包配置/CI 已不同）。
 
 **Fundet 与 LongMa 的全部差异**：
 | 差异点 | LongMa | Fundet |
