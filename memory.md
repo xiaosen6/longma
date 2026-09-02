@@ -548,6 +548,19 @@ pnpm --filter @fundet/agent-core test
 
 ---
 
+## 8.5 Cindy 上游移植工作流（2026-09-01 固化）
+
+Cindy（makecindy/cindy，Apache-2.0）是主要参考与部分衍生来源。活克隆在 `D:\AI\Fundet\cindy`（blobless，remote=ghproxy 镜像，08-29 @ a971f9e；**本仓内没有克隆，LongMa 侧对照也去那里**）。四步：
+
+1. **发现**：`git -C /d/AI/Fundet/cindy fetch origin && git log --oneline HEAD..origin/main [-- <目录>]`。
+2. **评估**：目录映射（maker-core→agent-core / maker-shared→shared / browser-control-runtime→browser-runtime / lizi-mcps→browser-mcp、main/search / renderer↔renderer）+ 产品红线（账号云/Ghost/Office/官方 IM 永不搬）+ `git show <commit>` 读透。
+3. **手工移植**：**永不 merge/cherry-pick**。四处必须本地化：brand.name 文案、IPC 四件套、内部路径常量、两仓分叉（Fundet 已剥离至 D:\AI\Fundet，同一上游提交两仓各移植一次）。
+4. **验证沉淀**：typecheck + 单测 + dev 真机 + 更新本文件 + 新增衍生文件补 NOTICE derived 列表 + 随版发布。
+
+特例：browser-runtime 是 vendored 整包（上游 openclaw），按 `upstream/browser-runtime.lock.json` 整体同步 + 跑 SSRF 契约测试，**不手工挑提交、不过 rollup**（§5 僵死坑）。
+
+---
+
 ## 9. 给接手 AI 的工作方式
 
 1. 先读本节 + §2 硬约束 + 对应「关键文件」表。
