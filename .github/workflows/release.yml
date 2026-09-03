@@ -40,7 +40,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       # GITHUB_TOKEN：pi 下载走认证请求，规避 runner 出口 IP 匿名限流
-      - run: node tools/pi/update.mjs 0.84.4 --platform=win32-x64
+      - run: node tools/pi/update.mjs --platform=win32-x64
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: node tools/ripgrep/update.mjs --platform=win32-x64
@@ -81,10 +81,10 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: node tools/pi/update.mjs 0.84.4 --platform=darwin-arm64
+      - run: node tools/pi/update.mjs --platform=darwin-arm64
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - run: node tools/pi/update.mjs 0.84.4 --platform=darwin-x64
+      - run: node tools/pi/update.mjs --platform=darwin-x64
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: node tools/ripgrep/update.mjs --platform=darwin-arm64
@@ -119,7 +119,7 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: node tools/pi/update.mjs 0.84.4 --platform=win32-x64
+      - run: node tools/pi/update.mjs --platform=win32-x64
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: node tools/ripgrep/update.mjs --platform=win32-x64
@@ -158,10 +158,10 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: node tools/pi/update.mjs 0.84.4 --platform=darwin-arm64
+      - run: node tools/pi/update.mjs --platform=darwin-arm64
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - run: node tools/pi/update.mjs 0.84.4 --platform=darwin-x64
+      - run: node tools/pi/update.mjs --platform=darwin-x64
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - run: node tools/ripgrep/update.mjs --platform=darwin-arm64
