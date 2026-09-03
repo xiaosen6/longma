@@ -271,6 +271,10 @@ export interface FundetApi {
   setComputerEnabled(enabled: boolean): Promise<void>;
 
   openExternal(url: string): Promise<void>;
+  /** 桌宠窗口：设置位置（屏幕坐标） */
+  petSetBounds(x: number, y: number): Promise<void>;
+  /** 桌宠点击：打开并聚焦主窗口 */
+  petOpenMain(): Promise<void>;
 
   imStatus(): Promise<ImBotsStatus>;
   imSave(input: ImSaveInput): Promise<void>;

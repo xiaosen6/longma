@@ -2,6 +2,7 @@
 // 所以这个副作用模块必须是 main 的第一条 import
 import './browser/runtime-env.js';
 import { app, BrowserWindow, dialog, Menu, nativeTheme, session, shell, Tray } from 'electron';
+import { isPetEnabledInState, isPetWindowAlive, registerPetIpc, togglePetWindow } from './pet-window.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -73,6 +74,14 @@ function focusMainWindow(): void {
 }
 
 /** 非 macOS：关窗 = 隐藏到托盘；托盘菜单「退出」或系统关机才真正退出。 */
+function loadPetUrlInto(win: BrowserWindow): void {
+  if (process.env['ELECTRON_RENDERER_URL']) {
+    void win.loadURL(process.env['ELECTRON_RENDERER_URL'] + '/#/pet');
+  } else {
+    void win.loadFile(path.join(__dirname, '../renderer/index.html'), { hash: '/pet' });
+  }
+}
+
 function setupTrayAndCloseBehavior(win: BrowserWindow): void {
   let tray: Tray;
   try {
@@ -86,6 +95,19 @@ function setupTrayAndCloseBehavior(win: BrowserWindow): void {
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: `打开 ${brand.name}`, click: () => focusMainWindow() },
+      {
+        label: '桌宠',
+        type: 'checkbox',
+        checked: isPetWindowAlive(),
+        click: (item) => {
+          item.checked = togglePetWindow(loadPetUrlInto, path.join(__dirname, '../preload/index.js'));
+        },
+      },
+      { type: 'separator' },
+      {
+        label: '打开 ${brand.name}',
+        click: () => focusMainWindow(),
+      },
       { type: 'separator' },
       {
         label: '退出',
@@ -183,6 +205,8 @@ function createWindow(): void {
 }
 
 function bootstrap(): void {
+  registerPetIpc(focusMainWindow);
+  if (isPetEnabledInState()) togglePetWindow(loadPetUrlInto, path.join(__dirname, '../preload/index.js'));
   app.whenReady().then(() => {
   session.defaultSession.setPermissionCheckHandler((_wc, permission) => {
     return permission === 'clipboard-sanitized-write' || permission === 'clipboard-read';

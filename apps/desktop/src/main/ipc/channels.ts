@@ -64,6 +64,8 @@ export const FUNDET_INVOKE = {
   COMPUTER_STATUS: 'computer:status',
   COMPUTER_SET_ENABLED: 'computer:set-enabled',
   OPEN_EXTERNAL: 'shell:open-external',
+  PET_SET_BOUNDS: 'pet:set-bounds',
+  PET_OPEN_MAIN: 'pet:open-main',
   IM_STATUS: 'im:status',
   IM_SAVE: 'im:save',
   IM_CLEAR: 'im:clear',

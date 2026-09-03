@@ -521,3 +521,27 @@ textarea:focus-visible {
     will-change: auto;
   }
 }
+
+/* ── 桌宠程序动效（PetPage）────────────────────────────── */
+@keyframes pet-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+@keyframes pet-typing {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-3px) rotate(-2deg); }
+  75% { transform: translateY(-1px) rotate(2deg); }
+}
+@keyframes pet-bounce {
+  0%, 100% { transform: translateY(0) scale(1); }
+  40% { transform: translateY(-12px) scale(1.04); }
+  70% { transform: translateY(0) scale(0.98); }
+}
+@keyframes pet-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(0.97); }
+}
+.pet-anim-float { animation: pet-float 2.6s ease-in-out infinite; transform-origin: bottom center; }
+.pet-anim-typing { animation: pet-typing 0.9s ease-in-out infinite; transform-origin: bottom center; }
+.pet-anim-bounce { animation: pet-bounce 0.8s ease-in-out infinite; transform-origin: bottom center; }
+.pet-anim-breathe { animation: pet-breathe 2.4s ease-in-out infinite; transform-origin: bottom center; }

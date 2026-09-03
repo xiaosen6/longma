@@ -107,6 +107,8 @@ const api: FundetApi = {
   setComputerEnabled: (enabled) => ipcRenderer.invoke(FUNDET_INVOKE.COMPUTER_SET_ENABLED, enabled),
 
   openExternal: (url) => ipcRenderer.invoke(FUNDET_INVOKE.OPEN_EXTERNAL, url),
+  petSetBounds: (x, y) => ipcRenderer.invoke(FUNDET_INVOKE.PET_SET_BOUNDS, x, y),
+  petOpenMain: () => ipcRenderer.invoke(FUNDET_INVOKE.PET_OPEN_MAIN),
 
   imStatus: () => ipcRenderer.invoke(FUNDET_INVOKE.IM_STATUS),
   imSave: (input) => ipcRenderer.invoke(FUNDET_INVOKE.IM_SAVE, input),
