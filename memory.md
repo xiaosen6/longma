@@ -149,6 +149,7 @@ ChatPage / ChatInput
 
 | 版本 | 日期 | 要点 |
 | --- | --- | --- |
+| 0.2.10 | 09-03 | **修复视觉发图 1210**（pi 0.84.4 + 已知模型补全表）+ 用户长消息折叠 + markdown 对齐 Cindy（数学/CJK/mermaid）；workflow pi 版本硬编码坑 |
 | 0.2.9 | 08-31 | **界面硬编码「龙马」全清**（17 处→brand.name，用量历史/IM 机器人等；客户实测发现）；cua-driver 下载自动回退 |
 | 0.2.8 | 08-31 | **修复 v0.2.7 fundet 包启动崩溃 + 旧图标**（详见 §4.7a）；longma 侧仅版本号 |
 | 0.2.7 | 08-30 | **双品牌首发**（Fundet 变体 + 独立更新源）；系统浏览器登录态；错误卡重发按钮 |
@@ -315,6 +316,17 @@ Command "build:fundet" not found. Did you mean "pnpm run build"? / （tools/with
 1. **上游删 release 留 tag → CI 4 job 全挂 404**：trycua/cua 删了 cua-driver-rs-v0.23.1 的 release（tag 残留），update.mjs 自动选版只看 matching-refs 不验资产 → 404。已改**候选版本从新到旧逐个试下载**（首个全平台成功即用，实证回退到 0.22.1），download 失败清 destDir，main 显式 `process.exit(0)` 防 fetch keep-alive socket 挂住 event loop。**上游删资产是常态，凡「昨天还能下今天 404」先查 releases vs tags 差集**（`gh api .../releases --jq '.[].tag_name'` vs matching-refs）。
 2. **删远端 tag 重推 → published Release 转 draft**：longma v0.2.8 曾删 tag 重推（带 update.mjs 修复），GitHub 把原 published release 转成 draft（资产保留），create-release 的 `gh release view` 对 draft 返回成功→幂等跳过 create→**无人负责把 draft 转 published**（releaseType: release 只在创建时生效）。fundet 没删过 tag 所以正常 published。**处置：删 tag 重推后必查 `gh api repos/<o>/<r>/releases --jq '.[]|{tag_name,draft}'`，draft 则 `gh release edit <tag> --draft=false`**。
 3. 0.2.8 CI 产物已真机冒烟：ghproxy 下载 → /S 静默装临时目录 → MCP SDK 在/Fundet.exe 4 进程活/exe 提取图标=红球，通过后清理。D 盘两包齐：`D:\LongMa-Setup-0.2.8-x64.exe` + `D:\Fundet-Setup-0.2.8-x64.exe`（ghproxy 9.2MB/s）。
+
+### 4.7d v0.2.10 视觉发图修复 + 折叠/markdown 对齐（2026-09-03，commit 19c8d49/6ba8fb2/4d99132）
+
+**客诉「两个智能体都不能传图」两层根因，均已实证修复**：
+
+1. **pi 0.83.0 太旧**：智谱 8 月底新模型（glm-5.3-flash 等）不在其内置目录，zai 兼容层不完整。**Cindy 用 pi 0.84.4 所以没问题**——latest.json 直接抄 Cindy 仓（sha256 校验一致）。已升 0.84.4。
+2. **空 text 块 1210**（矩阵实测定位，T17 复现/T20 证明空格可过）：BYOM 裸模型定义缺 reasoning/thinkingLevelMap 时，pi 对 open.bigmodel.cn（zai 兼容）不发 thinking 参数，且纯图片消息被 pi 编成 [{"type":"text","text":""}, image]——**智谱严格校验拒绝空字符串 text 块**。修复：①pi-host 按 id 从 pi-model-catalog.ts（0.84.4 智谱 9 模型字段）补全 reasoning/thinkingLevelMap/input 等缺失字段（用户显式配置优先）；②PiAgent send/steer 对纯图片消息的空 promptText 补 '.' 占位。**诊断方法论**：本地回显服务器（baseUrl 指向 127.0.0.1 dump 请求体）+ 借 dev userData 解 safeStorage key（脚本里 app.setName('LongMa') + setPath userData 后 os_crypt 密钥一致）+ 直接 fetch 智谱做请求矩阵（T1-T21）——比逆向二进制快得多。
+
+**另修**：release.yml 的 pi 版本是硬编码传参（update.mjs 0.83.0），只改 latest.json 无效——workflow 4 处已改 0.84.4。**新规矩：pi 升级要同时改 latest.json 和 release.yml 传参**（或把 update.mjs 改成读 latest.json）。
+
+**新增能力**：用户长消息自动折叠（抄 Cindy userMessageCollapse：>14 视觉行收起，line-clamp-10 + 展开全文/收起）；markdown 对齐 Cindy：数学公式（normalizeMathDelimiters + remark-math + rehype-katex）、CJK 优化（remark-cjk-friendly）、mermaid 图表 SVG（chat/MarkdownMermaidBlock 轻量版，动态加载失败回落源码）。新依赖：remark-math/rehype-katex/katex/remark-cjk-friendly/mermaid。
 
 ### 4.7c v0.2.9 品牌文案清扫（2026-08-31，commit 9b7ce88）
 
