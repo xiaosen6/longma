@@ -324,6 +324,8 @@ Command "build:fundet" not found. Did you mean "pnpm run build"? / （tools/with
 1. **pi 0.83.0 太旧**：智谱 8 月底新模型（glm-5.3-flash 等）不在其内置目录，zai 兼容层不完整。**Cindy 用 pi 0.84.4 所以没问题**——latest.json 直接抄 Cindy 仓（sha256 校验一致）。已升 0.84.4。
 2. **空 text 块 1210**（矩阵实测定位，T17 复现/T20 证明空格可过）：BYOM 裸模型定义缺 reasoning/thinkingLevelMap 时，pi 对 open.bigmodel.cn（zai 兼容）不发 thinking 参数，且纯图片消息被 pi 编成 [{"type":"text","text":""}, image]——**智谱严格校验拒绝空字符串 text 块**。修复：①pi-host 按 id 从 pi-model-catalog.ts（0.84.4 智谱 9 模型字段）补全 reasoning/thinkingLevelMap/input 等缺失字段（用户显式配置优先）；②PiAgent send/steer 对纯图片消息的空 promptText 补 '.' 占位。**诊断方法论**：本地回显服务器（baseUrl 指向 127.0.0.1 dump 请求体）+ 借 dev userData 解 safeStorage key（脚本里 app.setName('LongMa') + setPath userData 后 os_crypt 密钥一致）+ 直接 fetch 智谱做请求矩阵（T1-T21）——比逆向二进制快得多。
 
+**/theme 丢失坑（0.2.10 三发才稳）**：pi v0.84+ 的 Windows zip 换了打包结构，update.mjs 原来用 bsdtar 从 **stdin 流式**解 zip 会静默丢 theme/ 目录 → 包内 pi 缺 theme，RPC 启动即崩（退出码 1，应用全挂）。extractArchive 已改：.zip 走 PowerShell Expand-Archive（seek 完整读取），.tar.gz 维持 stdin+tar。**发版冒烟必须验 resources/pi/<plat>/theme/ 三件套存在**。
+
 **另修**：release.yml 的 pi 版本是硬编码传参（update.mjs 0.83.0），只改 latest.json 无效——workflow 4 处已改 0.84.4。**新规矩：pi 升级要同时改 latest.json 和 release.yml 传参**（或把 update.mjs 改成读 latest.json）。
 
 **新增能力**：用户长消息自动折叠（抄 Cindy userMessageCollapse：>14 视觉行收起，line-clamp-10 + 展开全文/收起）；markdown 对齐 Cindy：数学公式（normalizeMathDelimiters + remark-math + rehype-katex）、CJK 优化（remark-cjk-friendly）、mermaid 图表 SVG（chat/MarkdownMermaidBlock 轻量版，动态加载失败回落源码）。新依赖：remark-math/rehype-katex/katex/remark-cjk-friendly/mermaid。
