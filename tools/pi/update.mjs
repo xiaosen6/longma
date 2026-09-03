@@ -472,7 +472,7 @@ async function main() {
     console.log('');
     console.log('=== Done ===');
     console.log(`Version: ${pinnedVersion}`);
-    console.log(`Output:  ${path.join(UPDATES_DIR, requestedVersion)}`);
+    console.log(`Output:  ${path.join(UPDATES_DIR, pinnedVersion)}`);
     console.log(`Bin:     ${BIN_DIR}`);
     return;
   }
