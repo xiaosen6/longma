@@ -61,7 +61,8 @@
 
   // 拖拽（自实现，IPC setBounds）+ 单击跳转主窗
   var drag = { on: false, moved: false, ox: 0, oy: 0 };
-  el.addEventListener('mousedown', function (e) {
+  // mousedown 挂 document：img 设了 pointer-events:none，事件不会落在 img 上
+  document.addEventListener('mousedown', function (e) {
     if (e.button !== 0) return;
     drag = { on: true, moved: false, ox: e.screenX - window.screenX, oy: e.screenY - window.screenY };
   });
