@@ -60,6 +60,7 @@ function createPetWindow(preloadPath: string): BrowserWindow {
     x: finalPos.x,
     y: finalPos.y,
     transparent: true,
+    backgroundColor: '#00000000',
     frame: false,
     hasShadow: false,
     resizable: false,

@@ -206,8 +206,9 @@ function createWindow(): void {
 
 function bootstrap(): void {
   registerPetIpc(focusMainWindow);
-  if (isPetEnabledInState()) togglePetWindow(loadPetUrlInto, path.join(__dirname, '../preload/index.js'));
+  // screen 模块 ready 前不可用：桌宠恢复必须挂在 whenReady 里
   app.whenReady().then(() => {
+    if (isPetEnabledInState()) togglePetWindow(loadPetUrlInto, path.join(__dirname, '../preload/index.js'));
   session.defaultSession.setPermissionCheckHandler((_wc, permission) => {
     return permission === 'clipboard-sanitized-write' || permission === 'clipboard-read';
   });
