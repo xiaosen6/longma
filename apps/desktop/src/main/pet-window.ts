@@ -28,7 +28,8 @@ function readState(): PetState {
   try {
     // pet-window.json 可能缺 theme 字段（旧版本写入）：必须回落默认，否则帧路径变 undefined
     const parsed = JSON.parse(fs.readFileSync(STATE_FILE(), 'utf-8')) as Partial<PetState>;
-    return { enabled: false, theme: 'black-heels', ...parsed, theme: parsed.theme || 'black-heels' } as PetState;
+    const defaults = { enabled: false, theme: 'black-heels' };
+    return { ...defaults, ...parsed, theme: parsed.theme || defaults.theme } as PetState;
   } catch {
     return { enabled: false, theme: 'black-heels' };
   }
