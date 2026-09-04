@@ -69,7 +69,6 @@ function createPetWindow(preloadPath: string): BrowserWindow {
     minimizable: false,
     maximizable: false,
     fullscreenable: false,
-    show: false,
     webPreferences: { preload: preloadPath },
   });
 }
@@ -98,32 +97,7 @@ export function togglePetWindow(loadPetUrl: (win: BrowserWindow) => void, preloa
       console.warn('[pet] ready-to-show 未触发，兜底显示桌宠');
       petWin.show();
     }
-    setTimeout(async () => {
-      if (!petWin || petWin.isDestroyed()) return;
-      try {
-        const js = [
-          'JSON.stringify({',
-          "  hash: location.hash,",
-          "  imgs: document.images.length,",
-          "  imgSrc: (document.images[0]?.src || '').slice(-50),",
-          "  bodyBg: getComputedStyle(document.body).backgroundColor,",
-          "  htmlBg: getComputedStyle(document.documentElement).backgroundColor,",
-          "  bodyInline: document.body.style.background,",
-          "  bodyClass: document.body.className,",
-          "  petModeMatch: document.body.matches('body.pet-mode'),",
-          "  rootLen: (document.getElementById('root')?.innerHTML || '').length",
-          '})',
-        ].join('\n');
-        const html = await petWin.webContents.executeJavaScript(js);
-        console.log('[pet:dom]', html);
-        const img = await petWin.webContents.capturePage();
-        fs.mkdirSync('D:/AI/TenCent/fundet-buddy-main/tools/pet-assets', { recursive: true });
-        fs.writeFileSync('D:/AI/TenCent/fundet-buddy-main/tools/pet-assets/pet-capture.png', img.toPNG());
-        console.log('[pet] capturePage 保存');
-      } catch (e) { console.error('[pet] 诊断失败', e instanceof Error ? e.message : String(e)); }
-    }, 3000);
-  }, 1500);
-  petWin.on('closed', () => {
+    petWin.on('closed', () => {
     console.log('[pet] 桌宠窗口已关闭');
     petWin = null;
   });
