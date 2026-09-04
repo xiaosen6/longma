@@ -66,7 +66,8 @@ let isQuitting = false;
 let trayHintShown = false;
 
 function focusMainWindow(): void {
-  const win = BrowserWindow.getAllWindows()[0];
+  // 排除桌宠窗（pet.html）——窗口列表里可能有它，focus 到它等于什么都没做
+  const win = BrowserWindow.getAllWindows().find((w) => !w.webContents.getURL().endsWith('/pet.html'));
   if (!win) return;
   if (!win.isVisible()) win.show();
   if (win.isMinimized()) win.restore();
