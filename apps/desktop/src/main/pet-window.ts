@@ -111,8 +111,7 @@ export function togglePetWindow(loadPetUrl: (win: BrowserWindow) => void, preloa
           "  bodyInline: document.body.style.background,",
           "  rootLen: (document.getElementById('root')?.innerHTML || '').length",
           '})',
-        ].join('
-');
+        ].join('\n');
         const html = await petWin.webContents.executeJavaScript(js);
         console.log('[pet:dom]', html);
         const img = await petWin.webContents.capturePage();
