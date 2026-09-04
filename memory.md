@@ -149,6 +149,7 @@ ChatPage / ChatInput
 
 | 版本 | 日期 | 要点 |
 | --- | --- | --- |
+| 0.2.11 | 09-04 | **桌宠 M1**（透明置顶窗/6 状态×6 帧序列动画/拖拽/点击跳转主窗/托盘开关；三坑：透明窗须创建即显示、ready-to-show 不触发、img pointer-events 吞事件）|
 | 0.2.10 | 09-03 | **修复视觉发图 1210**（pi 0.84.4 + 已知模型补全表）+ 用户长消息折叠 + markdown 对齐 Cindy（数学/CJK/mermaid）；workflow pi 版本硬编码坑 |
 | 0.2.9 | 08-31 | **界面硬编码「龙马」全清**（17 处→brand.name，用量历史/IM 机器人等；客户实测发现）；cua-driver 下载自动回退 |
 | 0.2.8 | 08-31 | **修复 v0.2.7 fundet 包启动崩溃 + 旧图标**（详见 §4.7a）；longma 侧仅版本号 |
@@ -500,6 +501,8 @@ GEO 只审计用户给出的站点（CLI 自抓），不是通用搜索。
   - **Fundet 不预装技能**（brand.bundledSkills=false）：ensureBundledSkills 跳过、system-prompt 技能段 indexOf 切除、electron-builder.fundet.yml 不含 bundled-skills
 
 ### 7.2 已知债 / 不阻塞
+
+**桌宠路线图（用户已拍板方向）**：M1 已完成（0.2.11）；M2 养成系统（使用量驱动经验/成长阶段/持久化）；M3 自定义+Petdex 格式导入+AI 生成形象；M4 截图问答（视觉链路已通）+ 权限审批桌宠气泡。
 
 - [x] `system-prompt.md` 四个技能 + `mcp__search__web_search`（2026-08-23）。
 - [ ] 真 key 全链路冒烟（历史 Kimi coding 端点 401）。
