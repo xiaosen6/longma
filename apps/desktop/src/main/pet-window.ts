@@ -1,7 +1,11 @@
 /**
- * 桌宠窗口：透明置顶小窗，加载主 renderer 的 #/pet 路由。
- * 状态数据由 renderer 内的 sessionStore 直接订阅（复用主 preload 的 fundet API），
+ * 桌宠窗口：透明置顶小窗，加载独立的 resources/pet/pet.html（无主题 CSS/无 React）。
+ * 状态数据由 pet.html 直接收主进程广播（agent:status-changed 广播到所有窗口），
  * 这里只负责窗口生命周期、位置记忆与拖拽 setBounds。
+ *
+ * 注意：transparent 窗必须「创建即显示」——show:false + 延迟 show 在 Windows
+ * 上会失去透明（显示为背景色，2026-09-04 实测矩阵确认）。
+ * ready-to-show 事件在 transparent 窗上也常不触发，不能等它。
  */
 import { app, BrowserWindow, ipcMain, screen } from 'electron';
 import fs from 'node:fs';
@@ -73,8 +77,8 @@ function createPetWindow(preloadPath: string): BrowserWindow {
   });
 }
 
-/** 开关桌宠。loadPetUrl：给窗口加载 #/pet 页面（主进程注入 dev/file 地址差异）。 */
-export function togglePetWindow(loadPetUrl: (win: BrowserWindow) => void, preloadPath: string): boolean {
+/** 开关桌宠。loadPetPage：给窗口加载 pet.html（主进程注入 dev/prod 路径差异）。 */
+export function togglePetWindow(loadPetPage: (win: BrowserWindow) => void, preloadPath: string): boolean {
   if (petWin && !petWin.isDestroyed()) {
     petWin.close();
     petWin = null;
@@ -84,26 +88,16 @@ export function togglePetWindow(loadPetUrl: (win: BrowserWindow) => void, preloa
   }
   petWin = createPetWindow(preloadPath);
   console.log('[pet] 桌宠窗口已创建');
-  loadPetUrl(petWin);
-  // transparent 窗 ready-to-show 有不触发的怪癖：1.5s 兜底强制显示
-  // 渲染诊断：桌宠不可见时从日志定位（空白/加载失败/崩溃）
+  loadPetPage(petWin);
   petWin.webContents.on('did-finish-load', () => console.log('[pet] did-finish-load'));
   petWin.webContents.on('did-fail-load', (_e, code, desc, url) => console.error('[pet] did-fail-load', code, desc, url));
   petWin.webContents.on('render-process-gone', (_e, details) => console.error('[pet] render-process-gone', details.reason));
-  petWin.webContents.on('console-message', (_e, _level, message) => { if (/error/i.test(message)) console.error('[pet:renderer]', message.slice(0, 200)); });
-  petWin.once('ready-to-show', () => petWin?.show());
-  setTimeout(() => {
-    if (petWin && !petWin.isDestroyed() && !petWin.isVisible()) {
-      console.warn('[pet] ready-to-show 未触发，兜底显示桌宠');
-      petWin.show();
-    }
-    petWin.on('closed', () => {
-    console.log('[pet] 桌宠窗口已关闭');
-    petWin = null;
-  });
   petWin.on('moved', () => {
     const [x, y] = petWin?.getPosition() ?? [0, 0];
     writeState({ x, y });
+  });
+  petWin.on('closed', () => {
+    petWin = null;
   });
   petEnabled = true;
   writeState({ enabled: true });
