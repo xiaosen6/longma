@@ -75,11 +75,10 @@ function focusMainWindow(): void {
 
 /** 非 macOS：关窗 = 隐藏到托盘；托盘菜单「退出」或系统关机才真正退出。 */
 function loadPetUrlInto(win: BrowserWindow): void {
-  if (process.env['ELECTRON_RENDERER_URL']) {
-    void win.loadURL(process.env['ELECTRON_RENDERER_URL'] + '/#/pet');
-  } else {
-    void win.loadFile(path.join(__dirname, '../renderer/index.html'), { hash: '/pet' });
-  }
+  // 桌宠页面是独立的 resources/pet/pet.html（无主题 CSS/无 React，天然透明）
+  const devPage = path.join(__dirname, '../../resources/pet/pet.html');
+  const prodPage = path.join(process.resourcesPath, 'pet', 'pet.html');
+  void win.loadFile(app.isPackaged ? prodPage : devPage);
 }
 
 function setupTrayAndCloseBehavior(win: BrowserWindow): void {

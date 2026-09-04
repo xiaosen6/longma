@@ -56,6 +56,8 @@ extraResources:
     to: cua-driver/win32-x64
     filter:
       - '**/*'
+  - from: resources/pet
+    to: pet
   - from: resources/bundled-skills
     to: bundled-skills
     filter:

@@ -109,6 +109,8 @@ export function togglePetWindow(loadPetUrl: (win: BrowserWindow) => void, preloa
           "  bodyBg: getComputedStyle(document.body).backgroundColor,",
           "  htmlBg: getComputedStyle(document.documentElement).backgroundColor,",
           "  bodyInline: document.body.style.background,",
+          "  bodyClass: document.body.className,",
+          "  petModeMatch: document.body.matches('body.pet-mode'),",
           "  rootLen: (document.getElementById('root')?.innerHTML || '').length",
           '})',
         ].join('\n');

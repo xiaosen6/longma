@@ -10,7 +10,6 @@ applyFonts();
 import { ChatPage } from './pages/ChatPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { DebugPage } from './pages/DebugPage';
-import { PetPage } from './pages/PetPage';
 import { WindowControls } from './components/WindowControls';
 
 // 全局 agent:event 监听只装一次（模块级 store，与 React 树解耦，
@@ -22,7 +21,6 @@ const router = createHashRouter([
   { path: '/settings', element: <SettingsPage /> },
   // 调试台保留：E2E 复验与原始事件流排查用
   { path: '/debug', element: <DebugPage /> },
-  { path: '/pet', element: <PetPage /> },
 ]);
 
 document.title = brand.name;

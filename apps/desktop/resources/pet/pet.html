@@ -1,0 +1,82 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; width: 100%; height: 100%; background: transparent; overflow: hidden; }
+  img { width: 160px; height: 160px; object-fit: contain; pointer-events: none; user-select: none; }
+  .sleep { animation: breathe 2.4s ease-in-out infinite; transform-origin: bottom center; }
+  @keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(0.96); } }
+</style>
+</head>
+<body>
+<img id="pet" draggable="false">
+<script>
+(function () {
+  'use strict';
+  var STATES = ['idle', 'thinking', 'working', 'attention', 'happy', 'sleep'];
+  var FRAMES = {};
+  STATES.forEach(function (s) {
+    FRAMES[s] = ['01', '02', '03', '04', '05', '06'].map(function (n) {
+      return 'frames/' + s + '-' + n + '.png';
+    });
+  });
+
+  var SLEEP_AFTER_MS = 60000;
+  var FRAME_MS = 140;
+  var el = document.getElementById('pet');
+  var state = 'idle';
+  var frameIdx = 0;
+  var running = {};        // sessionId -> isRunning
+  var attention = false;
+  var lastStatus = '';
+  var lastActivity = Date.now();
+
+  function tick() {
+    var busy = Object.keys(running).some(function (k) { return running[k]; });
+    var sleeping = Date.now() - lastActivity > SLEEP_AFTER_MS;
+    var next =
+      attention ? 'attention'
+      : busy ? (/think/i.test(lastStatus) ? 'thinking' : 'working')
+      : sleeping ? 'sleep'
+      : 'idle';
+    if (next !== state) { state = next; frameIdx = 0; }
+    var frames = FRAMES[state];
+    el.src = frames[frameIdx % frames.length];
+    frameIdx += 1;
+    el.className = state === 'sleep' ? 'sleep' : '';
+  }
+  setInterval(tick, FRAME_MS);
+  tick();
+
+  if (window.fundet) {
+    window.fundet.onStatusChanged(function (p) {
+      running[p.sessionId] = !!p.isRunning;
+      lastStatus = String(p.status || '');
+      lastActivity = Date.now();
+    });
+    window.fundet.onInteractionRequest(function () { attention = true; lastActivity = Date.now(); });
+    window.fundet.onInteractionDismissed(function () { attention = false; });
+  }
+
+  // 拖拽（自实现，IPC setBounds）+ 单击跳转主窗
+  var drag = { on: false, moved: false, ox: 0, oy: 0 };
+  el.addEventListener('mousedown', function (e) {
+    if (e.button !== 0) return;
+    drag = { on: true, moved: false, ox: e.screenX - window.screenX, oy: e.screenY - window.screenY };
+  });
+  window.addEventListener('mousemove', function (e) {
+    if (!drag.on) return;
+    var x = e.screenX - drag.ox;
+    var y = e.screenY - drag.oy;
+    if (Math.abs(x - window.screenX) > 3 || Math.abs(y - window.screenY) > 3) drag.moved = true;
+    if (drag.moved && window.fundet) window.fundet.petSetBounds(x, y);
+  });
+  window.addEventListener('mouseup', function () {
+    if (drag.on && !drag.moved && window.fundet) window.fundet.petOpenMain();
+    drag.on = false;
+  });
+})();
+</script>
+</body>
+</html>

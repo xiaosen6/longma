@@ -50,6 +50,8 @@ win:
   target:
     - nsis
   extraResources:
+    - from: resources/pet
+      to: pet
     - from: ../../apps/pi-bin/win32-x64
       to: pi/win32-x64
     - from: ../../apps/ripgrep-bin/win32-x64
