@@ -118,7 +118,7 @@ export function togglePetWindow(loadPetUrl: (win: BrowserWindow) => void, preloa
         fs.mkdirSync('D:/AI/TenCent/fundet-buddy-main/tools/pet-assets', { recursive: true });
         fs.writeFileSync('D:/AI/TenCent/fundet-buddy-main/tools/pet-assets/pet-capture.png', img.toPNG());
         console.log('[pet] capturePage 保存');
-      } catch (e) { console.error('[pet] 诊断失败', e.message); }
+      } catch (e) { console.error('[pet] 诊断失败', e instanceof Error ? e.message : String(e)); }
     }, 3000);
   }, 1500);
   petWin.on('closed', () => {
