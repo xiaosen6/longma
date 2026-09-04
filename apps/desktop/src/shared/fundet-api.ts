@@ -275,6 +275,9 @@ export interface FundetApi {
   petSetBounds(x: number, y: number): Promise<void>;
   /** 桌宠点击：打开并聚焦主窗口 */
   petOpenMain(): Promise<void>;
+  petToggle(): Promise<boolean>;
+  petGetState(): Promise<{ enabled: boolean; theme: string }>;
+  petSetTheme(theme: string): Promise<void>;
 
   imStatus(): Promise<ImBotsStatus>;
   imSave(input: ImSaveInput): Promise<void>;

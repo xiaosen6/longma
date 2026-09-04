@@ -2,7 +2,7 @@
 // 所以这个副作用模块必须是 main 的第一条 import
 import './browser/runtime-env.js';
 import { app, BrowserWindow, dialog, Menu, nativeTheme, session, shell, Tray } from 'electron';
-import { isPetEnabledInState, isPetWindowAlive, registerPetIpc, togglePetWindow } from './pet-window.js';
+import { isPetEnabledInState, isPetWindowAlive, readPetTheme, registerPetIpc, togglePetEnabled } from './pet-window.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -99,7 +99,7 @@ function setupTrayAndCloseBehavior(win: BrowserWindow): void {
         type: 'checkbox',
         checked: isPetWindowAlive(),
         click: (item) => {
-          item.checked = togglePetWindow(loadPetUrlInto, path.join(__dirname, '../preload/index.js'));
+          item.checked = togglePetEnabled(loadPetUrlInto, path.join(__dirname, '../preload/index.js'));
         },
       },
       { type: 'separator' },
@@ -204,10 +204,10 @@ function createWindow(): void {
 }
 
 function bootstrap(): void {
-  registerPetIpc(focusMainWindow);
+  registerPetIpc(focusMainWindow, loadPetUrlInto, path.join(__dirname, '../preload/index.js'));
   // screen 模块 ready 前不可用：桌宠恢复必须挂在 whenReady 里
   app.whenReady().then(() => {
-    if (isPetEnabledInState()) togglePetWindow(loadPetUrlInto, path.join(__dirname, '../preload/index.js'));
+    if (isPetEnabledInState()) togglePetEnabled(loadPetUrlInto, path.join(__dirname, '../preload/index.js'));
   session.defaultSession.setPermissionCheckHandler((_wc, permission) => {
     return permission === 'clipboard-sanitized-write' || permission === 'clipboard-read';
   });

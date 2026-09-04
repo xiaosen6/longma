@@ -109,6 +109,9 @@ const api: FundetApi = {
   openExternal: (url) => ipcRenderer.invoke(FUNDET_INVOKE.OPEN_EXTERNAL, url),
   petSetBounds: (x, y) => ipcRenderer.invoke(FUNDET_INVOKE.PET_SET_BOUNDS, x, y),
   petOpenMain: () => ipcRenderer.invoke(FUNDET_INVOKE.PET_OPEN_MAIN),
+  petToggle: () => ipcRenderer.invoke(FUNDET_INVOKE.PET_TOGGLE),
+  petGetState: () => ipcRenderer.invoke(FUNDET_INVOKE.PET_GET_STATE),
+  petSetTheme: (theme) => ipcRenderer.invoke(FUNDET_INVOKE.PET_SET_THEME, theme),
 
   imStatus: () => ipcRenderer.invoke(FUNDET_INVOKE.IM_STATUS),
   imSave: (input) => ipcRenderer.invoke(FUNDET_INVOKE.IM_SAVE, input),

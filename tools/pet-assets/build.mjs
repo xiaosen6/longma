@@ -2,7 +2,7 @@
  * 桌宠素材处理流水线（多帧版）：
  * 状态子目录（idle/thinking/working/attention/happy/sleep，每帧 01.jpg…）→
  * 白底去背（边缘泛洪）→ 全状态帧**联合包围盒**统一裁剪（保证帧间稳定不跳）→
- * 缩放到底对齐 128×128 画布 → resources/pet/frames/<state>-<NN>.png
+ * 缩放到底对齐 128×128 画布 → resources/pet/frames/<theme>/<state>-<NN>.png
  *
  * Usage: node tools/pet-assets/build.mjs [theme=black-heels]
  */
@@ -24,7 +24,7 @@ function loadSharp() {
 const sharp = loadSharp();
 
 const SRC_ROOT = path.join(THIS_DIR, 'src', THEME);
-const OUT = path.resolve(THIS_DIR, '..', '..', 'apps', 'desktop', 'resources', 'pet', 'frames');
+const OUT = path.resolve(THIS_DIR, '..', '..', 'apps', 'desktop', 'resources', 'pet', 'frames', THEME);
 
 const CANVAS = 128;
 const WHITE_LUMA = 235;

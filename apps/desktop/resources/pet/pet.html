@@ -14,13 +14,26 @@
 <script>
 (function () {
   'use strict';
+  var theme = 'black-heels';               // 主进程加载后经 setPetTheme() 注入/热切
   var STATES = ['idle', 'thinking', 'working', 'attention', 'happy', 'sleep'];
   var FRAMES = {};
-  STATES.forEach(function (s) {
-    FRAMES[s] = ['01', '02', '03', '04', '05', '06'].map(function (n) {
-      return 'frames/' + s + '-' + n + '.png';
+
+  function rebuildFrames() {
+    STATES.forEach(function (s) {
+      FRAMES[s] = ['01', '02', '03', '04', '05', '06'].map(function (n) {
+        return 'frames/' + theme + '/' + s + '-' + n + '.png';
+      });
     });
-  });
+  }
+  rebuildFrames();
+
+  // 主进程注入主题切换（设置页改动后热切，无需关窗）
+  window.setPetTheme = function (t) {
+    if (t === theme) return;
+    theme = t;
+    rebuildFrames();
+    frameIdx = 0;
+  };
 
   var SLEEP_AFTER_MS = 60000;
   var FRAME_MS = 140;

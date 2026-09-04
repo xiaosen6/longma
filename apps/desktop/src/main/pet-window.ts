@@ -19,6 +19,7 @@ let petEnabled = false;
 
 interface PetState {
   enabled: boolean;
+  theme: string;
   x?: number;
   y?: number;
 }
@@ -27,7 +28,7 @@ function readState(): PetState {
   try {
     return JSON.parse(fs.readFileSync(STATE_FILE(), 'utf-8')) as PetState;
   } catch {
-    return { enabled: false };
+    return { enabled: false, theme: 'black-heels' };
   }
 }
 
@@ -48,7 +49,7 @@ function defaultPosition(): { x: number; y: number } {
   };
 }
 
-function createPetWindow(preloadPath: string): BrowserWindow {
+function createPetWindow(preloadPath: string, theme: string): BrowserWindow {
   const state = readState();
   const pos = state.x !== undefined && state.y !== undefined ? { x: state.x, y: state.y } : defaultPosition();
   // 防止记忆位置落在已拔掉的显示器外
@@ -78,18 +79,25 @@ function createPetWindow(preloadPath: string): BrowserWindow {
 }
 
 /** 开关桌宠。loadPetPage：给窗口加载 pet.html（主进程注入 dev/prod 路径差异）。 */
-export function togglePetWindow(loadPetPage: (win: BrowserWindow) => void, preloadPath: string): boolean {
+export function togglePetWindow(
+  loadPetPage: (win: BrowserWindow) => void,
+  preloadPath: string,
+  theme: string,
+): boolean {
   if (petWin && !petWin.isDestroyed()) {
     petWin.close();
     petWin = null;
     petEnabled = false;
-    writeState({ enabled: false });
+    writeState({ enabled: false, theme });
     return false;
   }
-  petWin = createPetWindow(preloadPath);
-  console.log('[pet] 桌宠窗口已创建');
+  petWin = createPetWindow(preloadPath, theme);
+  console.log('[pet] 桌宠窗口已创建 (theme=' + theme + ')');
   loadPetPage(petWin);
-  petWin.webContents.on('did-finish-load', () => console.log('[pet] did-finish-load'));
+  petWin.webContents.on('did-finish-load', () => {
+    console.log('[pet] did-finish-load');
+    void petWin?.webContents.executeJavaScript('window.setPetTheme(' + JSON.stringify(theme) + ')').catch(() => {});
+  });
   petWin.webContents.on('did-fail-load', (_e, code, desc, url) => console.error('[pet] did-fail-load', code, desc, url));
   petWin.webContents.on('render-process-gone', (_e, details) => console.error('[pet] render-process-gone', details.reason));
   petWin.on('moved', () => {
@@ -100,19 +108,32 @@ export function togglePetWindow(loadPetPage: (win: BrowserWindow) => void, prelo
     petWin = null;
   });
   petEnabled = true;
-  writeState({ enabled: true });
+  writeState({ enabled: true, theme });
   return true;
+}
+
+/** 托盘/设置页开关：按持久化的主题开关桌宠。 */
+export function togglePetEnabled(loadPetPage: (win: BrowserWindow) => void, preloadPath: string): boolean {
+  return togglePetWindow(loadPetPage, preloadPath, readState().theme);
 }
 
 export function isPetWindowAlive(): boolean {
   return petWin !== null && !petWin.isDestroyed();
 }
 
+export function readPetTheme(): string {
+  return readState().theme;
+}
+
 export function isPetEnabledInState(): boolean {
   return readState().enabled === true;
 }
 
-export function registerPetIpc(focusMain: () => void): void {
+export function registerPetIpc(
+  focusMain: () => void,
+  loadPetPage: (win: BrowserWindow) => void,
+  preloadPath: string,
+): void {
   ipcMain.handle('pet:set-bounds', (_e, x: number, y: number) => {
     if (!petWin || petWin.isDestroyed()) return;
     if (typeof x !== 'number' || typeof y !== 'number' || !Number.isFinite(x) || !Number.isFinite(y)) return;
@@ -126,5 +147,17 @@ export function registerPetIpc(focusMain: () => void): void {
   });
   ipcMain.handle('pet:open-main', () => {
     focusMain();
+  });
+  ipcMain.handle('pet:toggle', () => togglePetEnabled(loadPetPage, preloadPath));
+  ipcMain.handle('pet:get-state', () => ({
+    enabled: isPetWindowAlive(),
+    theme: readState().theme,
+  }));
+  ipcMain.handle('pet:set-theme', (_e, theme: string) => {
+    if (typeof theme !== 'string' || !/^[a-z0-9-]{1,40}$/i.test(theme)) return;
+    writeState({ theme });
+    if (petWin && !petWin.isDestroyed()) {
+      void petWin.webContents.executeJavaScript('window.setPetTheme(' + JSON.stringify(theme) + ')').catch(() => {});
+    }
   });
 }

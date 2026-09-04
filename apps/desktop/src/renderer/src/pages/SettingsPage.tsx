@@ -30,6 +30,7 @@ import { SearchPanel } from './settings/SearchPanel';
 import { ImBotPanel } from './settings/ImBotPanel';
 import { UpdateCard } from '../components/settings/UpdateCard';
 import { BrowserSection } from '../components/settings/BrowserSection';
+import { PetSection } from '../components/settings/PetSection';
 import { UsageHistoryPanel } from './settings/UsageHistoryPanel';
 import { ComputerSection } from '../components/settings/ComputerSection';
 import { brand } from '../../../shared/brand.ts';
@@ -261,6 +262,7 @@ export function SettingsPage(): React.JSX.Element {
             {tab === 'automation' && (
               <div className="flex flex-col gap-[14px]">
                 <SectionTitle>自动操作</SectionTitle>
+                <PetSection />
                 <BrowserSection />
                 <ComputerSection />
               </div>
