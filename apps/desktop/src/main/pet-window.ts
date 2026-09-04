@@ -84,9 +84,46 @@ export function togglePetWindow(loadPetUrl: (win: BrowserWindow) => void, preloa
     return false;
   }
   petWin = createPetWindow(preloadPath);
+  console.log('[pet] 桌宠窗口已创建');
   loadPetUrl(petWin);
+  // transparent 窗 ready-to-show 有不触发的怪癖：1.5s 兜底强制显示
+  // 渲染诊断：桌宠不可见时从日志定位（空白/加载失败/崩溃）
+  petWin.webContents.on('did-finish-load', () => console.log('[pet] did-finish-load'));
+  petWin.webContents.on('did-fail-load', (_e, code, desc, url) => console.error('[pet] did-fail-load', code, desc, url));
+  petWin.webContents.on('render-process-gone', (_e, details) => console.error('[pet] render-process-gone', details.reason));
+  petWin.webContents.on('console-message', (_e, _level, message) => { if (/error/i.test(message)) console.error('[pet:renderer]', message.slice(0, 200)); });
   petWin.once('ready-to-show', () => petWin?.show());
+  setTimeout(() => {
+    if (petWin && !petWin.isDestroyed() && !petWin.isVisible()) {
+      console.warn('[pet] ready-to-show 未触发，兜底显示桌宠');
+      petWin.show();
+    }
+    setTimeout(async () => {
+      if (!petWin || petWin.isDestroyed()) return;
+      try {
+        const js = [
+          'JSON.stringify({',
+          "  hash: location.hash,",
+          "  imgs: document.images.length,",
+          "  imgSrc: (document.images[0]?.src || '').slice(-50),",
+          "  bodyBg: getComputedStyle(document.body).backgroundColor,",
+          "  htmlBg: getComputedStyle(document.documentElement).backgroundColor,",
+          "  bodyInline: document.body.style.background,",
+          "  rootLen: (document.getElementById('root')?.innerHTML || '').length",
+          '})',
+        ].join('
+');
+        const html = await petWin.webContents.executeJavaScript(js);
+        console.log('[pet:dom]', html);
+        const img = await petWin.webContents.capturePage();
+        fs.mkdirSync('D:/AI/TenCent/fundet-buddy-main/tools/pet-assets', { recursive: true });
+        fs.writeFileSync('D:/AI/TenCent/fundet-buddy-main/tools/pet-assets/pet-capture.png', img.toPNG());
+        console.log('[pet] capturePage 保存');
+      } catch (e) { console.error('[pet] 诊断失败', e.message); }
+    }, 3000);
+  }, 1500);
   petWin.on('closed', () => {
+    console.log('[pet] 桌宠窗口已关闭');
     petWin = null;
   });
   petWin.on('moved', () => {

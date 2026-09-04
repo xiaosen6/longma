@@ -545,3 +545,9 @@ textarea:focus-visible {
 .pet-anim-typing { animation: pet-typing 0.9s ease-in-out infinite; transform-origin: bottom center; }
 .pet-anim-bounce { animation: pet-bounce 0.8s ease-in-out infinite; transform-origin: bottom center; }
 .pet-anim-breathe { animation: pet-breathe 2.4s ease-in-out infinite; transform-origin: bottom center; }
+
+/* ── 桌宠模式：透明窗强制无背景（body class 由 PetPage 挂载时添加）── */
+body.pet-mode,
+html:has(body.pet-mode) {
+  background: transparent !important;
+}
