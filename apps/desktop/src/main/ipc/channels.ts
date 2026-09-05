@@ -69,6 +69,7 @@ export const FUNDET_INVOKE = {
   PET_TOGGLE: 'pet:toggle',
   PET_GET_STATE: 'pet:get-state',
   PET_SET_THEME: 'pet:set-theme',
+  PI_GET_VERSION: 'pi:get-version',
   IM_STATUS: 'im:status',
   IM_SAVE: 'im:save',
   IM_CLEAR: 'im:clear',

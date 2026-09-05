@@ -278,6 +278,8 @@ export interface FundetApi {
   petToggle(): Promise<boolean>;
   petGetState(): Promise<{ enabled: boolean; theme: string }>;
   petSetTheme(theme: string): Promise<void>;
+  /** pi 二进制版本（About 显示），不可用返回 null */
+  getPiVersion(): Promise<string | null>;
 
   imStatus(): Promise<ImBotsStatus>;
   imSave(input: ImSaveInput): Promise<void>;

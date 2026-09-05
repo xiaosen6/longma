@@ -3,7 +3,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import * as Switch from '@radix-ui/react-switch';
 import { Eye, MoreHorizontal, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import type { ProviderApi, ProviderView } from '../../../../shared/fundet-api.js';
-import { formatTokenCount, preferScannedContextWindow } from '../../../../shared/context-window.js';
+import { formatContextWindow, formatTokenCount, preferScannedContextWindow } from '../../../../shared/context-window.js';
 import { cn } from '../../lib/cn';
 import { ProviderLogoMark } from '../icons/ProviderLogoMark';
 import { AddProviderWizard } from './AddProviderWizard';
@@ -178,17 +178,27 @@ function CustomProviderDialog({
                     />
                     视觉
                   </label>
-                  <input
-                    className={cn(FIELD, 'w-[110px]')}
-                    value={m.contextWindow ? String(m.contextWindow) : ''}
-                    placeholder="上下文"
-                    onChange={(e) => {
-                      const raw = e.target.value.replace(/[^\d]/g, '');
-                      setModels((cur) =>
-                        cur.map((x, j) => (j === i ? { ...x, contextWindow: raw ? Number(raw) : undefined } : x)),
-                      );
-                    }}
-                  />
+                  <div className="relative">
+                    <input
+                      className={cn(FIELD, 'w-[110px] pr-10')}
+                      value={m.contextWindow ? String(m.contextWindow) : ''}
+                      placeholder="上下文"
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(/[^\d]/g, '');
+                        setModels((cur) =>
+                          cur.map((x, j) => (j === i ? { ...x, contextWindow: raw ? Number(raw) : undefined } : x)),
+                        );
+                      }}
+                    />
+                    {m.contextWindow && m.contextWindow >= 1000 ? (
+                      <span
+                        aria-hidden="true"
+                        className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-11 font-medium tabular-nums text-muted"
+                      >
+                        {formatTokenCount(m.contextWindow)}
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
               ))}
             </div>

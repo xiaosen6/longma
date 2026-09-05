@@ -112,6 +112,7 @@ const api: FundetApi = {
   petToggle: () => ipcRenderer.invoke(FUNDET_INVOKE.PET_TOGGLE),
   petGetState: () => ipcRenderer.invoke(FUNDET_INVOKE.PET_GET_STATE),
   petSetTheme: (theme) => ipcRenderer.invoke(FUNDET_INVOKE.PET_SET_THEME, theme),
+  getPiVersion: () => ipcRenderer.invoke(FUNDET_INVOKE.PI_GET_VERSION),
 
   imStatus: () => ipcRenderer.invoke(FUNDET_INVOKE.IM_STATUS),
   imSave: (input) => ipcRenderer.invoke(FUNDET_INVOKE.IM_SAVE, input),

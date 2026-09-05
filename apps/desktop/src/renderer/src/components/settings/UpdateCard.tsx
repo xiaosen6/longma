@@ -28,10 +28,19 @@ function statusText(s: UpdateState): string {
 
 export function UpdateCard(): React.JSX.Element {
   const [state, setState] = useState<UpdateState | null>(null);
+  const [piVersion, setPiVersion] = useState<string | null>(null);
 
   useEffect(() => {
     void window.fundet.updateStatus().then(setState);
     return window.fundet.onUpdateStatusChanged(setState);
+  }, []);
+
+  // pi 运行时版本（对齐 Cindy About 设置；排障时用户可自查）
+  useEffect(() => {
+    void window.fundet
+      .getPiVersion()
+      .then((v) => setPiVersion(v))
+      .catch(() => setPiVersion(null));
   }, []);
 
   if (!state) return <p className="text-13 text-muted">读取版本信息…</p>;
@@ -43,6 +52,7 @@ export function UpdateCard(): React.JSX.Element {
       <p className="text-13 font-medium text-secondary">版本与更新</p>
       <p className="mt-1 text-12 text-muted">
         当前版本 v{state.currentVersion}。Windows 自动下载更新，macOS 需手动下载安装。
+        {piVersion ? ` pi 运行时 v${piVersion}。` : ''}
       </p>
       {statusText(state) && (
         <p className="mt-2 text-12 text-secondary">{statusText(state)}</p>

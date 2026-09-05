@@ -148,3 +148,7 @@ export function formatTokenCount(n: number): string {
   }
   return n.toString();
 }
+
+
+/** 上下文窗口 tokens → 紧凑展示（formatTokenCount 别名，语义命名）。 */
+export const formatContextWindow = formatTokenCount;

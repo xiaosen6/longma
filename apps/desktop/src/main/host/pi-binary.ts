@@ -63,3 +63,21 @@ export function resolveRipgrepPath(): string | undefined {
   }
   return undefined;
 }
+
+/** pi 二进制的 --version 输出（设置页关于区显示）；失败返回 null。 */
+export async function getPiVersion(): Promise<string | null> {
+  try {
+    const { spawn } = await import('node:child_process');
+    const out = await new Promise<string>((resolve, reject) => {
+      const child = spawn(resolvePiBinaryPath(), ['--version'], { stdio: ['ignore', 'pipe', 'ignore'] });
+      let buf = '';
+      child.stdout.on('data', (c: Buffer) => (buf += c.toString('utf-8')));
+      child.once('error', reject);
+      child.once('exit', (code) => (code === 0 ? resolve(buf.trim()) : reject(new Error('exit ' + code))));
+      setTimeout(() => { child.kill(); reject(new Error('timeout')); }, 5000).unref?.();
+    });
+    return out || null;
+  } catch {
+    return null;
+  }
+}
