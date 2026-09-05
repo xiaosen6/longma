@@ -149,7 +149,7 @@ ChatPage / ChatInput
 
 | 版本 | 日期 | 要点 |
 | --- | --- | --- |
-| 0.2.12 | 09-05 | **Cindy 同步批次 + 桌宠三形象**：上下文紧凑单位、关于页 pi 版本显示（spawn pi --version IPC）、桌宠第三形象 dino + 形象选择 UI + setPetTheme 热切；pi 升级只改 latest.json（update.mjs pin 模式）；速度计量修正（c43335b8f/2fd803a3f）为 claude-code/codex 路径不适用已对照排除 |
+| 0.2.12 | 09-05 | **Cindy 同步批次 + 桌宠三形象**：上下文紧凑单位、关于页 pi 版本显示（spawn pi --version IPC）、桌宠第三形象 dino + 形象选择 UI + setPetTheme 热切；pi 升级只改 latest.json（update.mjs pin 模式）；速度计量修正（c43335b8f/2fd803a3f）为 claude-code/codex 路径不适用已对照排除。**同日：Fundet 发版权移交公司侧——release.yml 删 fundet 双 job（只出 LongMa），fundet 仓 v0.2.12 Release 撤销（tag/资产删，v0.2.11 为 Fundet 现行最新）** |
 | 0.2.11 | 09-04 | **桌宠 M1**（透明置顶窗/6 状态×6 帧序列动画/拖拽/点击跳转主窗/托盘开关；三坑：透明窗须创建即显示、ready-to-show 不触发、img pointer-events 吞事件）|
 | 0.2.10 | 09-03 | **修复视觉发图 1210**（pi 0.84.4 + 已知模型补全表）+ 用户长消息折叠 + markdown 对齐 Cindy（数学/CJK/mermaid）；workflow pi 版本硬编码坑 |
 | 0.2.9 | 08-31 | **界面硬编码「龙马」全清**（17 处→brand.name，用量历史/IM 机器人等；客户实测发现）；cua-driver 下载自动回退 |
