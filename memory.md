@@ -503,6 +503,14 @@ GEO 只审计用户给出的站点（CLI 自抓），不是通用搜索。
 
 ### 7.2 已知债 / 不阻塞
 
+**桌宠技术架构（0.2.11/0.2.12 实现细节，改动前必读）**：
+- **三层**：主进程 pet-window.ts（透明置顶窗 160×160、位置/开关/主题持久化于 userData/pet-window.json）→ resources/pet/pet.html（**独立原生页**，无 React 无主题 CSS——曾用主 renderer #/pet 路由，因主题背景渗透+挂载时序三连坑改独立页）→ 状态数据靠主进程 broadcast（agent:status-changed 广播到所有窗口，桌宠自动收到）。
+- **透明窗三坑（Windows，全实测）**：①必须创建即显示（show:false+延迟 show 失去透明）；②ready-to-show 常不触发（需兜底 show）；③backgroundColor 需显式 "#00000000"。透明窗叠在主题米色主窗上时视觉难分辨，验证须最小化主窗看是否透出壁纸。
+- **pet.html 交互**：mousedown 挂 document（img pointer-events:none 会吞事件）；自实现拖拽（move 超 3px 判定）+ 单击 petOpenMain；序列帧 140ms/帧；sleep 态加呼吸缩放。
+- **状态机优先级**：attention（审批）> thinking（status 含 think）> working（isRunning）> sleep（60s）> idle。
+- **素材流水线**：tools/pet-assets/build.mjs [theme]——src/<theme>/<state>/NN.jpg → 边缘泛洪去白底 → **全状态帧联合包围盒**（帧间零跳动关键）→ 128×128 底对齐 → resources/pet/frames/<theme>/。新增形象=新主题目录+跑一遍+PetSection THEMES 数组加一项。sharp 从 .pnpm store 探测加载。
+- **DPI 坑**：本机屏幕 1.25× 缩放——PowerShell CopyFromScreen 截屏坐标=物理像素，Electron 坐标=逻辑像素，**验桌宠须逻辑坐标×1.25**（此前多张「米色空白」截图全是截错位置的无效证据）。
+
 **桌宠路线图（用户已拍板方向）**：M1 已完成（0.2.11）；**双形象+设置页区块已完成（0.2.12：black-heels/qipao/dino 三主题，设置→自动操作→桌宠，setPetTheme 热切）**；M2 养成系统（使用量驱动经验/成长阶段/持久化）；M3 自定义+Petdex 格式导入+AI 生成形象；M4 截图问答（视觉链路已通）+ 权限审批桌宠气泡。
 
 - [x] `system-prompt.md` 四个技能 + `mcp__search__web_search`（2026-08-23）。
