@@ -71,6 +71,7 @@ export const FUNDET_INVOKE = {
   PET_SET_THEME: 'pet:set-theme',
   PET_SET_BUBBLE: 'pet:set-bubble',
   PET_SCREENSHOT_ASK: 'pet:screenshot-ask',
+  PET_TAKE_SCREENSHOTS: 'pet:take-screenshots',
   PI_GET_VERSION: 'pi:get-version',
   IM_STATUS: 'im:status',
   IM_SAVE: 'im:save',

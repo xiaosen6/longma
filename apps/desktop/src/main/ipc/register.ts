@@ -780,6 +780,9 @@ export function registerIpcHandlers(): void {
   // ---------- skills ----------
   ipcMain.handle(FUNDET_INVOKE.SKILLS_LIST, async (_e, workDir?: string) => listSkills(workDir));
 
+  // ---------- pi 运行时版本（关于页显示） ----------
+  ipcMain.handle(FUNDET_INVOKE.PI_GET_VERSION, () => getPiVersion());
+
   ipcMain.handle(FUNDET_INVOKE.SKILLS_PICK, async (e) => {
     const win = BrowserWindow.fromWebContents(e.sender);
     const opts = {

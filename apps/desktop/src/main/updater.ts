@@ -58,6 +58,8 @@ async function checkWin(): Promise<void> {
 }
 
 export function initUpdater(): void {
+  // dev 态早退也要留状态查询 handler：主窗更新卡启动即 invoke，缺了会刷 No handler 报错
+  ipcMain.handle(FUNDET_INVOKE.UPDATE_STATUS, () => ({ ...state }));
   if (!app.isPackaged) return;
   if (process.platform !== 'win32' && process.platform !== 'darwin') return;
 
@@ -79,7 +81,6 @@ export function initUpdater(): void {
     });
   }
 
-  ipcMain.handle(FUNDET_INVOKE.UPDATE_STATUS, () => ({ ...state }));
   ipcMain.handle(FUNDET_INVOKE.UPDATE_CHECK, async () => {
     if (process.platform === 'darwin') await checkMac();
     else await checkWin();

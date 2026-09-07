@@ -8,7 +8,7 @@
  * Enter 发送 / Shift+Enter 换行 / IME 组词期间 Enter 不发送（§14.3）。
  * 附件：回形针选择 + 粘贴图片/文件；拖入由外层会话列承接。
  */
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Paperclip, X } from 'lucide-react';
 import { cn } from '../lib/cn';
 import { brand } from '../../../shared/brand.js';
@@ -37,6 +37,8 @@ interface ChatInputProps {
   onRemoveAttachment?: (path: string) => void;
   onAddFiles?: (files: File[]) => void;
   onPickFiles?: () => void;
+  /** 数字递增时聚焦输入框（桌宠截图等外部附件到达时） */
+  focusSignal?: number;
   dragOver?: boolean;
 }
 
@@ -56,10 +58,15 @@ export function ChatInput({
   onRemoveAttachment,
   onAddFiles,
   onPickFiles,
+  focusSignal,
   dragOver,
 }: ChatInputProps): React.JSX.Element {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+
+  useEffect(() => {
+    if (focusSignal) requestAnimationFrame(() => textareaRef.current?.focus());
+  }, [focusSignal]);
 
   const autoResize = (): void => {
     const el = textareaRef.current;

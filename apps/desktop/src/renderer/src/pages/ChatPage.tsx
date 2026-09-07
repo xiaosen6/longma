@@ -335,25 +335,40 @@ export function ChatPage(): React.JSX.Element {
     if (picked && picked.length > 0) await stagePaths(picked);
   }, [stagePaths]);
 
-  // 桌宠右键截图问答：主窗已被主进程聚焦，截图挂进当前输入区，用户补问题后发送
-  useEffect(() => {
-    const off = window.fundet.onPetScreenshot(async (p) => {
+  // 桌宠截图问答：主进程已把截图落盘（切页不丢），这里归一到当前会话工作目录
+  // （stageFiles 对目录内文件零拷贝引用、目录外文件拷进 .longma-uploads）再挂输入区
+  const [petFocusTick, setPetFocusTick] = useState(0);
+  const acceptPetShots = useCallback(
+    (list: SessionAttachment[]): void => {
+      if (!list.length) return;
       const dir = sessionWorkDir.trim();
       if (!dir) {
         setNotice('请先选择工作目录');
         return;
       }
-      try {
-        // push 经 contextBridge 传来的 PNG 字节可能是 Uint8Array，stageBytes 契约是 ArrayBuffer
-        const buf = p.data instanceof ArrayBuffer ? p.data : new Uint8Array(p.data).buffer;
-        const staged = await window.fundet.stageBytes(dir, p.name, buf);
-        mergeAttachments([staged]);
-      } catch (err) {
-        setNotice(err instanceof Error ? err.message : String(err));
-      }
+      void (async () => {
+        try {
+          const staged = await window.fundet.stageFiles(dir, list.map((a) => a.path));
+          mergeAttachments(staged);
+          setPetFocusTick((t) => t + 1);
+        } catch (err) {
+          setNotice(err instanceof Error ? err.message : String(err));
+        }
+      })();
+    },
+    [mergeAttachments, sessionWorkDir],
+  );
+  useEffect(() => {
+    const off = window.fundet.onPetScreenshot((p) => {
+      if (p.attachment) acceptPetShots([p.attachment]);
+      else setNotice(`截图问答失败：${p.error ?? '未知错误'}`);
     });
     return off;
-  }, [mergeAttachments, sessionWorkDir]);
+  }, [acceptPetShots]);
+  // 挂载补收：用户停在设置页等路由时点的截图，主进程排队待领，回聊天页补上
+  useEffect(() => {
+    void window.fundet.petTakePendingScreenshots().then(acceptPetShots).catch(() => undefined);
+  }, [acceptPetShots]);
 
   const send = useCallback(async (): Promise<void> => {
     const text = input.trim();
@@ -732,6 +747,7 @@ export function ChatPage(): React.JSX.Element {
                       }
                       onAddFiles={(files) => void addDroppedFiles(files)}
                       onPickFiles={() => void pickFiles()}
+                      focusSignal={petFocusTick}
                       dragOver={dragOver}
                       leadingControls={
                         <>

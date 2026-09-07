@@ -71,6 +71,8 @@ function focusMainWindow(): void {
   if (!win) return;
   if (!win.isVisible()) win.show();
   if (win.isMinimized()) win.restore();
+  // moveTop 兜底：Windows 前台锁可能拒绝后台进程的 focus()，moveTop 只提层不夺焦点
+  win.moveTop();
   win.focus();
 }
 
@@ -105,7 +107,7 @@ function setupTrayAndCloseBehavior(win: BrowserWindow): void {
       },
       { type: 'separator' },
       {
-        label: '打开 ${brand.name}',
+        label: `打开 ${brand.name}`,
         click: () => focusMainWindow(),
       },
       { type: 'separator' },

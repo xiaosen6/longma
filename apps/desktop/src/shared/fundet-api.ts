@@ -149,10 +149,10 @@ export interface InteractionRequestPayload {
   request: InteractionRequest;
 }
 
-/** 桌宠右键截图（PET_SCREENSHOT push）：data 为 PNG 字节 */
+/** 桌宠右键截图（PET_SCREENSHOT push）：主进程已 stage，attachment 就绪；失败给 error 文案 */
 export interface PetScreenshotPayload {
-  name: string;
-  data: ArrayBuffer;
+  attachment?: SessionAttachment;
+  error?: string;
 }
 
 export interface InteractionDismissedPayload {
@@ -286,8 +286,10 @@ export interface FundetApi {
   petSetTheme(theme: string): Promise<void>;
   /** 桌宠审批气泡显隐：主进程据此扩/缩窗口（底边对齐，向上生长） */
   petSetBubble(active: boolean): Promise<void>;
-  /** 桌宠右键截图问答：截主屏全屏（隐藏桌宠本体），结果经 onPetScreenshot 推给主窗 */
+  /** 桌宠右键截图问答：截主屏全屏（隐藏桌宠本体），主进程 stage 后经 onPetScreenshot 推给主窗 */
   petScreenshotAsk(): Promise<void>;
+  /** 取走桌宠截图待领队列（挂载时补收；切页期间点的截图不丢） */
+  petTakePendingScreenshots(): Promise<SessionAttachment[]>;
   /** pi 二进制版本（About 显示），不可用返回 null */
   getPiVersion(): Promise<string | null>;
 

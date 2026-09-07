@@ -115,6 +115,7 @@ const api: FundetApi = {
   petSetTheme: (theme) => ipcRenderer.invoke(FUNDET_INVOKE.PET_SET_THEME, theme),
   petSetBubble: (active) => ipcRenderer.invoke(FUNDET_INVOKE.PET_SET_BUBBLE, active),
   petScreenshotAsk: () => ipcRenderer.invoke(FUNDET_INVOKE.PET_SCREENSHOT_ASK),
+  petTakePendingScreenshots: () => ipcRenderer.invoke(FUNDET_INVOKE.PET_TAKE_SCREENSHOTS),
   getPiVersion: () => ipcRenderer.invoke(FUNDET_INVOKE.PI_GET_VERSION),
 
   imStatus: () => ipcRenderer.invoke(FUNDET_INVOKE.IM_STATUS),

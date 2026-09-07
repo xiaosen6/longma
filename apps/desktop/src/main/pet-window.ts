@@ -10,7 +10,12 @@
 import { app, BrowserWindow, desktopCapturer, ipcMain, screen } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
+import { desc } from 'drizzle-orm';
 import { FUNDET_PUSH } from './ipc/channels.js';
+import { getDb } from './db/client.js';
+import { sessions } from './db/schema.js';
+import { stageBytesIntoWorkDir } from './fs-local.js';
+import type { SessionAttachment } from '../shared/fundet-api.js';
 
 const PET_SIZE = 160;
 /** 审批气泡态窗口尺寸：pet 160 + 上方气泡区。透明区域会拦截鼠标，必须只在气泡可见期间扩 */
@@ -177,10 +182,30 @@ export function isPetEnabledInState(): boolean {
   return readState().enabled === true;
 }
 
+/** 待领截图附件：主进程 stage 后排队，聊天页在线即时收、挂载时补拉（切页不丢） */
+const pendingPetShots: SessionAttachment[] = [];
+const PET_SHOT_QUEUE_MAX = 5;
+
+/** 截图落盘目标：最近活跃会话的工作目录；一个会话都没有时回落用户主目录 */
+function latestSessionWorkDir(): string {
+  try {
+    const row = getDb()
+      .select({ workDir: sessions.workDir })
+      .from(sessions)
+      .orderBy(desc(sessions.updatedAt))
+      .limit(1)
+      .get();
+    if (row?.workDir?.trim()) return row.workDir;
+  } catch {
+    /* DB 不可用时走默认 */
+  }
+  return app.getPath('home');
+}
+
 /**
- * 桌宠右键截图问答：截主屏全屏 → PNG 推给主窗输入区（用户补问题后发送）。
- * 截图前隐藏桌宠本体（它 alwaysOnTop，不藏会进画面）；主窗在截图后才聚焦，
- * 所以未开窗时截图里不会有主窗。
+ * 桌宠右键/工具条截图问答：截主屏全屏 → 主进程 stage 进工作目录 →
+ * 排队待领 + 推给主窗输入区（用户补问题后发送）。任何失败都推 error 文案，
+ * 不允许静默——桌宠侧没有可展示错误的 UI。
  */
 async function askScreenshot(
   push: (channel: string, payload: unknown) => void,
@@ -199,14 +224,29 @@ async function askScreenshot(
       },
     });
     let img = sources[0]?.thumbnail;
-    if (!img || img.isEmpty()) return;
+    if (!img || img.isEmpty()) {
+      push(FUNDET_PUSH.PET_SCREENSHOT, { error: '未获取到屏幕画面' });
+      return;
+    }
     let png = img.toPNG();
     // 视觉发图 ≤8MB 走 image 块；超大先降分辨率重编码
     if (png.byteLength > 8 * 1024 * 1024) {
       img = img.resize({ width: 1920 });
       png = img.toPNG();
     }
-    push(FUNDET_PUSH.PET_SCREENSHOT, { name: `screenshot-${Date.now()}.png`, data: png });
+    const attachment = stageBytesIntoWorkDir(
+      latestSessionWorkDir(),
+      `screenshot-${Date.now()}.png`,
+      png,
+    );
+    pendingPetShots.push(attachment);
+    if (pendingPetShots.length > PET_SHOT_QUEUE_MAX) pendingPetShots.shift();
+    push(FUNDET_PUSH.PET_SCREENSHOT, { attachment });
+  } catch (err) {
+    console.error('[pet] 截图问答失败', err);
+    push(FUNDET_PUSH.PET_SCREENSHOT, {
+      error: err instanceof Error ? err.message : String(err),
+    });
   } finally {
     if (win && !win.isDestroyed()) win.show();
   }
@@ -249,4 +289,5 @@ export function registerPetIpc(
     setPetBubble(active === true);
   });
   ipcMain.handle('pet:screenshot-ask', () => askScreenshot(push, focusMain));
+  ipcMain.handle('pet:take-screenshots', () => pendingPetShots.splice(0, pendingPetShots.length));
 }
