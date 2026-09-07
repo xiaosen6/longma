@@ -28,10 +28,21 @@
                    border: 1px solid #ddd6c8; background: #fff; color: #3b3630; cursor: pointer; }
   #bubble button.allow { background: #2563eb; border-color: #2563eb; color: #fff; }
   #bubble button:hover { filter: brightness(0.96); }
+  /* 悬浮工具条：hover 桌宠时出现在形象上方；气泡优先，拖拽中隐藏 */
+  #pet-bar { display: none; position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
+             gap: 3px; background: rgba(255,255,255,0.96); border: 1px solid #ddd6c8; border-radius: 10px;
+             padding: 3px 4px; box-shadow: 0 2px 10px rgba(0,0,0,0.16); user-select: none; }
+  body.hovering #pet-bar { display: flex; }
+  body.bubble-on #pet-bar, body.dragging #pet-bar { display: none; }
+  #pet-bar button { font: 11px/1 system-ui, sans-serif; padding: 5px 6px; border: 0;
+                    background: transparent; color: #3b3630; border-radius: 6px; cursor: pointer; white-space: nowrap; }
+  #pet-bar button:hover { background: #efe9dc; }
+  #pet-bar button.stop { color: #c0392b; }
 </style>
 </head>
 <body>
 <div id="bubble"></div>
+<div id="pet-bar"></div>
 <img id="pet" draggable="false">
 <script>
 (function () {
@@ -185,31 +196,70 @@
     }
   }
 
+  // ---------- 悬浮工具条（hover 显示：聊天/截图/停止/隐藏） ----------
+  var barEl = document.getElementById('pet-bar');
+
+  function barBtn(label, fn, cls) {
+    var b = document.createElement('button');
+    b.textContent = label;
+    if (cls) b.className = cls;
+    b.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+    b.addEventListener('click', function (e) { e.stopPropagation(); fn(); });
+    barEl.appendChild(b);
+  }
+
+  function renderBar() {
+    barEl.innerHTML = '';
+    var runningIds = Object.keys(running).filter(function (k) { return running[k]; });
+    barBtn('聊天', function () { window.fundet.petOpenMain(); });
+    barBtn('截图', function () { window.fundet.petScreenshotAsk().catch(function () {}); });
+    if (runningIds.length) {
+      // 运行中：停最后活跃的会话（多会话并行时 v1 只停一个）
+      var id = runningIds[runningIds.length - 1];
+      barBtn('停止', function () { window.fundet.abortSession(id).catch(function () {}); }, 'stop');
+    }
+    barBtn('隐藏', function () { window.fundet.petToggle(); });
+  }
+
+  document.documentElement.addEventListener('mouseenter', function () {
+    if (document.body.classList.contains('bubble-on') || drag.on) return;
+    renderBar();
+    document.body.classList.add('hovering');
+  });
+  document.documentElement.addEventListener('mouseleave', function () {
+    document.body.classList.remove('hovering');
+  });
+
   // ---------- 拖拽（自实现，IPC setBounds）+ 单击跳转主窗 ----------
   var drag = { on: false, moved: false, ox: 0, oy: 0 };
   // mousedown 挂 document：img 设了 pointer-events:none，事件不会落在 img 上；
-  // 气泡内的按下（含按钮）不走拖拽
+  // 气泡/工具条内的按下不走拖拽
   document.addEventListener('mousedown', function (e) {
     if (e.button !== 0) return;
-    if (e.target && e.target.closest && e.target.closest('#bubble')) return;
+    if (e.target && e.target.closest && (e.target.closest('#bubble') || e.target.closest('#pet-bar'))) return;
+    document.body.classList.remove('hovering');
     drag = { on: true, moved: false, ox: e.screenX - window.screenX, oy: e.screenY - window.screenY };
   });
   window.addEventListener('mousemove', function (e) {
     if (!drag.on) return;
     var x = e.screenX - drag.ox;
     var y = e.screenY - drag.oy;
-    if (Math.abs(x - window.screenX) > 3 || Math.abs(y - window.screenY) > 3) drag.moved = true;
+    if (Math.abs(x - window.screenX) > 3 || Math.abs(y - window.screenY) > 3) {
+      drag.moved = true;
+      document.body.classList.add('dragging');
+    }
     if (drag.moved && window.fundet) window.fundet.petSetBounds(x, y);
   });
   window.addEventListener('mouseup', function () {
     if (drag.on && !drag.moved && window.fundet) window.fundet.petOpenMain();
     drag.on = false;
+    document.body.classList.remove('dragging');
   });
   // 右键截图问答：截全屏推给主窗输入区（左键单击仍是跳主窗）
   document.addEventListener('contextmenu', function (e) {
     e.preventDefault();
     if (drag.on) return;
-    if (e.target && e.target.closest && e.target.closest('#bubble')) return;
+    if (e.target && e.target.closest && (e.target.closest('#bubble') || e.target.closest('#pet-bar'))) return;
     if (window.fundet) window.fundet.petScreenshotAsk().catch(function () {});
   });
 })();

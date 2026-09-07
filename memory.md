@@ -508,12 +508,15 @@ GEO 只审计用户给出的站点（CLI 自抓），不是通用搜索。
 - **透明窗三坑（Windows，全实测）**：①必须创建即显示（show:false+延迟 show 失去透明）；②ready-to-show 常不触发（需兜底 show）；③backgroundColor 需显式 "#00000000"。透明窗叠在主题米色主窗上时视觉难分辨，验证须最小化主窗看是否透出壁纸。
 - **pet.html 交互**：mousedown 挂 document（img pointer-events:none 会吞事件）；自实现拖拽（move 超 3px 判定）+ 单击 petOpenMain；序列帧 140ms/帧；sleep 态加呼吸缩放。
 - **截图问答（0.2.12 后补，未发版）**：右键桌宠 → `pet:screenshot-ask` IPC → 主进程 desktopCapturer 截主屏全屏（**物理分辨率=逻辑×scaleFactor**；先隐藏桌宠本体防进画面，主窗在截图后才聚焦故不会入镜；PNG>8MB 降到 1920 宽重编码对齐视觉发图上限）→ `PET_SCREENSHOT` push（broadcast 已从 register.ts 导出，index.ts 传入 registerPetIpc）→ ChatPage 订阅 `onPetScreenshot` → stageBytes 进当前输入区附件，用户补问题后发送（走既有视觉链路，需视觉模型）。注意 push 载荷经 contextBridge 可能变 Uint8Array，ChatPage 已归一化成 ArrayBuffer。
+- **悬浮工具条（0.2.12 后补，未发版）**：hover 桌宠 → 形象上方白胶囊条（聊天/截图/隐藏，**运行中追加红色「停止」**→abortSession 最后活跃会话）；mouseenter/mouseleave 挂 document.documentElement（整个窗口矩形接收鼠标，含透明区）；气泡显示/拖拽中强制隐藏（body.bubble-on/.dragging）；mousedown/contextmenu 对 #pet-bar closest 护栏。左键单击=跳主窗、右键=截图快捷键保留。
 - **审批气泡（0.2.12 后补，未发版）**：桌宠窗复用主 preload，`window.fundet` 全量可用——`onInteractionRequest/onInteractionDismissed/resolveInteraction/getPendingInteractions` 均已有。新增 `pet:set-bubble` IPC（四件套齐）：气泡显隐时主进程扩/缩窗（160×160 ↔ 300×440，**pet 形象锚定窗口底部居中**，扩窗向上生长底边不动、收缩按当前底边反推，防拖动漂移）；透明区域会拦鼠标所以只在气泡可见期间扩。气泡逻辑全在 pet.html：pending 队列（优先 permission 就地允许/拒绝；ask/plan 只引导点开主窗）、attention 在队列清空才解除、重开窗补拉 getPendingInteractions、mousedown 对 #bubble closest 护栏不走拖拽。主窗 dismissed 广播（reason=resolved/timeout）是气泡收起的兜底信号。
 - **状态机优先级**：attention（审批）> thinking（status 含 think）> working（isRunning）> sleep（60s）> idle。
 - **素材流水线**：tools/pet-assets/build.mjs [theme]——src/<theme>/<state>/NN.jpg → 边缘泛洪去白底 → **全状态帧联合包围盒**（帧间零跳动关键）→ 128×128 底对齐 → resources/pet/frames/<theme>/。新增形象=新主题目录+跑一遍+PetSection THEMES 数组加一项。sharp 从 .pnpm store 探测加载。
 - **DPI 坑**：本机屏幕 1.25× 缩放——PowerShell CopyFromScreen 截屏坐标=物理像素，Electron 坐标=逻辑像素，**验桌宠须逻辑坐标×1.25**（此前多张「米色空白」截图全是截错位置的无效证据）。
 
-**桌宠路线图（用户已拍板方向）**：M1 已完成（0.2.11）；双形象+设置页区块已完成（0.2.12：black-heels/qipao/dino 三主题，设置→自动操作→桌宠，setPetTheme 热切；**坑：dino 提交只带资产，PetSection THEMES 漏加导致 UI 选不到——已修随下版**）；**M4 已全部完成（0.2.12 后补，未发版：审批气泡+右键截图问答，CDP 实证全链路）**；M2 养成系统（下一个大项：使用量驱动经验/成长阶段/持久化；usage_daily+getUsageHistory 数据现成，需新表 pet_state+migration；成长绑定全局还是主题待用户拍板；素材=蛋/幼年/少年待用户生图，提示词框架已在 docs/pet-sprite-prompts.md）；M3 自定义+Petdex 格式导入+AI 生成形象（帧路径需改 longma-file:// 才能装 userData 自定义素材）。
+**桌宠路线图（用户已拍板方向）**：M1 已完成（0.2.11）；双形象+设置页区块已完成（0.2.12：black-heels/qipao/dino 三主题，设置→自动操作→桌宠，setPetTheme 热切；**坑：dino 提交只带资产，PetSection THEMES 漏加导致 UI 选不到——已修随下版**）；**M4 已全部完成（0.2.12 后补，未发版：审批气泡+右键截图问答+悬浮工具条，CDP 实证全链路）**；M2 养成系统（用户拍板放后面：使用量驱动经验/成长阶段/持久化；usage_daily+getUsageHistory 数据现成，需新表 pet_state+migration；成长绑定全局还是主题待用户拍板；素材=蛋/幼年/少年待用户生图，提示词框架已在 docs/pet-sprite-prompts.md）；M3 自定义+Petdex 格式导入+AI 生成形象（帧路径需改 longma-file:// 才能装 userData 自定义素材）。
+
+**桌宠验证技巧坑（CDP）**：①`window.fundet`（contextBridge）对象及其属性**只读**，赋值覆盖静默失败——spy 模式验证按钮会真调 API（petToggle 真关窗→后续 evaluate 挂死）；验证按钮只能查渲染/DOM 或真调后的可观测效果，不能拦截。②dev 起 CDP 后 fundet 注入需要时间，petToggle 前 `typeof window.fundet !== 'undefined'` 轮询就绪，否则 invoke 静默吞。
 
 - [x] `system-prompt.md` 四个技能 + `mcp__search__web_search`（2026-08-23）。
 - [ ] 真 key 全链路冒烟（历史 Kimi coding 端点 401）。
