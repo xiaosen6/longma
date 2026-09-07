@@ -12,10 +12,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const PET_SIZE = 160;
+/** 审批气泡态窗口尺寸：pet 160 + 上方气泡区。透明区域会拦截鼠标，必须只在气泡可见期间扩 */
+const PET_BUBBLE_WIDTH = 300;
+const PET_BUBBLE_HEIGHT = 440;
 const STATE_FILE = () => path.join(app.getPath('userData'), 'pet-window.json');
 
 let petWin: BrowserWindow | null = null;
 let petEnabled = false;
+let bubbleActive = false;
 
 interface PetState {
   enabled: boolean;
@@ -50,6 +54,43 @@ function defaultPosition(): { x: number; y: number } {
     x: workArea.x + workArea.width - PET_SIZE - 24,
     y: workArea.y + workArea.height - PET_SIZE - 24,
   };
+}
+
+/** 桌宠当前所在显示器的工作区（气泡扩窗要在同一块屏内钳制） */
+function petWorkArea() {
+  if (!petWin || petWin.isDestroyed()) return screen.getPrimaryDisplay().workArea;
+  const [x, y] = petWin.getPosition();
+  const [w, h] = petWin.getSize();
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  const hit = screen
+    .getAllDisplays()
+    .find((d) => cx >= d.bounds.x && cx <= d.bounds.x + d.bounds.width && cy >= d.bounds.y && cy <= d.bounds.y + d.bounds.height);
+  return (hit ?? screen.getPrimaryDisplay()).workArea;
+}
+
+/**
+ * 审批气泡显隐 → 扩/缩窗口。pet 形象锚定窗口底部居中，扩窗向上生长、底边不动；
+ * 收缩按当前窗口底边反推 160×160（气泡期间用户可能拖动过）。
+ */
+function setPetBubble(active: boolean): void {
+  if (!petWin || petWin.isDestroyed() || active === bubbleActive) return;
+  const b = petWin.getBounds();
+  const workArea = petWorkArea();
+  if (active) {
+    const nx = Math.round(b.x + (b.width - PET_BUBBLE_WIDTH) / 2);
+    let ny = Math.round(b.y + b.height - PET_BUBBLE_HEIGHT);
+    if (ny < workArea.y) ny = workArea.y;
+    bubbleActive = true;
+    petWin.setBounds({ x: nx, y: ny, width: PET_BUBBLE_WIDTH, height: PET_BUBBLE_HEIGHT });
+  } else {
+    const nx = Math.round(b.x + (b.width - PET_SIZE) / 2);
+    const ny = Math.round(b.y + b.height - PET_SIZE);
+    bubbleActive = false;
+    petWin.setBounds({ x: nx, y: ny, width: PET_SIZE, height: PET_SIZE });
+    const [fx, fy] = petWin.getPosition();
+    writeState({ x: fx, y: fy });
+  }
 }
 
 function createPetWindow(preloadPath: string, theme: string): BrowserWindow {
@@ -104,11 +145,14 @@ export function togglePetWindow(
   petWin.webContents.on('did-fail-load', (_e, code, desc, url) => console.error('[pet] did-fail-load', code, desc, url));
   petWin.webContents.on('render-process-gone', (_e, details) => console.error('[pet] render-process-gone', details.reason));
   petWin.on('moved', () => {
+    // 气泡态的位移是扩窗/拖拽的临时值，收缩时会统一定稿，不落盘
+    if (bubbleActive) return;
     const [x, y] = petWin?.getPosition() ?? [0, 0];
     writeState({ x, y });
   });
   petWin.on('closed', () => {
     petWin = null;
+    bubbleActive = false;
   });
   petEnabled = true;
   writeState({ enabled: true, theme });
@@ -162,5 +206,8 @@ export function registerPetIpc(
     if (petWin && !petWin.isDestroyed()) {
       void petWin.webContents.executeJavaScript('window.setPetTheme(' + JSON.stringify(theme) + ')').catch(() => {});
     }
+  });
+  ipcMain.handle('pet:set-bubble', (_e, active: boolean) => {
+    setPetBubble(active === true);
   });
 }

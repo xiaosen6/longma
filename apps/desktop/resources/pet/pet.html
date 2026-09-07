@@ -3,13 +3,35 @@
 <head>
 <meta charset="utf-8">
 <style>
-  html, body { margin: 0; width: 100%; height: 100%; background: transparent; overflow: hidden; }
-  img { width: 160px; height: 160px; object-fit: contain; pointer-events: none; user-select: none; }
+  html, body { margin: 0; width: 100%; height: 100%; background: transparent; overflow: hidden; position: relative; }
+  /* 形象锚定窗口底部居中：margin-left 不用 transform，避免和 breathe 缩放动画打架 */
+  img { position: absolute; bottom: 0; left: 50%; margin-left: -80px;
+        width: 160px; height: 160px; object-fit: contain; pointer-events: none; user-select: none; }
   .sleep { animation: breathe 2.4s ease-in-out infinite; transform-origin: bottom center; }
   @keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(0.96); } }
+  /* 审批气泡：只在 body.bubble-on（窗口已扩为 300×440）时显示 */
+  #bubble { display: none; position: absolute; top: 10px; left: 10px; right: 10px;
+            max-height: calc(100% - 172px); overflow-y: auto;
+            background: rgba(255,255,255,0.97); border: 1px solid #ddd6c8; border-radius: 12px;
+            padding: 10px 12px; font: 12px/1.5 system-ui, sans-serif; color: #3b3630;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.18); user-select: none; }
+  body.bubble-on #bubble { display: block; }
+  #bubble .b-title { font-weight: 600; font-size: 12.5px; word-break: break-all; }
+  #bubble .b-desc { color: #6b655c; margin-top: 3px; word-break: break-all;
+                    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  #bubble .b-code { font-family: Consolas, monospace; font-size: 11px; color: #4a453e;
+                    background: #f4f1ea; border: 1px solid #e6e1d5; border-radius: 6px;
+                    padding: 4px 6px; margin-top: 5px; word-break: break-all; white-space: pre-wrap;
+                    display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+  #bubble .b-row { margin-top: 8px; display: flex; gap: 8px; justify-content: flex-end; }
+  #bubble button { font: 12px system-ui, sans-serif; padding: 3px 14px; border-radius: 8px;
+                   border: 1px solid #ddd6c8; background: #fff; color: #3b3630; cursor: pointer; }
+  #bubble button.allow { background: #2563eb; border-color: #2563eb; color: #fff; }
+  #bubble button:hover { filter: brightness(0.96); }
 </style>
 </head>
 <body>
+<div id="bubble"></div>
 <img id="pet" draggable="false">
 <script>
 (function () {
@@ -62,21 +84,114 @@
   setInterval(tick, FRAME_MS);
   tick();
 
+  // ---------- 审批气泡 ----------
+  // pending 只存未解决的审批；气泡优先展示 permission（可就地允许/拒绝），
+  // 其余 kind（ask_user_question/plan_review）气泡只做引导，点开主窗处理
+  var bubbleEl = document.getElementById('bubble');
+  var pending = {};        // requestId -> { sessionId, request }
+  var currentId = null;
+
+  function esc(s) {
+    var d = document.createElement('div');
+    d.textContent = String(s == null ? '' : s);
+    return d.innerHTML;
+  }
+
+  function inputSummary(input) {
+    try {
+      var i = input || {};
+      if (typeof i.command === 'string') return i.command;
+      if (typeof i.path === 'string') return i.path;
+      if (typeof i.file_path === 'string') return i.file_path;
+      var keys = Object.keys(i);
+      if (!keys.length) return '';
+      return keys.map(function (k) {
+        var v = i[k];
+        return k + ': ' + (typeof v === 'string' ? v : JSON.stringify(v));
+      }).join('\n');
+    } catch (e) { return ''; }
+  }
+
+  function hideBubble() {
+    currentId = null;
+    document.body.classList.remove('bubble-on');
+    if (window.fundet) window.fundet.petSetBubble(false).catch(function () {});
+  }
+
+  function showNext() {
+    var ids = Object.keys(pending);
+    if (!ids.length) { hideBubble(); return; }
+    var pick = null;
+    ids.forEach(function (id) { if (!pick && pending[id].request.kind === 'permission') pick = id; });
+    if (!pick) pick = ids[ids.length - 1];
+    currentId = pick;
+    var r = pending[pick].request;
+    if (r.kind === 'permission') {
+      bubbleEl.innerHTML =
+        '<div class="b-title">允许执行 <b>' + esc(r.displayName || r.toolName) + '</b> ？</div>' +
+        (r.description ? '<div class="b-desc">' + esc(r.description) + '</div>' : '') +
+        '<div class="b-code">' + esc(inputSummary(r.input)) + '</div>' +
+        '<div class="b-row"><button data-act="deny">拒绝</button>' +
+        '<button data-act="allow" class="allow">允许</button></div>';
+    } else {
+      bubbleEl.innerHTML =
+        '<div class="b-title">助手在等你回应</div>' +
+        '<div class="b-desc">点击这里打开主窗口处理</div>';
+    }
+    document.body.classList.add('bubble-on');
+    if (window.fundet) window.fundet.petSetBubble(true).catch(function () {});
+  }
+
+  bubbleEl.addEventListener('click', function (e) {
+    e.stopPropagation();
+    var t = e.target;
+    var p = currentId ? pending[currentId] : null;
+    if (t && t.tagName === 'BUTTON' && p && p.request.kind === 'permission') {
+      var reqId = currentId;
+      var behavior = t.getAttribute('data-act') === 'deny' ? 'deny' : 'allow';
+      delete pending[reqId];
+      showNext();
+      window.fundet.resolveInteraction(reqId, { kind: 'permission', behavior: behavior })
+        .catch(function () {});
+      return;
+    }
+    // 非 permission 气泡（或点在卡片空白处）：打开主窗，由主窗审批卡处理
+    if (window.fundet) window.fundet.petOpenMain();
+  });
+
   if (window.fundet) {
     window.fundet.onStatusChanged(function (p) {
       running[p.sessionId] = !!p.isRunning;
       lastStatus = String(p.status || '');
       lastActivity = Date.now();
     });
-    window.fundet.onInteractionRequest(function () { attention = true; lastActivity = Date.now(); });
-    window.fundet.onInteractionDismissed(function () { attention = false; });
+    window.fundet.onInteractionRequest(function (p) {
+      attention = true;
+      lastActivity = Date.now();
+      pending[p.request.requestId] = p;
+      showNext();
+    });
+    window.fundet.onInteractionDismissed(function (p) {
+      if (pending[p.requestId]) { delete pending[p.requestId]; showNext(); }
+      // 队列清空才解除 attention（可能还有别的会话在等）
+      if (!Object.keys(pending).length) attention = false;
+    });
+    // 桌宠晚于审批出现（重开窗口/应用重启恢复）：补拉未决队列
+    if (window.fundet.getPendingInteractions) {
+      window.fundet.getPendingInteractions().then(function (list) {
+        (list || []).forEach(function (p) { pending[p.request.requestId] = p; });
+        if (Object.keys(pending).length) { attention = true; showNext(); }
+      }).catch(function () {});
+    }
   }
 
-  // 拖拽（自实现，IPC setBounds）+ 单击跳转主窗
+  // ---------- 拖拽（自实现，IPC setBounds）+ 单击跳转主窗 ----------
   var drag = { on: false, moved: false, ox: 0, oy: 0 };
-  // mousedown 挂 document：img 设了 pointer-events:none，事件不会落在 img 上
+  // mousedown 挂 document：img 设了 pointer-events:none，事件不会落在 img 上；
+  // 气泡内的按下（含按钮）不走拖拽
   document.addEventListener('mousedown', function (e) {
     if (e.button !== 0) return;
+    if (e.target && e.target.closest && e.target.closest('#bubble')) return;
     drag = { on: true, moved: false, ox: e.screenX - window.screenX, oy: e.screenY - window.screenY };
   });
   window.addEventListener('mousemove', function (e) {

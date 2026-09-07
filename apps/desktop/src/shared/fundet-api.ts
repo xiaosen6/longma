@@ -278,6 +278,8 @@ export interface FundetApi {
   petToggle(): Promise<boolean>;
   petGetState(): Promise<{ enabled: boolean; theme: string }>;
   petSetTheme(theme: string): Promise<void>;
+  /** 桌宠审批气泡显隐：主进程据此扩/缩窗口（底边对齐，向上生长） */
+  petSetBubble(active: boolean): Promise<void>;
   /** pi 二进制版本（About 显示），不可用返回 null */
   getPiVersion(): Promise<string | null>;
 

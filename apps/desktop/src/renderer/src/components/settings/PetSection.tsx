@@ -1,6 +1,6 @@
 /**
  * PetSection — 设置 → 自动操作「桌宠」分区。
- * 开关：显示/隐藏桌面宠物窗；形象：black-heels（黑高跟少女）/ qipao（旗袍少女）。
+ * 开关：显示/隐藏桌面宠物窗；形象：black-heels（黑高跟少女）/ qipao（旗袍少女）/ dino（小恐龙）。
  * 状态与主题持久化在主进程（pet-window.json），窗口关闭重开自动还原。
  */
 import { useEffect, useState } from 'react';
@@ -9,6 +9,7 @@ import * as Switch from '@radix-ui/react-switch';
 const THEMES: Array<{ id: string; label: string }> = [
   { id: 'black-heels', label: '黑高跟少女' },
   { id: 'qipao', label: '旗袍少女' },
+  { id: 'dino', label: '小恐龙' },
 ];
 
 export function PetSection(): React.JSX.Element {
