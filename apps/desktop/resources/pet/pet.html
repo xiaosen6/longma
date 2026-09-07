@@ -205,6 +205,13 @@
     if (drag.on && !drag.moved && window.fundet) window.fundet.petOpenMain();
     drag.on = false;
   });
+  // 右键截图问答：截全屏推给主窗输入区（左键单击仍是跳主窗）
+  document.addEventListener('contextmenu', function (e) {
+    e.preventDefault();
+    if (drag.on) return;
+    if (e.target && e.target.closest && e.target.closest('#bubble')) return;
+    if (window.fundet) window.fundet.petScreenshotAsk().catch(function () {});
+  });
 })();
 </script>
 </body>

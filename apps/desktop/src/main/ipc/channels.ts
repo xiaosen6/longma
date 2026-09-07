@@ -70,6 +70,7 @@ export const FUNDET_INVOKE = {
   PET_GET_STATE: 'pet:get-state',
   PET_SET_THEME: 'pet:set-theme',
   PET_SET_BUBBLE: 'pet:set-bubble',
+  PET_SCREENSHOT_ASK: 'pet:screenshot-ask',
   PI_GET_VERSION: 'pi:get-version',
   IM_STATUS: 'im:status',
   IM_SAVE: 'im:save',
@@ -98,4 +99,6 @@ export const FUNDET_PUSH = {
   IM_STATUS_CHANGED: 'im:status-changed',
   /** 更新状态变化：payload = UpdateState */
   UPDATE_STATUS_CHANGED: 'update:status-changed',
+  /** 桌宠右键截图问答：payload { name, data }（data=PNG 字节） */
+  PET_SCREENSHOT: 'pet:screenshot',
 } as const;

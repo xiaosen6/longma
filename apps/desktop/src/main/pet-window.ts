@@ -7,9 +7,10 @@
  * 上会失去透明（显示为背景色，2026-09-04 实测矩阵确认）。
  * ready-to-show 事件在 transparent 窗上也常不触发，不能等它。
  */
-import { app, BrowserWindow, ipcMain, screen } from 'electron';
+import { app, BrowserWindow, desktopCapturer, ipcMain, screen } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
+import { FUNDET_PUSH } from './ipc/channels.js';
 
 const PET_SIZE = 160;
 /** 审批气泡态窗口尺寸：pet 160 + 上方气泡区。透明区域会拦截鼠标，必须只在气泡可见期间扩 */
@@ -176,10 +177,47 @@ export function isPetEnabledInState(): boolean {
   return readState().enabled === true;
 }
 
+/**
+ * 桌宠右键截图问答：截主屏全屏 → PNG 推给主窗输入区（用户补问题后发送）。
+ * 截图前隐藏桌宠本体（它 alwaysOnTop，不藏会进画面）；主窗在截图后才聚焦，
+ * 所以未开窗时截图里不会有主窗。
+ */
+async function askScreenshot(
+  push: (channel: string, payload: unknown) => void,
+  focusMain: () => void,
+): Promise<void> {
+  const win = petWin;
+  if (win && !win.isDestroyed()) win.hide();
+  try {
+    const primary = screen.getPrimaryDisplay();
+    const scale = primary.scaleFactor;
+    const sources = await desktopCapturer.getSources({
+      types: ['screen'],
+      thumbnailSize: {
+        width: Math.round(primary.size.width * scale),
+        height: Math.round(primary.size.height * scale),
+      },
+    });
+    let img = sources[0]?.thumbnail;
+    if (!img || img.isEmpty()) return;
+    let png = img.toPNG();
+    // 视觉发图 ≤8MB 走 image 块；超大先降分辨率重编码
+    if (png.byteLength > 8 * 1024 * 1024) {
+      img = img.resize({ width: 1920 });
+      png = img.toPNG();
+    }
+    push(FUNDET_PUSH.PET_SCREENSHOT, { name: `screenshot-${Date.now()}.png`, data: png });
+  } finally {
+    if (win && !win.isDestroyed()) win.show();
+  }
+  focusMain();
+}
+
 export function registerPetIpc(
   focusMain: () => void,
   loadPetPage: (win: BrowserWindow) => void,
   preloadPath: string,
+  push: (channel: string, payload: unknown) => void,
 ): void {
   ipcMain.handle('pet:set-bounds', (_e, x: number, y: number) => {
     if (!petWin || petWin.isDestroyed()) return;
@@ -210,4 +248,5 @@ export function registerPetIpc(
   ipcMain.handle('pet:set-bubble', (_e, active: boolean) => {
     setPetBubble(active === true);
   });
+  ipcMain.handle('pet:screenshot-ask', () => askScreenshot(push, focusMain));
 }

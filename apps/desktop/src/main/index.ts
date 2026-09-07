@@ -10,7 +10,7 @@ import { initDatabase } from './db/client.js';
 import { getHost, shutdownHost } from './host/pi-host.js';
 import { resolvePiBinaryPath } from './host/pi-binary.js';
 import { ensureBundledSkills } from './host/skills.js';
-import { registerIpcHandlers } from './ipc/register.js';
+import { registerIpcHandlers, broadcast } from './ipc/register.js';
 import { registerImIpc, startSavedImBots, stopAllImBots } from './im/host.ts';
 import { disposeBrowserHost } from './browser/host.js';
 import { initUpdater } from './updater.js';
@@ -205,7 +205,7 @@ function createWindow(): void {
 }
 
 function bootstrap(): void {
-  registerPetIpc(focusMainWindow, loadPetUrlInto, path.join(__dirname, '../preload/index.js'));
+  registerPetIpc(focusMainWindow, loadPetUrlInto, path.join(__dirname, '../preload/index.js'), broadcast);
   // screen 模块 ready 前不可用：桌宠恢复必须挂在 whenReady 里
   app.whenReady().then(() => {
     if (isPetEnabledInState()) togglePetEnabled(loadPetUrlInto, path.join(__dirname, '../preload/index.js'));

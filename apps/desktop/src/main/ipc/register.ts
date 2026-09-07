@@ -104,7 +104,8 @@ const pendingInteractions = new Map<string, PendingInteraction>();
 /** 已接线（事件/审批监听）的 sessionId */
 const wiredSessions = new Set<string>();
 
-function broadcast(channel: string, payload: unknown): void {
+/** 广播给所有窗口（含桌宠窗）；桌宠截图等模块外推送也走这里 */
+export function broadcast(channel: string, payload: unknown): void {
   for (const win of BrowserWindow.getAllWindows()) {
     win.webContents.send(channel, payload);
   }

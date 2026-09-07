@@ -335,6 +335,26 @@ export function ChatPage(): React.JSX.Element {
     if (picked && picked.length > 0) await stagePaths(picked);
   }, [stagePaths]);
 
+  // 桌宠右键截图问答：主窗已被主进程聚焦，截图挂进当前输入区，用户补问题后发送
+  useEffect(() => {
+    const off = window.fundet.onPetScreenshot(async (p) => {
+      const dir = sessionWorkDir.trim();
+      if (!dir) {
+        setNotice('请先选择工作目录');
+        return;
+      }
+      try {
+        // push 经 contextBridge 传来的 PNG 字节可能是 Uint8Array，stageBytes 契约是 ArrayBuffer
+        const buf = p.data instanceof ArrayBuffer ? p.data : new Uint8Array(p.data).buffer;
+        const staged = await window.fundet.stageBytes(dir, p.name, buf);
+        mergeAttachments([staged]);
+      } catch (err) {
+        setNotice(err instanceof Error ? err.message : String(err));
+      }
+    });
+    return off;
+  }, [mergeAttachments, sessionWorkDir]);
+
   const send = useCallback(async (): Promise<void> => {
     const text = input.trim();
     if (!activeId || (!text && attachments.length === 0)) return;

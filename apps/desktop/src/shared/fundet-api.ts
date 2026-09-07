@@ -149,6 +149,12 @@ export interface InteractionRequestPayload {
   request: InteractionRequest;
 }
 
+/** 桌宠右键截图（PET_SCREENSHOT push）：data 为 PNG 字节 */
+export interface PetScreenshotPayload {
+  name: string;
+  data: ArrayBuffer;
+}
+
 export interface InteractionDismissedPayload {
   sessionId: string;
   requestId: string;
@@ -280,6 +286,8 @@ export interface FundetApi {
   petSetTheme(theme: string): Promise<void>;
   /** 桌宠审批气泡显隐：主进程据此扩/缩窗口（底边对齐，向上生长） */
   petSetBubble(active: boolean): Promise<void>;
+  /** 桌宠右键截图问答：截主屏全屏（隐藏桌宠本体），结果经 onPetScreenshot 推给主窗 */
+  petScreenshotAsk(): Promise<void>;
   /** pi 二进制版本（About 显示），不可用返回 null */
   getPiVersion(): Promise<string | null>;
 
@@ -319,6 +327,7 @@ export interface FundetApi {
   onAgentEvent(cb: (payload: AgentEventPayload) => void): () => void;
   onStatusChanged(cb: (payload: StatusChangedPayload) => void): () => void;
   onInteractionRequest(cb: (payload: InteractionRequestPayload) => void): () => void;
+  onPetScreenshot(cb: (payload: PetScreenshotPayload) => void): () => void;
   onInteractionDismissed(cb: (payload: InteractionDismissedPayload) => void): () => void;
   onSessionListChanged(cb: () => void): () => void;
   onImStatusChanged(cb: (payload: ImBotsStatus) => void): () => void;

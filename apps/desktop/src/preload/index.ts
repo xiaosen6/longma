@@ -11,6 +11,7 @@ import type {
   FundetApi,
   InteractionDismissedPayload,
   InteractionRequestPayload,
+  PetScreenshotPayload,
   StatusChangedPayload,
 } from '../shared/fundet-api.js';
 
@@ -113,6 +114,7 @@ const api: FundetApi = {
   petGetState: () => ipcRenderer.invoke(FUNDET_INVOKE.PET_GET_STATE),
   petSetTheme: (theme) => ipcRenderer.invoke(FUNDET_INVOKE.PET_SET_THEME, theme),
   petSetBubble: (active) => ipcRenderer.invoke(FUNDET_INVOKE.PET_SET_BUBBLE, active),
+  petScreenshotAsk: () => ipcRenderer.invoke(FUNDET_INVOKE.PET_SCREENSHOT_ASK),
   getPiVersion: () => ipcRenderer.invoke(FUNDET_INVOKE.PI_GET_VERSION),
 
   imStatus: () => ipcRenderer.invoke(FUNDET_INVOKE.IM_STATUS),
@@ -158,6 +160,7 @@ const api: FundetApi = {
   onStatusChanged: (cb) => subscribe<StatusChangedPayload>(FUNDET_PUSH.AGENT_STATUS_CHANGED, cb),
   onInteractionRequest: (cb) =>
     subscribe<InteractionRequestPayload>(FUNDET_PUSH.INTERACTION_REQUEST, cb),
+  onPetScreenshot: (cb) => subscribe<PetScreenshotPayload>(FUNDET_PUSH.PET_SCREENSHOT, cb),
   onInteractionDismissed: (cb) =>
     subscribe<InteractionDismissedPayload>(FUNDET_PUSH.INTERACTION_DISMISSED, cb),
   onSessionListChanged: (cb) => subscribe(FUNDET_PUSH.SESSION_LIST_CHANGED, cb),

@@ -43,7 +43,7 @@ export function PetSection(): React.JSX.Element {
           <p className="text-13 font-medium text-secondary">桌宠</p>
           <p className="mt-1 text-12 leading-[1.5] text-muted">
             桌面右下角的像素小伙伴，实时反映助手状态（思考 / 工作中 / 等待审批 / 睡觉）。
-            单击打开主窗口，按住可拖动。
+            单击打开主窗口，按住可拖动；右键截取全屏去提问（需视觉模型）。
           </p>
         </div>
         <Switch.Root
