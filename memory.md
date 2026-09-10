@@ -284,6 +284,17 @@ ChatPage / ChatInput
 
 配套：供应商预设新增「火山方舟（按量，含视觉模型）」（ark /api/v3 + doubao vision 系列，doubao-1.5-vision-pro 带 maxTokens:12288——glm-4v-flash max_tokens 上限 1024 同类坑，wizard 现在透传 maxTokens）；列模型失败报错带实际请求 URL 与 Base URL 形态指引；`shared/friendly-error.ts` 把 1210 content.type/max_tokens 类供应商错误转成中文行动指引（sessionStore error 卡片）。真机端到端已验证：QQ 图 → 嗅探 image/png → glm-4v-flash 真实理解并描述图片。
 
+### 4.9c 本地知识库 V1（2026-09-10，0.2.15 后、未发版；规划见 docs/knowledge-base-plan.md）
+
+**纯全文检索形态（用户拍板：不做 embedding/向量化）**。零模型依赖、零原生扩展、零外部调用。
+- **migration 0006**：`knowledge_bases/knowledge_items/knowledge_chunks` 三表 + **FTS5 trigram 虚表**（外部内容模式 content_rowid 对齐主表，手动维护；trigram 对中文 ≥3 字子串有效）。**FTS 同步的 delete 命令需要原 text 值**——删除前先按 id 查回 rowid+text 再发 'delete'。
+- **检索双路**：FTS bm25 主路 + **短词（<3 字符）LIKE 子串兜底**（trigram 两字中文词查不到，如「鹿角」；个人库量级 LIKE 全扫仅几十 ms）。查询串双引号转义防 FTS 语法注入。
+- **main/knowledge/**：chunks.ts 分块（段落聚合+句切+重叠尾部，5 单测）；service.ts（CRUD+索引管线串行队列+检索）；mcp-server.ts + tool.ts（knowledge_search/list，未建库返回指引）；照 search 模式无条件装配进 bridge；审批 auto-approve；system-prompt 增指引。
+- **设置 → 知识库**：KnowledgePanel（建库/条目状态轮询 pending→reading→indexing→completed/failed/添加文档/检索测试）。PDF/Word 提取复用 doc-text（返回值含中文提示串时视为失败）。
+- **db/client.ts 新增 getSqlite()**（原生 better-sqlite3 实例）——FTS5 虚表、rowid 查询等 drizzle 覆盖不到的场景用。
+- **坑：electron-vite dev 主进程变更不会自动重启**——改完必须手动重启 dev（CDP 连的旧实例行为不变，曾误判为代码 bug）；另 `git add -u`/引号内联脚本老坑再次踩（E2E 一律写 .cjs 文件，eval 用 returnByValue 对象直传不套 JSON.stringify）。
+- CDP 实证全链路：建库→索引→3 字词/两字词/长词/无关词→删库级联 ✓。
+
 ### 4.9b 问答页丝滑批次（2026-09-10，0.2.14 后、未发版）
 
 对照 Cindy 找的体感差距，四项全修（commit 77a7b6e/e007eac/502cb28）：
