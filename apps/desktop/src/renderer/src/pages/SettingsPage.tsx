@@ -31,7 +31,7 @@ import { ImBotPanel } from './settings/ImBotPanel';
 import { UpdateCard } from '../components/settings/UpdateCard';
 import { BrowserSection } from '../components/settings/BrowserSection';
 import { PetSection } from '../components/settings/PetSection';
-import { McpServersSection } from '../components/settings/McpServersSection';
+import { McpPanel } from './settings/McpPanel';
 import { UsageHistoryPanel } from './settings/UsageHistoryPanel';
 import { ComputerSection } from '../components/settings/ComputerSection';
 import { brand } from '../../../shared/brand.ts';
@@ -46,7 +46,7 @@ const THEME_OPTIONS: Array<{
   { value: 'system', label: '跟随系统', previewBg: '' },
 ];
 
-type SettingsTab = 'general' | 'providers' | 'automation' | 'usage' | 'search' | 'im' | 'skills';
+type SettingsTab = 'general' | 'providers' | 'automation' | 'usage' | 'search' | 'im' | 'skills' | 'mcp';
 
 const TAB_LABELS: Record<SettingsTab, string> = {
   general: '通用',
@@ -56,6 +56,7 @@ const TAB_LABELS: Record<SettingsTab, string> = {
   search: '搜索',
   im: 'IM 机器人',
   skills: '技能',
+  mcp: 'MCP 服务器',
 };
 
 /** 表单字段样式（对齐 Cindy 设置字段：h-10 + 12px 圆角 + Card 底 + 1px Board；
@@ -266,9 +267,10 @@ export function SettingsPage(): React.JSX.Element {
                 <PetSection />
                 <BrowserSection />
                 <ComputerSection />
-                <McpServersSection />
               </div>
             )}
+
+            {tab === 'mcp' && <McpPanel />}
 
             {tab === 'usage' && <UsageHistoryPanel />}
 

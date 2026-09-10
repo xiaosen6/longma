@@ -32,6 +32,7 @@ export const FUNDET_INVOKE = {
   MCP_CREATE: 'mcp:create',
   MCP_UPDATE: 'mcp:update',
   MCP_DELETE: 'mcp:delete',
+  MCP_TEST_CONNECTION: 'mcp:test-connection',
   SKILLS_LIST: 'skills:list',
   SKILLS_PICK: 'skills:pick',
   SKILLS_IMPORT: 'skills:import',

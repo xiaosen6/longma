@@ -205,6 +205,12 @@ export interface SkillView {
   disabled?: boolean;
 }
 
+export interface McpConnectionTest {
+  ok: boolean;
+  error?: string;
+  latencyMs: number;
+}
+
 export type SearchEngineId = 'tavily' | 'brave' | 'bocha' | 'zhipu';
 
 export interface SearchEngineStatus {
@@ -254,6 +260,8 @@ export interface FundetApi {
   fetchProviderModels(input: FetchModelsInput): Promise<FetchModelsResult>;
 
   listMcpServers(): Promise<McpServerView[]>;
+  /** 连通性探测（设置页状态点）：http 发 initialize，stdio 走一次握手 */
+  testMcpConnection(id: string): Promise<McpConnectionTest>;
   createMcpServer(input: McpServerInput): Promise<McpServerView>;
   updateMcpServer(id: string, patch: Partial<McpServerInput>): Promise<McpServerView>;
   deleteMcpServer(id: string): Promise<void>;
@@ -261,8 +269,7 @@ export interface FundetApi {
   listSkills(workDir?: string): Promise<SkillView[]>;
   pickSkillFile(): Promise<string | null>;
   importSkill(filePath: string, scope: 'user' | 'project', workDir?: string): Promise<SkillView>;
-  uninstallSkill(skillDir: string): Promise<void>;
-  /** 停用/恢复用户级技能（目录移入/移出 userData/disabled-skills） */
+  uninstallSkill(skillDir: string): Promise<void>;  /** 停用/恢复用户级技能（目录移入/移出 userData/disabled-skills） */
   setSkillEnabled(name: string, enabled: boolean): Promise<void>;
 
   searchStatus(): Promise<SearchStatus>;

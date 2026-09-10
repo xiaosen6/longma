@@ -30,11 +30,12 @@ import type {
   PiExtraSpawnConfigContext,
   PiMcpServerRef,
 } from '@fundet/agent-core';
+import { createConsoleLogger } from '@fundet/agent-core';
 import { SEARCH_MCP_SERVER_NAME } from '../../shared/search-engines.ts';
 import { BROWSER_ENABLED_SETTING, BROWSER_MCP_SERVER_NAME } from '../../shared/browser-settings.ts';
 import { COMPUTER_ENABLED_SETTING, COMPUTER_MCP_SERVER_NAME } from '../../shared/computer-settings.ts';
 import { resolveCuaDriverCommand } from '../computer/driver.ts';
-import { listMcpServers, readMcpServerToken, type McpServerView } from '../db/mcp-servers.js';
+import { listMcpServers, resolveServerHeaders, type McpServerView } from '../db/mcp-servers.js';
 import { getBoolSetting } from '../db/settings.js';
 import { startSearchMcpServer } from '../search/mcp-server.ts';
 import { handleWebSearch } from '../search/tool.ts';
@@ -51,8 +52,9 @@ const PROXY_MAX_BODY_BYTES = 32 * 1024 * 1024;
  * 协议透明转发（NDJSON 逐行、id 相关），唯二特判：
  *  - initialize 回 host 预热时的缓存结果（避免 bridge 二次 initialize 打到 server）；
  *  - 无 id 的 notification 直接 202。
+ * 导出：连通性探测（testMcpConnection）复用它做 stdio 握手。
  */
-class StdioMcpHttpProxy {
+export class StdioMcpHttpProxy {
   private child: ChildProcess | null = null;
   private server: Server | null = null;
   private readonly pending = new Map<number, {
@@ -68,6 +70,11 @@ class StdioMcpHttpProxy {
     private readonly logger: Logger,
     private readonly spawnOpts?: { cwd?: string; env?: NodeJS.ProcessEnv },
   ) {}
+
+  /** 是否曾成功完成 start()（连通性探测用） */
+  get started(): boolean {
+    return this.initializeResult !== null;
+  }
 
   /** spawn 子进程 + 起 http 监听 + initialize 预热；返回分配给 bridge 的 URL */
   async start(): Promise<string> {
@@ -329,14 +336,9 @@ export function createPreparePiExtraSpawnConfig(logger: Logger) {
     for (const config of configs) {
       try {
         if (config.type === 'http') {
+          // Bearer token 走 safeStorage（mcp-token-<id>），不落库；合成逻辑统一在 resolveServerHeaders
+          const headers = resolveServerHeaders(config);
           const headerEnvVars: Record<string, string> = {};
-          // Bearer token 走 safeStorage（mcp-token-<id>），不落库；用户显式
-          // Authorization header 优先，不双写。
-          const headers = { ...config.headers };
-          const token = readMcpServerToken(config.id);
-          if (token && !Object.keys(headers).some((k) => k.toLowerCase() === 'authorization')) {
-            headers.Authorization = `Bearer ${token}`;
-          }
           for (const [headerName, value] of Object.entries(headers)) {
             const envName = headerEnvVarName(config.name, headerName);
             headerEnvVars[headerName] = envName;
@@ -382,4 +384,66 @@ export function createPreparePiExtraSpawnConfig(logger: Logger) {
       },
     };
   };
+}
+
+export interface McpConnectionTestResult {
+  ok: boolean;
+  error?: string;
+  latencyMs: number;
+}
+
+/**
+ * MCP server 连通性探测（设置页状态点）：
+ *  - http：POST initialize（10s 超时），2xx 即视为可达（完整握手由会话装配兜底）；
+ *  - stdio：spawn + initialize 握手（npx 冷启动预算同装配 10s），完成后立即回收。
+ */
+export async function testMcpConnection(config: McpServerView): Promise<McpConnectionTestResult> {
+  const started = Date.now();
+  const done = (ok: boolean, error?: string): McpConnectionTestResult => ({
+    ok,
+    ...(error ? { error } : {}),
+    latencyMs: Date.now() - started,
+  });
+  if (config.type === 'http') {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10_000);
+    try {
+      const res = await fetch(config.url!, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          accept: 'application/json, text/event-stream',
+          ...resolveServerHeaders(config),
+        },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'initialize',
+          params: {
+            protocolVersion: '2025-03-26',
+            capabilities: {},
+            clientInfo: { name: 'fundet-mcp-proxy', version: '1.0.0' },
+          },
+        }),
+        signal: controller.signal,
+      });
+      return res.ok ? done(true) : done(false, `HTTP ${res.status}`);
+    } catch (err) {
+      const e = err as Error & { name?: string };
+      return done(false, e.name === 'AbortError' || e.name === 'TimeoutError' ? '连接超时' : e.message || String(err));
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  // stdio：完整走一次 spawn + 握手，结束即回收
+  const logger = createConsoleLogger('fundet:mcp-test');
+  const proxy = new StdioMcpHttpProxy(config, 'probe-token', logger.child('mcp-test'));
+  try {
+    await proxy.start();
+    return done(true);
+  } catch (err) {
+    return done(false, err instanceof Error ? err.message : String(err));
+  } finally {
+    proxy.dispose();
+  }
 }

@@ -163,3 +163,13 @@ export function deleteMcpServer(id: string): void {
 export function readMcpServerToken(id: string): string | null {
   return readProviderKey(TOKEN_KEY_PREFIX + id);
 }
+
+/** http server 的最终请求头：用户 headers + safeStorage token 合成 Bearer（显式 Authorization 优先） */
+export function resolveServerHeaders(config: McpServerView): Record<string, string> {
+  const headers = { ...config.headers };
+  const token = readProviderKey(TOKEN_KEY_PREFIX + config.id);
+  if (token && !Object.keys(headers).some((k) => k.toLowerCase() === 'authorization')) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
+}

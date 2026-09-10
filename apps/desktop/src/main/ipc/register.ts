@@ -39,6 +39,7 @@ import {
   updateMcpServer,
   type McpServerInput,
 } from '../db/mcp-servers.js';
+import { testMcpConnection } from '../host/mcp-bridge.js';
 import { deleteProviderKey, hasProviderKey, writeProviderKey } from '../host/secrets.js';
 import { addUsageDelta, getUsageHistory } from '../db/usage.js';
 import {
@@ -583,6 +584,12 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(FUNDET_INVOKE.MCP_DELETE, async (_e, id: string) => {
     deleteMcpServer(id);
+  });
+
+  ipcMain.handle(FUNDET_INVOKE.MCP_TEST_CONNECTION, async (_e, id: string) => {
+    const config = listMcpServers().find((s) => s.id === id);
+    if (!config) throw new Error(`MCP server not found: ${id}`);
+    return testMcpConnection(config);
   });
 
   ipcMain.handle(FUNDET_INVOKE.FS_HOME, async () => os.homedir());

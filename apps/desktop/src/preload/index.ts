@@ -80,6 +80,7 @@ const api: FundetApi = {
   fetchProviderModels: (input) => ipcRenderer.invoke(FUNDET_INVOKE.PROVIDERS_FETCH_MODELS, input),
 
   listMcpServers: () => ipcRenderer.invoke(FUNDET_INVOKE.MCP_LIST),
+  testMcpConnection: (id) => ipcRenderer.invoke(FUNDET_INVOKE.MCP_TEST_CONNECTION, id),
   createMcpServer: (input) => ipcRenderer.invoke(FUNDET_INVOKE.MCP_CREATE, input),
   updateMcpServer: (id, patch) => ipcRenderer.invoke(FUNDET_INVOKE.MCP_UPDATE, id, patch),
   deleteMcpServer: (id) => ipcRenderer.invoke(FUNDET_INVOKE.MCP_DELETE, id),
