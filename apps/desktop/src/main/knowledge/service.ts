@@ -225,6 +225,40 @@ export function addKnowledgeFiles(baseId: string, filePaths: string[]): Knowledg
   return out;
 }
 
+/** 失败条目重试：重置状态并重新入队索引 */
+export function retryKnowledgeItem(itemId: string): void {
+  const item = getDb().select().from(knowledgeItems).where(eq(knowledgeItems.id, itemId)).get();
+  if (!item) throw new Error('条目不存在');
+  if (!fs.existsSync(item.sourcePath)) throw new Error('源文件已不存在，请删除该条目后重新添加');
+  getDb()
+    .update(knowledgeItems)
+    .set({ status: 'pending', error: null })
+    .where(eq(knowledgeItems.id, itemId))
+    .run();
+  enqueueIndexItem(itemId);
+}
+
+/** 递归收集目录下支持的文档（跳过隐藏目录/node_modules 等，上限 200 个） */
+export function scanKnowledgeDirectory(dirPath: string): string[] {
+  const root = path.resolve(dirPath);
+  if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) throw new Error('目录不存在');
+  const supported = new Set(['.md', '.txt', '.pdf', '.docx']);
+  const SKIP = new Set(['node_modules', '.git', '.agents', 'dist', 'out', '.longma-uploads']);
+  const out: string[] = [];
+  const walk = (dir: string): void => {
+    if (out.length >= 200) return;
+    for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (out.length >= 200) return;
+      if (ent.name.startsWith('.') || SKIP.has(ent.name)) continue;
+      const full = path.join(dir, ent.name);
+      if (ent.isDirectory()) walk(full);
+      else if (supported.has(path.extname(ent.name).toLowerCase())) out.push(full);
+    }
+  };
+  walk(root);
+  return out;
+}
+
 // ---------- 检索 ----------
 
 /**

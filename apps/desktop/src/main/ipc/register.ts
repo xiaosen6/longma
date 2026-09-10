@@ -47,6 +47,8 @@ import {
   deleteKnowledgeItem,
   listKnowledgeBases,
   listKnowledgeItems,
+  retryKnowledgeItem,
+  scanKnowledgeDirectory,
   searchKnowledge,
 } from '../knowledge/service.js';
 import { deleteProviderKey, hasProviderKey, writeProviderKey } from '../host/secrets.js';
@@ -336,11 +338,15 @@ function settleInteraction(requestId: string, decision: InteractionDecision): bo
 async function buildUserMessage(
   text: string,
   attachments?: SessionAttachment[],
+  knowledgeContext?: string,
 ): Promise<UserMessage> {
   const files = attachments ?? [];
-  if (files.length === 0) return { type: 'user', content: text };
+  const kbPrefix = knowledgeContext?.trim()
+    ? `【知识库检索结果——以下是用户知识库中与问题相关的原文片段，回答时优先依据并注明来源文件】\n\n${knowledgeContext.trim()}\n\n---\n\n`
+    : '';
+  if (files.length === 0) return { type: 'user', content: kbPrefix + text };
   const blocks: UserContentBlock[] = [];
-  if (text.trim()) blocks.push({ type: 'text', text });
+  if (kbPrefix || text.trim()) blocks.push({ type: 'text', text: kbPrefix + text });
   // 多篇 PDF/Word 并行提取（串行时大文件会拖慢整条发送）；保持每个
   // file 块后紧跟自己的正文块，配对顺序不变
   const extracted = await Promise.all(
@@ -425,7 +431,7 @@ export function registerIpcHandlers(): void {
         session.id,
         input.text.trim() || attachments.map((a) => a.name).join(' ') || '',
       );
-      const result = await session.send(await buildUserMessage(input.text, attachments));
+      const result = await session.send(await buildUserMessage(input.text, attachments, input.knowledgeContext));
       return result.accepted ? { accepted: true } : { accepted: false, reason: result.reason };
     },
   );
@@ -627,6 +633,19 @@ export function registerIpcHandlers(): void {
     const picked = win ? await dialog.showOpenDialog(win, opts) : await dialog.showOpenDialog(opts);
     if (picked.canceled) return null;
     return picked.filePaths;
+  });
+  ipcMain.handle(FUNDET_INVOKE.KB_RETRY, async (_e, itemId: string) => retryKnowledgeItem(String(itemId)));
+  ipcMain.handle(FUNDET_INVOKE.KB_PICK_DIRECTORY, async (e) => {
+    const win = BrowserWindow.fromWebContents(e.sender);
+    const opts = { title: '选择要导入的文件夹', properties: ['openDirectory' as const] };
+    const picked = win ? await dialog.showOpenDialog(win, opts) : await dialog.showOpenDialog(opts);
+    if (picked.canceled || !picked.filePaths[0]) return null;
+    return picked.filePaths[0];
+  });
+  ipcMain.handle(FUNDET_INVOKE.KB_ADD_DIRECTORY, async (_e, baseId: string, dirPath: string) => {
+    const files = scanKnowledgeDirectory(String(dirPath));
+    if (files.length === 0) throw new Error('该目录下没有支持的文档（md / txt / pdf / docx）');
+    return addKnowledgeFiles(String(baseId), files);
   });
 
   ipcMain.handle(FUNDET_INVOKE.FS_HOME, async () => os.homedir());

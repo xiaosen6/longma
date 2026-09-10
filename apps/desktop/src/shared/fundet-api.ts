@@ -91,6 +91,8 @@ export interface SessionSendInput {
   sessionId: string;
   text: string;
   attachments?: SessionAttachment[];
+  /** @知识库点名注入：检索结果前缀块，只进模型消息，不进用户气泡与落库 */
+  knowledgeContext?: string;
   /** sessionId 对应的会话不在内存（或不存在）时的 lazy-create 参数 */
   create?: SessionCreateInput;
 }
@@ -211,6 +213,36 @@ export interface McpConnectionTest {
   latencyMs: number;
 }
 
+export interface KnowledgeBaseView {
+  id: string;
+  name: string;
+  status: string;
+  error: string | null;
+  fileCount: number;
+  chunkCount: number;
+  createdAt: number;
+}
+
+export interface KnowledgeItemView {
+  id: string;
+  baseId: string;
+  name: string;
+  sourcePath: string;
+  status: string;
+  error: string | null;
+  chunkCount: number;
+  createdAt: number;
+}
+
+export interface KnowledgeSearchResult {
+  baseId: string;
+  baseName: string;
+  itemName: string;
+  seq: number;
+  text: string;
+  score: number;
+}
+
 /** MCP 心跳状态翻转（MCP_STATUS push） */
 export interface McpStatusPayload {
   id: string;
@@ -275,6 +307,23 @@ export interface FundetApi {
   createMcpServer(input: McpServerInput): Promise<McpServerView>;
   updateMcpServer(id: string, patch: Partial<McpServerInput>): Promise<McpServerView>;
   deleteMcpServer(id: string): Promise<void>;
+
+  listKnowledgeBases(): Promise<KnowledgeBaseView[]>;
+  createKnowledgeBase(name: string): Promise<KnowledgeBaseView>;
+  deleteKnowledgeBase(id: string): Promise<void>;
+  listKnowledgeItems(baseId: string): Promise<KnowledgeItemView[]>;
+  /** 选择文档并入队索引（返回创建的条目；索引异步进行） */
+  addKnowledgeFiles(baseId: string, paths: string[]): Promise<KnowledgeItemView[]>;
+  pickKnowledgeFiles(): Promise<string[] | null>;
+  removeKnowledgeItem(itemId: string): Promise<void>;
+  /** 失败条目重试：重置状态并重新入队索引 */
+  retryKnowledgeItem(itemId: string): Promise<void>;
+  /** 选择文件夹（目录导入用） */
+  pickKnowledgeDirectory(): Promise<string | null>;
+  /** 递归扫描目录并导入全部支持文档（上限 200 个） */
+  addKnowledgeDirectory(baseId: string, dirPath: string): Promise<KnowledgeItemView[]>;
+  /** 检索测试（管理页用；与会话内 mcp__knowledge__search 同一实现） */
+  searchKnowledge(query: string, baseId?: string, limit?: number): Promise<KnowledgeSearchResult[]>;
 
   listSkills(workDir?: string): Promise<SkillView[]>;
   pickSkillFile(): Promise<string | null>;

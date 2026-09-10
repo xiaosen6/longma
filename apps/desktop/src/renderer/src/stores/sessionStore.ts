@@ -626,6 +626,7 @@ export async function sendMessage(
   text: string,
   create?: SessionCreateInput,
   attachments?: SessionAttachment[],
+  knowledgeContext?: string,
 ): Promise<void> {
   appendItem(sessionId, {
     kind: 'user',
@@ -641,7 +642,13 @@ export async function sendMessage(
     notifyList();
   }
   try {
-    const result = await window.fundet.sendMessage({ sessionId, text, create, attachments });
+    const result = await window.fundet.sendMessage({
+      sessionId,
+      text,
+      create,
+      attachments,
+      ...(knowledgeContext ? { knowledgeContext } : {}),
+    });
     if (result.accepted) {
       // 草稿首条消息已被 main 接受（lazy-create 落 DB）：摘掉草稿标记，
       // 后续走正式会话路径；随即刷新 sidebar 拿到 DB 行（含自动标题）。

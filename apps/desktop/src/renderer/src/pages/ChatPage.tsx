@@ -49,6 +49,7 @@ import { ModelSelector, PermissionSelector } from '../components/SelectorChips';
 import { UsageDashboard } from '../components/UsageDashboard';
 import { brand } from '../../../shared/brand.js';
 import { FolderPickerChip } from '../components/FolderPickerChip';
+import { KnowledgeChip } from '../components/KnowledgeChip';
 import { Sidebar } from '../components/Sidebar';
 import { BrandMark } from '../components/BrandMark';
 import { addRecentFolder } from '../lib/recentFolders';
@@ -69,6 +70,14 @@ export function ChatPage(): React.JSX.Element {
   const [skills, setSkills] = useState<SkillView[]>([]);
   const [input, setInput] = useState('');
   const [notice, setNotice] = useState('');
+  /** @知识库点名：选中的知识库（null=关闭注入）；localStorage 记住上次选择 */
+  const [kbInjectBaseId, setKbInjectBaseId] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem('kb-inject-base-id');
+    } catch {
+      return null;
+    }
+  });
 
   // 侧栏宽度拖拽（200–400px 夹紧；持久化到 localStorage）
   const [sidebarWidth, setSidebarWidth] = useState(() => {
@@ -377,6 +386,20 @@ export function ChatPage(): React.JSX.Element {
     setInput('');
     setAttachments([]);
     setNotice('');
+    // @知识库点名：检索选中库并把原文片段注入模型消息（强制 RAG，不依赖模型调工具）；
+    // 注入内容只进模型消息，用户气泡与落库保持原文
+    let knowledgeContext: string | undefined;
+    if (kbInjectBaseId && text) {
+      try {
+        const results = await window.fundet.searchKnowledge(text, kbInjectBaseId, 6);
+        if (results.length > 0) {
+          const parts = results.map((r, i) => `[${i + 1}] 来源：${r.itemName}（第 ${r.seq + 1} 块）\n${r.text}`);
+          knowledgeContext = parts.join('\n\n');
+        }
+      } catch {
+        // 检索失败不阻断发送——模型仍可走 mcp__knowledge__search 自主检索
+      }
+    }
     // 重启后旧会话 / 本地草稿都不在 main 内存：带 create 让 main lazy-create。
     // 草稿有精确的 providerId；历史会话按 model 在 providers 里反查。
     let create: Parameters<typeof sendMessage>[2];
@@ -401,8 +424,8 @@ export function ChatPage(): React.JSX.Element {
         };
       }
     }
-    await sendMessage(activeId, text, create, pending.length > 0 ? pending : undefined);
-  }, [activeId, activeMeta, attachments, input, providers]);
+    await sendMessage(activeId, text, create, pending.length > 0 ? pending : undefined, knowledgeContext);
+  }, [activeId, activeMeta, attachments, input, providers, kbInjectBaseId]);
 
   const abort = useCallback(async (): Promise<void> => {
     if (activeId) await abortSession(activeId);
@@ -755,6 +778,18 @@ export function ChatPage(): React.JSX.Element {
                           <FolderPickerChip
                             cwd={activeMeta?.workDir || workDir}
                             onSelect={applyWorkDir}
+                          />
+                          <KnowledgeChip
+                            selectedBaseId={kbInjectBaseId}
+                            onSelect={(id) => {
+                              setKbInjectBaseId(id);
+                              try {
+                                if (id) localStorage.setItem('kb-inject-base-id', id);
+                                else localStorage.removeItem('kb-inject-base-id');
+                              } catch {
+                                /* localStorage 不可用时仅会话内生效 */
+                              }
+                            }}
                           />
                           <PermissionSelector
                             current={permissionMode}

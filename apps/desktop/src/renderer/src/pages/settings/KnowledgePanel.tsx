@@ -4,7 +4,7 @@
  * 索引异步进行：条目状态 pending/reading/indexing → completed/failed，轮询刷新。
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Database, FilePlus2, Plus, Search, Trash2 } from 'lucide-react';
+import { ArrowLeft, Database, FilePlus2, FolderPlus, Plus, RefreshCw, Search, Trash2 } from 'lucide-react';
 import type { KnowledgeBaseView, KnowledgeItemView, KnowledgeSearchResult } from '../../../../shared/fundet-api.ts';
 
 function SectionTitle({ children }: { children: React.ReactNode }): React.JSX.Element {
@@ -27,6 +27,7 @@ export function KnowledgePanel(): React.JSX.Element {
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [query, setQuery] = useState('');
+  const [topK, setTopK] = useState(8);
   const [results, setResults] = useState<KnowledgeSearchResult[] | null>(null);
   const [searching, setSearching] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -100,6 +101,31 @@ export function KnowledgePanel(): React.JSX.Element {
     }
   };
 
+  const addDirectory = async (): Promise<void> => {
+    if (!selectedId) return;
+    setError('');
+    const dir = await window.fundet.pickKnowledgeDirectory();
+    if (!dir) return;
+    try {
+      const added = await window.fundet.addKnowledgeDirectory(selectedId, dir);
+      setError(added.length > 0 ? '' : '该目录下没有支持的文档');
+      refreshItems(selectedId);
+      refreshBases();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const retryItem = async (it: KnowledgeItemView): Promise<void> => {
+    setError('');
+    try {
+      await window.fundet.retryKnowledgeItem(it.id);
+      if (selectedId) refreshItems(selectedId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
   const removeItem = async (it: KnowledgeItemView): Promise<void> => {
     setError('');
     try {
@@ -116,7 +142,7 @@ export function KnowledgePanel(): React.JSX.Element {
     if (!q) return;
     setSearching(true);
     void window.fundet
-      .searchKnowledge(q, selectedId ?? undefined, 8)
+      .searchKnowledge(q, selectedId ?? undefined, topK)
       .then((r) => {
         setResults(r);
         setSearching(false);
@@ -246,14 +272,24 @@ export function KnowledgePanel(): React.JSX.Element {
           <div className="rounded-xl border border-board bg-card-ivory p-4">
             <div className="flex items-center justify-between">
               <p className="text-13 font-medium text-secondary">文档（{items.length}）</p>
-              <button
-                type="button"
-                onClick={() => void addFiles()}
-                className="flex h-8 items-center gap-1 rounded-full border border-board px-3 text-12 text-secondary transition-colors hover:text-primary"
-              >
-                <FilePlus2 size={13} />
-                添加文档
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => void addDirectory()}
+                  className="flex h-8 items-center gap-1 rounded-full border border-board px-3 text-12 text-secondary transition-colors hover:text-primary"
+                >
+                  <FolderPlus size={13} />
+                  导入文件夹
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void addFiles()}
+                  className="flex h-8 items-center gap-1 rounded-full border border-board px-3 text-12 text-secondary transition-colors hover:text-primary"
+                >
+                  <FilePlus2 size={13} />
+                  添加文档
+                </button>
+              </div>
             </div>
             <div className="mt-3 flex flex-col gap-2">
               {items.length === 0 ? (
@@ -273,6 +309,16 @@ export function KnowledgePanel(): React.JSX.Element {
                     >
                       {STATUS_LABEL[it.status] ?? it.status} · {it.chunkCount} 块
                     </span>
+                    {it.status === 'failed' && (
+                      <button
+                        type="button"
+                        title="重试索引"
+                        onClick={() => void retryItem(it)}
+                        className="shrink-0 text-muted transition-colors hover:text-primary"
+                      >
+                        <RefreshCw size={13} />
+                      </button>
+                    )}
                     <button
                       type="button"
                       title="移除"
@@ -299,6 +345,17 @@ export function KnowledgePanel(): React.JSX.Element {
                 placeholder="输入关键词试试召回效果"
                 className={inputCls}
               />
+              <select
+                value={topK}
+                onChange={(e) => setTopK(Number(e.target.value))}
+                className="h-9 shrink-0 rounded-lg border border-board bg-card px-2 text-13 text-primary outline-none"
+                title="返回条数"
+              >
+                <option value={6}>6 条</option>
+                <option value={8}>8 条</option>
+                <option value={12}>12 条</option>
+                <option value={20}>20 条</option>
+              </select>
               <button
                 type="button"
                 onClick={runSearch}
