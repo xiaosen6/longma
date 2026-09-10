@@ -675,6 +675,7 @@ export function ChatPage(): React.JSX.Element {
             </header>
 
             <MessageStream
+              sessionId={activeId ?? '__draft__'}
               slice={slice}
               workDir={activeMeta?.workDir || workDir}
               onOpenFile={openCanvas}

@@ -27,6 +27,13 @@ import { mayExceedVisualLineThreshold, useUserMessageAutoCollapse } from './chat
 
 /** 距底部多少 px 内视为贴底 */
 const STICK_THRESHOLD = 48;
+
+/**
+ * 每会话「上次滚动位置」内存表（简版 sessionScrollStore）：
+ * 切回会话时还原 scrollTop 而不是甩到底部。只记像素值不做条目锚点——
+ * 上方内容异步撑高时会失真，但远好于每次归零；完整锚点版等有真实需要再做。
+ */
+const scrollMemory = new Map<string, number>();
 /** 用户消息气泡：长文本自动收起（抄 Cindy userMessageCollapse：镜像节点实测行数
  * + ResizeObserver 跟宽重算），折叠态 line-clamp-10 + 「展开全文 / 收起」。 */
 function UserBubble({
@@ -96,6 +103,8 @@ type AssistantItem = Extract<DisplayItem, { kind: 'assistant' }>;
 type GroupedRow = ReturnType<typeof groupWorkItems>[number];
 
 interface MessageStreamProps {
+  /** 所属会话：滚动位置记忆的 key */
+  sessionId: string;
   slice: SessionSlice;
   workDir?: string;
   onOpenFile?: (path: string) => void;
@@ -178,6 +187,7 @@ function AssistantTurn({
 }
 
 export function MessageStream({
+  sessionId,
   slice,
   workDir,
   onOpenFile,
@@ -189,6 +199,8 @@ export function MessageStream({
 }: MessageStreamProps): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef(true);
+  const lastScrollRef = useRef<number | null>(null);
+  const prevSessionRef = useRef(sessionId);
   const [atBottom, setAtBottom] = useState(true);
   const [sharePayload, setSharePayload] = useState<ShareTurnPayload | null>(null);
   const grouped = useMemo(
@@ -211,7 +223,16 @@ export function MessageStream({
     const near = el.scrollHeight - el.scrollTop - el.clientHeight < STICK_THRESHOLD;
     stickRef.current = near;
     setAtBottom(near);
+    lastScrollRef.current = el.scrollTop;
   };
+
+  // 会话切换：把离开时的位置记入内存表（render 期检测，handleScroll 只维护 lastScrollRef）
+  if (prevSessionRef.current !== sessionId) {
+    if (lastScrollRef.current != null) {
+      scrollMemory.set(prevSessionRef.current, lastScrollRef.current);
+    }
+    prevSessionRef.current = sessionId;
+  }
 
   // 内容变化时贴底（用 useLayoutEffect 避免闪烁）
   useLayoutEffect(() => {
@@ -228,13 +249,25 @@ export function MessageStream({
     el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
   };
 
-  // 切换会话（items 引用整体替换）时重置贴底
+  // 切换会话（items 引用整体替换）时：有记忆且非贴底态则还原位置，否则贴底
   useEffect(() => {
+    const remembered = scrollMemory.get(sessionId);
+    if (remembered != null && remembered > STICK_THRESHOLD) {
+      // 历史异步加载完成后 items 才撑满，rAF 延后一帧再恢复（此时 scrollHeight 已就绪）
+      const raf = requestAnimationFrame(() => {
+        const el = containerRef.current;
+        if (!el) return;
+        stickRef.current = false;
+        setAtBottom(false);
+        el.scrollTop = Math.min(remembered, el.scrollHeight);
+      });
+      return () => cancelAnimationFrame(raf);
+    }
     stickRef.current = true;
     const el = containerRef.current;
     if (el) el.scrollTop = el.scrollHeight;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slice.historyLoaded]);
+  }, [slice.historyLoaded, sessionId]);
 
   return (
     <div className="relative min-h-0 flex-1">
