@@ -283,6 +283,15 @@ ChatPage / ChatInput
 
 配套：供应商预设新增「火山方舟（按量，含视觉模型）」（ark /api/v3 + doubao vision 系列，doubao-1.5-vision-pro 带 maxTokens:12288——glm-4v-flash max_tokens 上限 1024 同类坑，wizard 现在透传 maxTokens）；列模型失败报错带实际请求 URL 与 Base URL 形态指引；`shared/friendly-error.ts` 把 1210 content.type/max_tokens 类供应商错误转成中文行动指引（sessionStore error 卡片）。真机端到端已验证：QQ 图 → 嗅探 image/png → glm-4v-flash 真实理解并描述图片。
 
+### 4.9b 问答页丝滑批次（2026-09-10，0.2.14 后、未发版）
+
+对照 Cindy 找的体感差距，四项全修（commit 77a7b6e/e007eac/502cb28）：
+- **流式刷新 100ms→32ms**（sessionStore FLUSH_MS，对齐 Cindy TEXT_DELTA_BATCH_INTERVAL_MS；100ms 的文字跳跃感是「不丝滑」最大来源；末条 memo 化兜住高频渲染）。
+- **回到底部浮标**（MessageStream 非贴底时右下角 chip，产出中带蓝点；点击 smooth 跳底恢复跟随；滚动容器外包 relative 层承载浮标）。
+- **切会话位置记忆**（模块级 scrollMemory 表 + sessionId prop；离开记录 scrollTop、切回历史加载后 setTimeout(0) 恢复；简版像素记忆，条目锚点版待有需要）。**坑：恢复回调不能用 rAF——窗口被遮挡时 Chromium 暂停 rAF，恢复永不执行（CDP 实测）；setTimeout(0) 后台照跑**。
+- **滚动补偿**：回读态记录视口顶端锚点条目（captureAnchor），ResizeObserver 见内容撑高就把锚点修回原位（CDP 实证撑高 500px 漂移 0px）；贴底态不补偿。
+- **不移植**：Cindy 渲染窗口/虚拟化（#3693，6542 行 MessageStream 的体系）——不同构且无卡顿报障，维持 §7.2 已知债。
+
 ### 4.9a MCP 用户面恢复 + Cindy 同步批次（2026-09-08，0.2.13 后、未发版）
 
 **MCP 服务器用户面（用户翻案恢复，commit e8cbc64 + c1532ac）**：当年删 UI 时**主进程链路全保留**（mcp_servers 表 CRUD + IPC 四件套 + preload + mcp-bridge 装配），恢复只花了渲染层 + token 存储：
