@@ -198,6 +198,9 @@ export function MessageStream({
   onRetryError,
 }: MessageStreamProps): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  /** 回读锚点：视口顶端第一条消息元素 + 它相对视口顶的偏移（贴底时不记录） */
+  const anchorRef = useRef<{ el: Element; offset: number } | null>(null);
   const stickRef = useRef(true);
   const lastScrollRef = useRef<number | null>(null);
   const prevSessionRef = useRef(sessionId);
@@ -224,7 +227,48 @@ export function MessageStream({
     stickRef.current = near;
     setAtBottom(near);
     lastScrollRef.current = el.scrollTop;
+    captureAnchor();
   };
+
+  /** 记录回读锚点：视口顶端第一条可见消息及其偏移（贴底态无需补偿，清空） */
+  const captureAnchor = (): void => {
+    const el = containerRef.current;
+    const inner = innerRef.current;
+    if (!el || !inner || stickRef.current) {
+      anchorRef.current = null;
+      return;
+    }
+    const elTop = el.getBoundingClientRect().top;
+    for (const child of Array.from(inner.children)) {
+      const r = child.getBoundingClientRect();
+      if (r.bottom > elTop) {
+        anchorRef.current = { el: child, offset: r.top - elTop };
+        return;
+      }
+    }
+    anchorRef.current = null;
+  };
+
+  // 滚动补偿：回读中上方内容异步撑高（图片/代码块/markdown）时，把锚点条目修回原视口位置。
+  // 贴底（流式跟随）时不补偿——增长在下方，天然不需要。
+  useEffect(() => {
+    const inner = innerRef.current;
+    if (!inner) return;
+    const ro = new ResizeObserver(() => {
+      const el = containerRef.current;
+      const anchor = anchorRef.current;
+      if (!el || !anchor || stickRef.current || !anchor.el.isConnected) return;
+      const elTop = el.getBoundingClientRect().top;
+      const drift = anchor.el.getBoundingClientRect().top - elTop - anchor.offset;
+      if (Math.abs(drift) > 1) {
+        el.scrollTop += drift;
+        requestAnimationFrame(() => captureAnchor());
+      }
+    });
+    ro.observe(inner);
+    return () => ro.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 会话切换：把离开时的位置记入内存表（render 期检测，handleScroll 只维护 lastScrollRef）
   if (prevSessionRef.current !== sessionId) {
@@ -234,10 +278,11 @@ export function MessageStream({
     prevSessionRef.current = sessionId;
   }
 
-  // 内容变化时贴底（用 useLayoutEffect 避免闪烁）
+  // 内容变化时贴底（用 useLayoutEffect 避免闪烁）；非贴底时同步回读锚点
   useLayoutEffect(() => {
     const el = containerRef.current;
     if (el && stickRef.current) el.scrollTop = el.scrollHeight;
+    captureAnchor();
   }, [slice.items, slice.streamingText]);
 
   /** 回到底部（JumpToBottomChip）：smooth 一次性跳底并恢复贴底跟随 */
@@ -253,15 +298,16 @@ export function MessageStream({
   useEffect(() => {
     const remembered = scrollMemory.get(sessionId);
     if (remembered != null && remembered > STICK_THRESHOLD) {
-      // 历史异步加载完成后 items 才撑满，rAF 延后一帧再恢复（此时 scrollHeight 已就绪）
-      const raf = requestAnimationFrame(() => {
+      // 延后一个宏任务再恢复（items/scrollHeight 已 commit）。不用 rAF——
+      // 窗口被遮挡时 Chromium 暂停 rAF，恢复会永不执行（实测踩坑）
+      const timer = setTimeout(() => {
         const el = containerRef.current;
         if (!el) return;
         stickRef.current = false;
         setAtBottom(false);
         el.scrollTop = Math.min(remembered, el.scrollHeight);
-      });
-      return () => cancelAnimationFrame(raf);
+      }, 0);
+      return () => clearTimeout(timer);
     }
     stickRef.current = true;
     const el = containerRef.current;
@@ -276,7 +322,7 @@ export function MessageStream({
         onScroll={handleScroll}
         className="h-full overflow-y-auto px-6 py-4"
       >
-        <div className="mx-auto flex max-w-[820px] flex-col gap-3.5">
+        <div ref={innerRef} className="mx-auto flex max-w-[820px] flex-col gap-3.5">
           {slice.items.length === 0 && !slice.streamingText && (
             <div className="pt-24 text-center text-13 text-muted select-none">
               输入消息或拖入文件开始对话
