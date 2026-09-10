@@ -285,7 +285,7 @@ ChatPage / ChatInput
 ### 4.9a MCP 用户面恢复 + Cindy 同步批次（2026-09-08，0.2.13 后、未发版）
 
 **MCP 服务器用户面（用户翻案恢复，commit e8cbc64 + c1532ac）**：当年删 UI 时**主进程链路全保留**（mcp_servers 表 CRUD + IPC 四件套 + preload + mcp-bridge 装配），恢复只花了渲染层 + token 存储：
-- 设置 → **独立一级 tab「MCP 服务器」**（McpPanel，自自动操作栏移出）：列表带**连通状态点**（绿/红/灰，进入面板自动检测一轮 + 「检测连接」手动重测，失败行内显示错误详情）。
+- 设置 → **独立一级 tab「MCP 服务器」**（McpPanel，自自动操作栏移出）：列表带**连通状态点**（绿/红/灰，进入面板自动检测一轮 + 「检测连接」手动重测，失败行内显示错误详情）+ **后台心跳**（mcp-heartbeat.ts：http 类 60s 探测，状态翻转 broadcast MCP_STATUS 实时刷新；**刻意不轮询 stdio**——探测=真实 spawn 有副作用如 blender-mcp，stdio 状态靠按需探测）。
 - McpServerDialog：类型分段（远程 http / **本地 stdio——比 Cindy 多**）；url 校验 https 或 loopback http；headers 每行 `Name: Value`。
 - **Bearer token 走 safeStorage**（`mcp-token-<id>` 复用 secrets.ts；不落库不回显；update 语义 `token: undefined`=不变/''=清/非空=设新）；**连通探测与装配共用 `resolveServerHeaders`**（token 合成统一）。探测 `testMcpConnection`（mcp-bridge.ts 导出）：http POST initialize 10s 超时 2xx 即可达；stdio 复用 StdioMcpHttpProxy（已 export）走一次 spawn+握手即回收。
 - 改动只影响之后新建会话（装配在 startSession）；审批跟会话三档默认 ask。
