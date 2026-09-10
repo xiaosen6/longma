@@ -15,7 +15,7 @@
  *   不含「复制当前消息链接」。
  */
 import { useEffect, useLayoutEffect, useMemo, useState, useRef } from 'react';
-import { AlertCircle, Info } from 'lucide-react';
+import { AlertCircle, ArrowDown, Info } from 'lucide-react';
 import type { DisplayItem, SessionSlice } from '../stores/sessionStore';
 import { AssistantMessage } from './AssistantMessage';
 import { MessageActionBar } from './MessageActionBar';
@@ -27,8 +27,6 @@ import { mayExceedVisualLineThreshold, useUserMessageAutoCollapse } from './chat
 
 /** 距底部多少 px 内视为贴底 */
 const STICK_THRESHOLD = 48;
-
-
 /** 用户消息气泡：长文本自动收起（抄 Cindy userMessageCollapse：镜像节点实测行数
  * + ResizeObserver 跟宽重算），折叠态 line-clamp-10 + 「展开全文 / 收起」。 */
 function UserBubble({
@@ -191,6 +189,7 @@ export function MessageStream({
 }: MessageStreamProps): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef(true);
+  const [atBottom, setAtBottom] = useState(true);
   const [sharePayload, setSharePayload] = useState<ShareTurnPayload | null>(null);
   const grouped = useMemo(
     () => groupWorkItems(slice.items, slice.isRunning),
@@ -209,7 +208,9 @@ export function MessageStream({
   const handleScroll = (): void => {
     const el = containerRef.current;
     if (!el) return;
-    stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < STICK_THRESHOLD;
+    const near = el.scrollHeight - el.scrollTop - el.clientHeight < STICK_THRESHOLD;
+    stickRef.current = near;
+    setAtBottom(near);
   };
 
   // 内容变化时贴底（用 useLayoutEffect 避免闪烁）
@@ -217,6 +218,15 @@ export function MessageStream({
     const el = containerRef.current;
     if (el && stickRef.current) el.scrollTop = el.scrollHeight;
   }, [slice.items, slice.streamingText]);
+
+  /** 回到底部（JumpToBottomChip）：smooth 一次性跳底并恢复贴底跟随 */
+  const jumpToBottom = (): void => {
+    const el = containerRef.current;
+    if (!el) return;
+    stickRef.current = true;
+    setAtBottom(true);
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+  };
 
   // 切换会话（items 引用整体替换）时重置贴底
   useEffect(() => {
@@ -227,17 +237,18 @@ export function MessageStream({
   }, [slice.historyLoaded]);
 
   return (
-    <div
-      ref={containerRef}
-      onScroll={handleScroll}
-      className="min-h-0 flex-1 overflow-y-auto px-6 py-4"
-    >
-      <div className="mx-auto flex max-w-[820px] flex-col gap-3.5">
-        {slice.items.length === 0 && !slice.streamingText && (
-          <div className="pt-24 text-center text-13 text-muted select-none">
-            输入消息或拖入文件开始对话
-          </div>
-        )}
+    <div className="relative min-h-0 flex-1">
+      <div
+        ref={containerRef}
+        onScroll={handleScroll}
+        className="h-full overflow-y-auto px-6 py-4"
+      >
+        <div className="mx-auto flex max-w-[820px] flex-col gap-3.5">
+          {slice.items.length === 0 && !slice.streamingText && (
+            <div className="pt-24 text-center text-13 text-muted select-none">
+              输入消息或拖入文件开始对话
+            </div>
+          )}
 
         {grouped.map((item, index) => {
           if (item.kind === 'work_group') {
@@ -337,7 +348,22 @@ export function MessageStream({
             </div>
           </div>
         )}
+        </div>
       </div>
+      {/* 回到底部浮标：非贴底且正在产出内容时提示失联，点击恢复跟随 */}
+      {!atBottom && (
+        <button
+          type="button"
+          onClick={jumpToBottom}
+          className="absolute bottom-4 right-6 flex items-center gap-1.5 rounded-full border border-board bg-card px-3 py-1.5 text-12 text-primary shadow-md transition-colors hover:bg-hover"
+        >
+          <ArrowDown size={13} />
+          回到底部
+          {(slice.isRunning || hasStreaming) && (
+            <span className="ml-0.5 inline-block h-[6px] w-[6px] rounded-full bg-accent" />
+          )}
+        </button>
+      )}
       {sharePayload ? (
         <ShareTurnModal payload={sharePayload} onClose={() => setSharePayload(null)} />
       ) : null}
