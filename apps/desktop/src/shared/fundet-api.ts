@@ -211,6 +211,14 @@ export interface McpConnectionTest {
   latencyMs: number;
 }
 
+/** MCP 心跳状态翻转（MCP_STATUS push） */
+export interface McpStatusPayload {
+  id: string;
+  ok: boolean;
+  error?: string;
+  latencyMs: number;
+}
+
 export type SearchEngineId = 'tavily' | 'brave' | 'bocha' | 'zhipu';
 
 export interface SearchEngineStatus {
@@ -262,6 +270,8 @@ export interface FundetApi {
   listMcpServers(): Promise<McpServerView[]>;
   /** 连通性探测（设置页状态点）：http 发 initialize，stdio 走一次握手 */
   testMcpConnection(id: string): Promise<McpConnectionTest>;
+  /** 后台心跳的连通状态翻转（仅 http 类轮询；stdio 由按需探测驱动） */
+  onMcpStatusChanged(cb: (payload: McpStatusPayload) => void): () => void;
   createMcpServer(input: McpServerInput): Promise<McpServerView>;
   updateMcpServer(id: string, patch: Partial<McpServerInput>): Promise<McpServerView>;
   deleteMcpServer(id: string): Promise<void>;

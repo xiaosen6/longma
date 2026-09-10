@@ -105,4 +105,6 @@ export const FUNDET_PUSH = {
   UPDATE_STATUS_CHANGED: 'update:status-changed',
   /** 桌宠右键截图问答：payload { name, data }（data=PNG 字节） */
   PET_SCREENSHOT: 'pet:screenshot',
+  /** MCP 连通状态翻转（后台心跳）：payload { id, ok, error?, latencyMs } */
+  MCP_STATUS: 'mcp:status-changed',
 } as const;

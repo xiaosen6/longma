@@ -92,8 +92,16 @@ export function McpPanel(): React.JSX.Element {
         probeAll(list);
       })
       .catch((err) => setError(err instanceof Error ? err.message : String(err)));
+    // 后台心跳（http 类 60s）状态翻转实时刷新状态点
+    const off = window.fundet.onMcpStatusChanged((p) => {
+      setProbes((prev) => ({
+        ...prev,
+        [p.id]: { state: p.ok ? 'ok' : 'fail', detail: p.ok ? `已连通（${p.latencyMs}ms）` : p.error ?? '连接失败' },
+      }));
+    });
     return () => {
       mountedRef.current = false;
+      off();
     };
   }, [probeAll]);
 

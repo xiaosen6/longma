@@ -11,6 +11,7 @@ import type {
   FundetApi,
   InteractionDismissedPayload,
   InteractionRequestPayload,
+  McpStatusPayload,
   PetScreenshotPayload,
   StatusChangedPayload,
 } from '../shared/fundet-api.js';
@@ -81,6 +82,7 @@ const api: FundetApi = {
 
   listMcpServers: () => ipcRenderer.invoke(FUNDET_INVOKE.MCP_LIST),
   testMcpConnection: (id) => ipcRenderer.invoke(FUNDET_INVOKE.MCP_TEST_CONNECTION, id),
+  onMcpStatusChanged: (cb) => subscribe<McpStatusPayload>(FUNDET_PUSH.MCP_STATUS, cb),
   createMcpServer: (input) => ipcRenderer.invoke(FUNDET_INVOKE.MCP_CREATE, input),
   updateMcpServer: (id, patch) => ipcRenderer.invoke(FUNDET_INVOKE.MCP_UPDATE, id, patch),
   deleteMcpServer: (id) => ipcRenderer.invoke(FUNDET_INVOKE.MCP_DELETE, id),

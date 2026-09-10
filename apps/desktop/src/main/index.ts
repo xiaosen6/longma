@@ -11,6 +11,7 @@ import { getHost, shutdownHost } from './host/pi-host.js';
 import { resolvePiBinaryPath } from './host/pi-binary.js';
 import { ensureBundledSkills } from './host/skills.js';
 import { registerIpcHandlers, broadcast } from './ipc/register.js';
+import { startMcpHeartbeat, stopMcpHeartbeat } from './mcp-heartbeat.js';
 import { registerImIpc, startSavedImBots, stopAllImBots } from './im/host.ts';
 import { disposeBrowserHost } from './browser/host.js';
 import { initUpdater } from './updater.js';
@@ -19,6 +20,7 @@ import {
   registerFileProtocolPrivileges,
 } from './file-protocol.js';
 import { brand } from '../shared/brand.js';
+import { createConsoleLogger } from '@fundet/agent-core';
 
 registerFileProtocolPrivileges();
 
@@ -261,6 +263,9 @@ function bootstrap(): void {
   // 4) 应用更新（仅打包版启用，Windows 自动下载、macOS 手动引导）
   initUpdater();
 
+  // 5) MCP 后台心跳（http 类 60s 探测，状态翻转推渲染层）
+  startMcpHeartbeat(broadcast, createConsoleLogger('fundet:mcp-heartbeat'));
+
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -269,6 +274,7 @@ function bootstrap(): void {
 
   app.on('before-quit', () => {
     isQuitting = true;
+    stopMcpHeartbeat();
     void stopAllImBots();
     // 关闭托管浏览器（用过才发 stop；没用过 stop 反而会拉起服务挂住退出）
     void disposeBrowserHost();
