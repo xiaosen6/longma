@@ -1,11 +1,18 @@
 /**
  * mcp_servers 表读写：用户配置的外部 MCP server（stdio / streamable-http）。
  * 会话启动时由 host/mcp-bridge.ts 读取 enabled 的行注入 pi。
+ *
+ * Bearer token 不入库存明文——走 safeStorage（`mcp-token-<id>`，复用 BYOK key 的
+ * 加密存储）；表里只记 hasToken 与否。更新语义：patch.token === undefined 不动，
+ * '' 清除，非空字符串设新值。
  */
 import { randomUUID } from 'node:crypto';
 import { asc, eq } from 'drizzle-orm';
 import { getDb } from './client.js';
 import { mcpServers, type McpServerRow } from './schema.js';
+import { writeProviderKey, readProviderKey, deleteProviderKey } from '../host/secrets.js';
+
+const TOKEN_KEY_PREFIX = 'mcp-token-';
 
 export interface McpServerView {
   id: string;
@@ -17,6 +24,8 @@ export interface McpServerView {
   /** http */
   url: string | null;
   headers: Record<string, string>;
+  /** 是否已保存 Bearer token（safeStorage；明文不回传渲染层） */
+  hasToken: boolean;
   enabled: boolean;
   createdAt: number;
 }
@@ -28,6 +37,8 @@ export interface McpServerInput {
   args?: string[];
   url?: string;
   headers?: Record<string, string>;
+  /** undefined=不变；''=清除；非空=设新（create 时非空即设置） */
+  token?: string;
   enabled?: boolean;
 }
 
@@ -50,6 +61,7 @@ function toView(row: McpServerRow): McpServerView {
     args: parseJson<string[]>(row.args, []),
     url: row.url,
     headers: parseJson<Record<string, string>>(row.headers, {}),
+    hasToken: readProviderKey(TOKEN_KEY_PREFIX + row.id) != null,
     enabled: row.enabled === 1,
     createdAt: row.createdAt,
   };
@@ -104,6 +116,7 @@ export function createMcpServer(input: McpServerInput): McpServerView {
     createdAt: Date.now(),
   };
   getDb().insert(mcpServers).values(row).run();
+  if (input.token) writeProviderKey(TOKEN_KEY_PREFIX + row.id, input.token);
   return toView(row);
 }
 
@@ -133,9 +146,20 @@ export function updateMcpServer(id: string, patch: Partial<McpServerInput>): Mcp
     })
     .where(eq(mcpServers.id, id))
     .run();
+  if (patch.token !== undefined) {
+    const key = TOKEN_KEY_PREFIX + id;
+    if (patch.token === '') deleteProviderKey(key);
+    else if (patch.token) writeProviderKey(key, patch.token);
+  }
   return getMcpServer(id)!;
 }
 
 export function deleteMcpServer(id: string): void {
   getDb().delete(mcpServers).where(eq(mcpServers.id, id)).run();
+  deleteProviderKey(TOKEN_KEY_PREFIX + id);
+}
+
+/** 读 server 的 Bearer token（mcp-bridge 装配时合成 Authorization 用；无则 null） */
+export function readMcpServerToken(id: string): string | null {
+  return readProviderKey(TOKEN_KEY_PREFIX + id);
 }

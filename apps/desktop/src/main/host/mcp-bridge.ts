@@ -34,7 +34,7 @@ import { SEARCH_MCP_SERVER_NAME } from '../../shared/search-engines.ts';
 import { BROWSER_ENABLED_SETTING, BROWSER_MCP_SERVER_NAME } from '../../shared/browser-settings.ts';
 import { COMPUTER_ENABLED_SETTING, COMPUTER_MCP_SERVER_NAME } from '../../shared/computer-settings.ts';
 import { resolveCuaDriverCommand } from '../computer/driver.ts';
-import { listMcpServers, type McpServerView } from '../db/mcp-servers.js';
+import { listMcpServers, readMcpServerToken, type McpServerView } from '../db/mcp-servers.js';
 import { getBoolSetting } from '../db/settings.js';
 import { startSearchMcpServer } from '../search/mcp-server.ts';
 import { handleWebSearch } from '../search/tool.ts';
@@ -309,6 +309,7 @@ export function createPreparePiExtraSpawnConfig(logger: Logger) {
               args: ['mcp'],
               url: null,
               headers: {},
+              hasToken: false,
               createdAt: 0,
             },
             token,
@@ -329,7 +330,14 @@ export function createPreparePiExtraSpawnConfig(logger: Logger) {
       try {
         if (config.type === 'http') {
           const headerEnvVars: Record<string, string> = {};
-          for (const [headerName, value] of Object.entries(config.headers)) {
+          // Bearer token 走 safeStorage（mcp-token-<id>），不落库；用户显式
+          // Authorization header 优先，不双写。
+          const headers = { ...config.headers };
+          const token = readMcpServerToken(config.id);
+          if (token && !Object.keys(headers).some((k) => k.toLowerCase() === 'authorization')) {
+            headers.Authorization = `Bearer ${token}`;
+          }
+          for (const [headerName, value] of Object.entries(headers)) {
             const envName = headerEnvVarName(config.name, headerName);
             headerEnvVars[headerName] = envName;
             mcpEnv[envName] = value;

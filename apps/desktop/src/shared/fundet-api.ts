@@ -176,6 +176,8 @@ export interface McpServerView {
   args: string[];
   url: string | null;
   headers: Record<string, string>;
+  /** 是否已保存 Bearer token（safeStorage；明文不回传） */
+  hasToken: boolean;
   enabled: boolean;
   createdAt: number;
 }
@@ -187,6 +189,8 @@ export interface McpServerInput {
   args?: string[];
   url?: string;
   headers?: Record<string, string>;
+  /** undefined=不变；''=清除；非空=设新 */
+  token?: string;
   enabled?: boolean;
 }
 

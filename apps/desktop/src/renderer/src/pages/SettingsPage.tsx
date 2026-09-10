@@ -31,6 +31,7 @@ import { ImBotPanel } from './settings/ImBotPanel';
 import { UpdateCard } from '../components/settings/UpdateCard';
 import { BrowserSection } from '../components/settings/BrowserSection';
 import { PetSection } from '../components/settings/PetSection';
+import { McpServersSection } from '../components/settings/McpServersSection';
 import { UsageHistoryPanel } from './settings/UsageHistoryPanel';
 import { ComputerSection } from '../components/settings/ComputerSection';
 import { brand } from '../../../shared/brand.ts';
@@ -265,6 +266,7 @@ export function SettingsPage(): React.JSX.Element {
                 <PetSection />
                 <BrowserSection />
                 <ComputerSection />
+                <McpServersSection />
               </div>
             )}
 
