@@ -32,6 +32,7 @@ import type {
 } from '@fundet/agent-core';
 import { createConsoleLogger } from '@fundet/agent-core';
 import { SEARCH_MCP_SERVER_NAME } from '../../shared/search-engines.ts';
+import { KNOWLEDGE_MCP_SERVER_NAME } from '../../shared/knowledge.ts';
 import { BROWSER_ENABLED_SETTING, BROWSER_MCP_SERVER_NAME } from '../../shared/browser-settings.ts';
 import { COMPUTER_ENABLED_SETTING, COMPUTER_MCP_SERVER_NAME } from '../../shared/computer-settings.ts';
 import { resolveCuaDriverCommand } from '../computer/driver.ts';
@@ -39,6 +40,8 @@ import { listMcpServers, resolveServerHeaders, type McpServerView } from '../db/
 import { getBoolSetting } from '../db/settings.js';
 import { startSearchMcpServer } from '../search/mcp-server.ts';
 import { handleWebSearch } from '../search/tool.ts';
+import { startKnowledgeMcpServer } from '../knowledge/mcp-server.ts';
+import { handleKnowledgeTool } from '../knowledge/tool.ts';
 import { ensureBrowserRuntime } from '../browser/host.js';
 import { startBrowserMcpServer } from '../browser/mcp-http.js';
 
@@ -267,6 +270,18 @@ export function createPreparePiExtraSpawnConfig(logger: Logger) {
       servers.push({ name: SEARCH_MCP_SERVER_NAME, url: search.url });
     } catch (err) {
       logger.error('内置搜索 MCP 启动失败', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+
+    // 知识库（设置 → 知识库）：无条件装配，未建库时工具返回指引文案。
+    // 只读本机检索，审批对齐 search（auto-approve 在 register 侧配置）。
+    try {
+      const knowledge = await startKnowledgeMcpServer(token, logger.child('knowledge-mcp'), handleKnowledgeTool);
+      disposers.push(knowledge.dispose);
+      servers.push({ name: KNOWLEDGE_MCP_SERVER_NAME, url: knowledge.url });
+    } catch (err) {
+      logger.error('内置知识库 MCP 启动失败', {
         error: err instanceof Error ? err.message : String(err),
       });
     }

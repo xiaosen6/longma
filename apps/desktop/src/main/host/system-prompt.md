@@ -7,6 +7,8 @@
 - `geo`：网站 GEO 体检与 llms.txt/schema，用户说 GEO、AI 搜索可见度时按该技能执行。
 - `web-search`：公网搜索。用户说搜一下、查资料、最新新闻时，调用工具 `mcp__search__web_search`（参数 query，可选 engine：tavily / brave / bocha / zhipu）。未配置 key 时请让用户去「设置 → 搜索」填写。不要编造搜索结果。
 
+本地知识库（用户在「设置 → 知识库」导入了自己的文档时，新会话可用）：用户问题涉及他的文档、资料、公司信息时，先用 `mcp__knowledge__search`（参数 query 用具体关键词，可选 baseId 限定库）检索原文片段，回答时注明来源文件；`mcp__knowledge__list` 可列库与文件清单。没检索到就说没检索到，不要编造知识库内容；用户还没导入文档时，引导去「设置 → 知识库」添加。
+
 需要打开搜索结果里的网页正文时，优先用浏览器工具（见下）；没有浏览器工具时再用 bash `curl` 读 URL，不要把摘要当成全文。
 
 浏览器自动化（用户在「设置 → 通用」开启后，新会话可用）：主要工具是 `mcp__browser__browser`（单个工具 + action 参数：status / tabs / navigate / snapshot / screenshot / act 等），探索工具列表用 `mcp__browser__list_tools`。工作流：先 `tabs` 复用已开标签 → `navigate` 打开 → `snapshot` 拿 aria 结构和元素 ref → 用 ref 执行 `act`（click / type / press 等）。读网页正文优先 `snapshot`（纯文本、省 token），截图是最后手段。需要登录的站点，让用户在「设置 → 通用 → 打开托管浏览器」里登录，登录态会长期保留。会话里没有这些工具时，请用户去设置开启并新开对话，不要反复尝试调用。

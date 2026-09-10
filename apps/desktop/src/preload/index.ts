@@ -87,6 +87,15 @@ const api: FundetApi = {
   updateMcpServer: (id, patch) => ipcRenderer.invoke(FUNDET_INVOKE.MCP_UPDATE, id, patch),
   deleteMcpServer: (id) => ipcRenderer.invoke(FUNDET_INVOKE.MCP_DELETE, id),
 
+  listKnowledgeBases: () => ipcRenderer.invoke(FUNDET_INVOKE.KB_LIST),
+  createKnowledgeBase: (name) => ipcRenderer.invoke(FUNDET_INVOKE.KB_CREATE, name),
+  deleteKnowledgeBase: (id) => ipcRenderer.invoke(FUNDET_INVOKE.KB_DELETE, id),
+  listKnowledgeItems: (baseId) => ipcRenderer.invoke(FUNDET_INVOKE.KB_ITEMS, baseId),
+  addKnowledgeFiles: (baseId, paths) => ipcRenderer.invoke(FUNDET_INVOKE.KB_ADD_FILES, baseId, paths),
+  pickKnowledgeFiles: () => ipcRenderer.invoke(FUNDET_INVOKE.KB_PICK_FILES),
+  removeKnowledgeItem: (itemId) => ipcRenderer.invoke(FUNDET_INVOKE.KB_REMOVE_ITEM, itemId),
+  searchKnowledge: (query, baseId, limit) => ipcRenderer.invoke(FUNDET_INVOKE.KB_SEARCH, query, baseId, limit),
+
   listSkills: (workDir) => ipcRenderer.invoke(FUNDET_INVOKE.SKILLS_LIST, workDir),
   pickSkillFile: () => ipcRenderer.invoke(FUNDET_INVOKE.SKILLS_PICK),
   importSkill: (filePath, scope, workDir) =>

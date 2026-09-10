@@ -40,6 +40,15 @@ import {
   type McpServerInput,
 } from '../db/mcp-servers.js';
 import { testMcpConnection } from '../host/mcp-bridge.js';
+import {
+  addKnowledgeFiles,
+  createKnowledgeBase,
+  deleteKnowledgeBase,
+  deleteKnowledgeItem,
+  listKnowledgeBases,
+  listKnowledgeItems,
+  searchKnowledge,
+} from '../knowledge/service.js';
 import { deleteProviderKey, hasProviderKey, writeProviderKey } from '../host/secrets.js';
 import { addUsageDelta, getUsageHistory } from '../db/usage.js';
 import {
@@ -590,6 +599,34 @@ export function registerIpcHandlers(): void {
     const config = listMcpServers().find((s) => s.id === id);
     if (!config) throw new Error(`MCP server not found: ${id}`);
     return testMcpConnection(config);
+  });
+
+  // ---------- 知识库 ----------
+  ipcMain.handle(FUNDET_INVOKE.KB_LIST, async () => listKnowledgeBases());
+  ipcMain.handle(FUNDET_INVOKE.KB_CREATE, async (_e, name: string) => createKnowledgeBase(String(name)));
+  ipcMain.handle(FUNDET_INVOKE.KB_DELETE, async (_e, id: string) => deleteKnowledgeBase(String(id)));
+  ipcMain.handle(FUNDET_INVOKE.KB_ITEMS, async (_e, baseId: string) => listKnowledgeItems(String(baseId)));
+  ipcMain.handle(FUNDET_INVOKE.KB_ADD_FILES, async (_e, baseId: string, paths: string[]) => {
+    const list = Array.isArray(paths) ? paths.map(String) : [];
+    if (list.length === 0) throw new Error('未选择文件');
+    return addKnowledgeFiles(String(baseId), list);
+  });
+  ipcMain.handle(FUNDET_INVOKE.KB_REMOVE_ITEM, async (_e, itemId: string) => deleteKnowledgeItem(String(itemId)));
+  ipcMain.handle(
+    FUNDET_INVOKE.KB_SEARCH,
+    async (_e, query: string, baseId?: string, limit?: number) =>
+      searchKnowledge(String(query ?? ''), baseId ? String(baseId) : undefined, Number(limit) || 6),
+  );
+  ipcMain.handle(FUNDET_INVOKE.KB_PICK_FILES, async (e) => {
+    const win = BrowserWindow.fromWebContents(e.sender);
+    const opts = {
+      title: '导入文档到知识库',
+      properties: ['openFile' as const, 'multiSelections' as const],
+      filters: [{ name: '文档', extensions: ['md', 'txt', 'pdf', 'docx'] }],
+    };
+    const picked = win ? await dialog.showOpenDialog(win, opts) : await dialog.showOpenDialog(opts);
+    if (picked.canceled) return null;
+    return picked.filePaths;
   });
 
   ipcMain.handle(FUNDET_INVOKE.FS_HOME, async () => os.homedir());

@@ -25,6 +25,7 @@ import { resolvePiBinaryPath, resolveRipgrepPath } from './pi-binary.js';
 import { createFundetMemoryManager } from './memory.js';
 import { lookupKnownModel } from './pi-model-catalog.ts';
 import { SEARCH_MCP_SERVER_NAME } from '../../shared/search-engines.ts';
+import { KNOWLEDGE_MCP_SERVER_NAME } from '../../shared/knowledge.ts';
 import { createPreparePiExtraSpawnConfig } from './mcp-bridge.js';
 import systemPromptRaw from './system-prompt.md?raw';
 import { brand } from '../../shared/brand.js';
@@ -170,10 +171,12 @@ export function getHost(): FundetHost {
     makerMemory: memoryManager,
     // MCP：内置搜索 + 用户表里的外部 server，经 CINDY_PI_MCP_BRIDGE 注入 cindy-bridge
     preparePiExtraSpawnConfig: createPreparePiExtraSpawnConfig(logger.child('mcp')),
-    // 默认会话是 ask：内置搜索只打用户自己配的引擎、无本机副作用，免每次弹窗。
-    // 其它 MCP 仍要确认（设置里已去掉 MCP 页，这条主要防库里残留的外部 server）。
+    // 默认会话是 ask：内置搜索（用户自己配的引擎）与知识库（只读本机索引）无本机副作用，
+    // 免每次弹窗。其它 MCP 仍要确认。
     getMcpToolApprovalPolicy: ({ serverName }) =>
-      serverName === SEARCH_MCP_SERVER_NAME ? 'auto-approve' : 'prompt',
+      serverName === SEARCH_MCP_SERVER_NAME || serverName === KNOWLEDGE_MCP_SERVER_NAME
+        ? 'auto-approve'
+        : 'prompt',
   });
   memoryManager.setAgents({ pi });
 

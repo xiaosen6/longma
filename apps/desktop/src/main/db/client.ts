@@ -17,6 +17,7 @@ import * as schema from './schema.js';
 export type FundetDb = BetterSQLite3Database<typeof schema>;
 
 let db: FundetDb | null = null;
+let sqliteRaw: Database.Database | null = null;
 
 /**
  * migrations 目录：dev 下 out/main → ../../drizzle = apps/desktop/drizzle；
@@ -44,6 +45,7 @@ export function initDatabase(): FundetDb {
   console.log(`[fundet:db] better-sqlite3 OK, sqlite ${row.v}, file=${file}`);
 
   db = drizzle(sqlite, { schema });
+  sqliteRaw = sqlite;
   migrate(db, { migrationsFolder: resolveMigrationsFolder() });
   console.log('[fundet:db] migrations applied');
   return db;
@@ -52,4 +54,10 @@ export function initDatabase(): FundetDb {
 export function getDb(): FundetDb {
   if (!db) throw new Error('database not initialised: call initDatabase() first');
   return db;
+}
+
+/** 原生 better-sqlite3 实例（FTS5 虚表等 drizzle 覆盖不到的场景用） */
+export function getSqlite(): Database.Database {
+  if (!sqliteRaw) throw new Error('database not initialised: call initDatabase() first');
+  return sqliteRaw;
 }

@@ -1,0 +1,302 @@
+/**
+ * 本地知识库服务：库/条目 CRUD、文档索引管线、FTS5 trigram 检索。
+ * 纯全文检索形态（无 embedding）——检索质量靠 FTS5 trigram 中文子串匹配 + bm25 排序。
+ *
+ * FTS 同步：knowledge_chunks_fts 是外部内容表（content=knowledge_chunks, rowid 对齐），
+ * 写 chunk 后手动插 FTS、删 chunk 后手动删 FTS（增量维护，全量重建走 rebuildFts）。
+ * 索引管线串行执行（模块级 promise 链），个人单机不需要并发。
+ */
+import { randomUUID } from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import { asc, eq, sql } from 'drizzle-orm';
+import { extractDocumentText } from '../doc-text.js';
+import { getDb, getSqlite } from '../db/client.js';
+import { knowledgeBases, knowledgeChunks, knowledgeItems } from '../db/schema.js';
+import { chunkText } from './chunks.ts';
+
+export interface KnowledgeBaseView {
+  id: string;
+  name: string;
+  status: string;
+  error: string | null;
+  fileCount: number;
+  chunkCount: number;
+  createdAt: number;
+}
+
+export interface KnowledgeItemView {
+  id: string;
+  baseId: string;
+  name: string;
+  sourcePath: string;
+  status: string;
+  error: string | null;
+  chunkCount: number;
+  createdAt: number;
+}
+
+export interface KnowledgeSearchResult {
+  baseId: string;
+  baseName: string;
+  itemName: string;
+  seq: number;
+  text: string;
+  score: number;
+}
+
+// ---------- 查询视图 ----------
+
+export function listKnowledgeBases(): KnowledgeBaseView[] {
+  return getDb()
+    .select({
+      id: knowledgeBases.id,
+      name: knowledgeBases.name,
+      status: knowledgeBases.status,
+      error: knowledgeBases.error,
+      createdAt: knowledgeBases.createdAt,
+      fileCount: sql<number>`(SELECT COUNT(*) FROM knowledge_items WHERE base_id = ${knowledgeBases.id})`,
+      chunkCount: sql<number>`(SELECT COALESCE(SUM(chunk_count), 0) FROM knowledge_items WHERE base_id = ${knowledgeBases.id})`,
+    })
+    .from(knowledgeBases)
+    .orderBy(asc(knowledgeBases.createdAt))
+    .all()
+    .map((r) => ({ ...r, fileCount: Number(r.fileCount), chunkCount: Number(r.chunkCount) }));
+}
+
+export function listKnowledgeItems(baseId: string): KnowledgeItemView[] {
+  return getDb()
+    .select()
+    .from(knowledgeItems)
+    .where(eq(knowledgeItems.baseId, baseId))
+    .orderBy(asc(knowledgeItems.createdAt))
+    .all();
+}
+
+// ---------- 库 / 条目 CRUD ----------
+
+export function createKnowledgeBase(name: string): KnowledgeBaseView {
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error('知识库名称不能为空');
+  if (trimmed.length > 60) throw new Error('名称过长（最多 60 字）');
+  const row = { id: randomUUID(), name: trimmed, status: 'ready', error: null, createdAt: Date.now() };
+  getDb().insert(knowledgeBases).values(row).run();
+  return { ...row, fileCount: 0, chunkCount: 0 };
+}
+
+export function deleteKnowledgeBase(id: string): void {
+  const db = getDb();
+  const chunkIds = db.select({ id: knowledgeChunks.id }).from(knowledgeChunks).where(eq(knowledgeChunks.baseId, id)).all();
+  if (chunkIds.length > 0) deleteFtsRows(chunkIds.map((c) => c.id));
+  db.delete(knowledgeChunks).where(eq(knowledgeChunks.baseId, id)).run();
+  db.delete(knowledgeItems).where(eq(knowledgeItems.baseId, id)).run();
+  db.delete(knowledgeBases).where(eq(knowledgeBases.id, id)).run();
+}
+
+export function deleteKnowledgeItem(itemId: string): void {
+  const db = getDb();
+  const chunkIds = db.select({ id: knowledgeChunks.id }).from(knowledgeChunks).where(eq(knowledgeChunks.itemId, itemId)).all();
+  if (chunkIds.length > 0) deleteFtsRows(chunkIds.map((c) => c.id));
+  db.delete(knowledgeChunks).where(eq(knowledgeChunks.itemId, itemId)).run();
+  db.delete(knowledgeItems).where(eq(knowledgeItems.id, itemId)).run();
+}
+
+// ---------- FTS 同步（外部内容表：rowid 对齐 knowledge_chunks.rowid，手动维护） ----------
+
+function insertFtsRows(rows: Array<{ rowid: number; text: string }>): void {
+  if (rows.length === 0) return;
+  const sqlite = getSqlite();
+  const stmt = sqlite.prepare('INSERT INTO knowledge_chunks_fts(rowid, text) VALUES (?, ?)');
+  const tx = sqlite.transaction((rs: Array<{ rowid: number; text: string }>) => {
+    for (const r of rs) stmt.run(r.rowid, r.text);
+  });
+  tx(rows);
+}
+
+function deleteFtsRows(chunkIds: string[]): void {
+  if (chunkIds.length === 0) return;
+  const sqlite = getSqlite();
+  const placeholders = chunkIds.map(() => '?').join(',');
+  const rows = sqlite
+    .prepare(`SELECT rowid, text FROM knowledge_chunks WHERE id IN (${placeholders})`)
+    .all(...chunkIds) as Array<{ rowid: number; text: string }>;
+  const stmt = sqlite.prepare(
+    "INSERT INTO knowledge_chunks_fts(knowledge_chunks_fts, rowid, text) VALUES('delete', ?, ?)",
+  );
+  const tx = sqlite.transaction((rs: Array<{ rowid: number; text: string }>) => {
+    for (const r of rs) stmt.run(r.rowid, r.text);
+  });
+  tx(rows);
+}
+
+/** 全量重建 FTS 索引（自愈用；外部内容表与主表漂移时调用） */
+export function rebuildKnowledgeFts(): void {
+  getSqlite().prepare(`INSERT INTO knowledge_chunks_fts(knowledge_chunks_fts) VALUES('rebuild')`).run();
+}
+
+// ---------- 索引管线（串行队列） ----------
+
+let chain: Promise<void> = Promise.resolve();
+
+/** 入队一个索引任务（串行执行；失败落条目 error 不阻断后续） */
+export function enqueueIndexItem(itemId: string): void {
+  chain = chain
+    .then(() => indexItem(itemId))
+    .catch((err) => {
+      console.warn('[longma:knowledge] 索引任务异常', { itemId, error: String(err) });
+    });
+}
+
+async function indexItem(itemId: string): Promise<void> {
+  const db = getDb();
+  const item = db.select().from(knowledgeItems).where(eq(knowledgeItems.id, itemId)).get();
+  if (!item) return;
+  db.update(knowledgeItems).set({ status: 'reading', error: null }).where(eq(knowledgeItems.id, itemId)).run();
+  try {
+    // 正文提取：PDF/Word 走 unpdf/mammoth，其余按文本读（md/txt 等）
+    let text: string;
+    const ext = path.extname(item.sourcePath).toLowerCase();
+    if (ext === '.pdf' || ext === '.docx') {
+      text = await extractDocumentText(item.sourcePath);
+      // extractDocumentText 对失败场景返回中文说明串，识别出来视为失败
+      if (text.includes('未提取正文') || text.includes('无法读取正文') || text.includes('另存为')) {
+        throw new Error(text);
+      }
+    } else {
+      text = fs.readFileSync(item.sourcePath, 'utf-8');
+    }
+    db.update(knowledgeItems).set({ status: 'indexing' }).where(eq(knowledgeItems.id, itemId)).run();
+
+    const blocks = chunkText(text);
+    // 清旧块（重索引场景）
+    const old = db.select({ id: knowledgeChunks.id }).from(knowledgeChunks).where(eq(knowledgeChunks.itemId, itemId)).all();
+    if (old.length > 0) deleteFtsRows(old.map((c) => c.id));
+    db.delete(knowledgeChunks).where(eq(knowledgeChunks.itemId, itemId)).run();
+
+    const sqlite = getSqlite();
+    const insertChunk = sqlite.prepare(
+      'INSERT INTO knowledge_chunks(id, base_id, item_id, seq, text) VALUES (?, ?, ?, ?, ?)',
+    );
+    const insertFts = sqlite.prepare('INSERT INTO knowledge_chunks_fts(rowid, text) VALUES (?, ?)');
+    const lastRowId = sqlite.prepare('SELECT rowid AS rid FROM knowledge_chunks WHERE id = ?');
+    const tx = sqlite.transaction(() => {
+      for (let i = 0; i < blocks.length; i++) {
+        const cid = randomUUID();
+        insertChunk.run(cid, item.baseId, itemId, i, blocks[i]);
+        const row = lastRowId.get(cid) as { rid: number };
+        insertFts.run(row.rid, blocks[i]);
+      }
+      db.update(knowledgeItems).set({ status: 'completed', chunkCount: blocks.length, error: null })
+        .where(eq(knowledgeItems.id, itemId)).run();
+    });
+    tx();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    db.update(knowledgeItems).set({ status: 'failed', error: message }).where(eq(knowledgeItems.id, itemId)).run();
+  }
+}
+
+/** 添加文件条目并入队索引；返回条目视图 */
+export function addKnowledgeFiles(baseId: string, filePaths: string[]): KnowledgeItemView[] {
+  const base = getDb().select().from(knowledgeBases).where(eq(knowledgeBases.id, baseId)).get();
+  if (!base) throw new Error('知识库不存在');
+  const out: KnowledgeItemView[] = [];
+  for (const p of filePaths) {
+    const abs = path.resolve(p);
+    if (!fs.existsSync(abs)) throw new Error(`文件不存在: ${abs}`);
+    const supported = ['.md', '.txt', '.pdf', '.docx'];
+    if (!supported.includes(path.extname(abs).toLowerCase())) {
+      throw new Error(`暂不支持该格式（支持 md / txt / pdf / docx）: ${path.basename(abs)}`);
+    }
+    const row = {
+      id: randomUUID(),
+      baseId,
+      name: path.basename(abs),
+      sourcePath: abs,
+      status: 'pending',
+      error: null,
+      chunkCount: 0,
+      createdAt: Date.now(),
+    };
+    getDb().insert(knowledgeItems).values(row).run();
+    enqueueIndexItem(row.id);
+    out.push(row);
+  }
+  return out;
+}
+
+// ---------- 检索 ----------
+
+/**
+ * 检索：FTS5 trigram（bm25 排序）为主 + LIKE 短词兜底。
+ * trigram tokenizer 只支持 ≥3 字符查询——中文两字词（如「鹿角」）FTS 匹配不到，
+ * 对 <3 字符的词元补一路 LIKE 子串扫描（个人库 chunk 量级全扫仅几十 ms）。
+ * 两路结果去重合并，FTS 命中排前。
+ */
+export function searchKnowledge(query: string, baseId: string | undefined, limit: number): KnowledgeSearchResult[] {
+  const q = query.trim();
+  if (!q) return [];
+  const capped = Math.max(1, Math.min(limit, 20));
+  const db = getSqlite();
+  const baseFilter = baseId ? 'AND c.base_id = ?' : '';
+  const baseNames = new Map(listKnowledgeBases().map((b) => [b.id, b.name]));
+  const toResult = (r: { baseId: string; seq: number; text: string; itemName: string; rank: number }): KnowledgeSearchResult => ({
+    baseId: r.baseId,
+    baseName: baseNames.get(r.baseId) ?? '',
+    itemName: r.itemName,
+    seq: r.seq,
+    text: r.text,
+    score: -r.rank,
+  });
+
+  // FTS 路：整句 MATCH（≥3 字符 token 才有意义；短 token 被 trigram 忽略）
+  const escaped = q.replace(/"/g, '""');
+  const ftsParams: unknown[] = [escaped];
+  if (baseId) ftsParams.push(baseId);
+  ftsParams.push(capped);
+  const ftsRows = db
+    .prepare(
+      `SELECT c.base_id AS baseId, c.seq AS seq, c.text AS text, i.name AS itemName,
+              bm25(knowledge_chunks_fts) AS rank
+       FROM knowledge_chunks_fts f
+       JOIN knowledge_chunks c ON c.rowid = f.rowid
+       JOIN knowledge_items i ON i.id = c.item_id
+       WHERE knowledge_chunks_fts MATCH ? ${baseFilter}
+       ORDER BY rank
+       LIMIT ?`,
+    )
+    .all(...ftsParams) as Array<{ baseId: string; seq: number; text: string; itemName: string; rank: number }>;
+
+  // LIKE 路：短词元（<3 字符，如两字中文词）子串兜底
+  const shortTerms = q
+    .split(/[\s,，。；;]+/)
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0 && t.length < 3);
+  const seen = new Set(ftsRows.map((r) => `${r.baseId}:${r.itemName}:${r.seq}`));
+  const likeRows: Array<{ baseId: string; seq: number; text: string; itemName: string; rank: number }> = [];
+  if (shortTerms.length > 0) {
+    for (const term of shortTerms) {
+      if (likeRows.length >= capped) break;
+      const likeParams: unknown[] = [`%${term}%`];
+      if (baseId) likeParams.push(baseId);
+      likeParams.push(capped);
+      const rows = db
+        .prepare(
+          `SELECT c.base_id AS baseId, c.seq AS seq, c.text AS text, i.name AS itemName, 0 AS rank
+           FROM knowledge_chunks c
+           JOIN knowledge_items i ON i.id = c.item_id
+           WHERE c.text LIKE ? ${baseFilter}
+           LIMIT ?`,
+        )
+        .all(...likeParams) as Array<{ baseId: string; seq: number; text: string; itemName: string; rank: number }>;
+      for (const r of rows) {
+        const key = `${r.baseId}:${r.itemName}:${r.seq}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          likeRows.push(r);
+        }
+      }
+    }
+  }
+  return [...ftsRows, ...likeRows].slice(0, capped).map(toResult);
+}

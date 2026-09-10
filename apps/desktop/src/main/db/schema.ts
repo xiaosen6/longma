@@ -110,3 +110,33 @@ export const usageDaily = sqliteTable('usage_daily', {
   cacheReadTokens: integer('cache_read_tokens').notNull().default(0),
   cacheWriteTokens: integer('cache_write_tokens').notNull().default(0),
 }, (t) => [primaryKey({ columns: [t.day, t.model] })]);
+
+// ---------- 本地知识库（纯全文检索：FTS5 trigram，无 embedding） ----------
+
+export const knowledgeBases = sqliteTable('knowledge_bases', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  status: text('status').notNull().default('ready'),
+  error: text('error'),
+  createdAt: integer('created_at').notNull(),
+});
+
+export const knowledgeItems = sqliteTable('knowledge_items', {
+  id: text('id').primaryKey(),
+  baseId: text('base_id').notNull(),
+  name: text('name').notNull(),
+  sourcePath: text('source_path').notNull(),
+  status: text('status').notNull().default('pending'),
+  error: text('error'),
+  chunkCount: integer('chunk_count').notNull().default(0),
+  createdAt: integer('created_at').notNull(),
+}, (t) => [index('idx_knowledge_items_base').on(t.baseId)]);
+
+export const knowledgeChunks = sqliteTable('knowledge_chunks', {
+  id: text('id').primaryKey(),
+  baseId: text('base_id').notNull(),
+  itemId: text('item_id').notNull(),
+  seq: integer('seq').notNull(),
+  text: text('text').notNull(),
+}, (t) => [index('idx_knowledge_chunks_item').on(t.itemId)]);
+
