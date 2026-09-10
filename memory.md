@@ -58,7 +58,7 @@ WSL 里可以改代码、跑 `pnpm --filter fundet-desktop test` / `typecheck`�
 | --- | --- |
 | 账号 | 无。纯本地 + BYOK |
 | 窗口 | Windows `frame: false` + 自绘 `WindowControls`；mac hidden titleBar |
-| 设置 Tab | **通用 / 模型供应商 / 搜索 / IM 机器人 / 技能**。MCP Servers **已从 UI 拿掉**。IM 是个人栏（自己填飞书/钉钉/企微凭证，微信扫码），不登录 Cindy 云 |
+| 设置 Tab | **通用 / 模型供应商 / 搜索 / IM 机器人 / 技能 / 自动操作（浏览器+电脑操作+桌宠+MCP 服务器）**。MCP Servers 用户面 2026-09-08 用户拍板恢复（设置→自动操作→MCP 服务器，支持本地 stdio+远程 http，token 走 safeStorage）。IM 是个人栏（自己填飞书/钉钉/企微凭证，微信扫码），不登录 Cindy 云 |
 | 技能名 | 英文（`Video`、`social`、`geo`、`web-search`）；介绍文字中文 |
 | 复制 | 必须走 Electron `clipboard` IPC（权限处理器曾拒绝 `navigator.clipboard`） |
 | 分享 | 截当前回合卡片为图片进剪贴板，不要「复制消息链接」 |
@@ -80,7 +80,7 @@ WSL 里可以改代码、跑 `pnpm --filter fundet-desktop test` / `typecheck`�
 3. **Windows Electron 用 PowerShell**（`pnpm dev:win` / `pnpm dist:win`）。WSLg 窗口经常只剩任务栏蓝点。
 4. 权限 fail-closed。`setPermissionRequestHandler` 只放行 clipboard；不要为了方便改成全放。
 5. 链接不许顶替主窗口：`main/index.ts` 的 `will-navigate` + `setWindowOpenHandler` 只放行应用自身页面，http(s) 一律 `shell.openExternal`。
-6. 设置不要加回 MCP Servers 用户面（用户明确要求去掉）。
+6. ~~设置不要加回 MCP Servers 用户面~~（**2026-09-08 翻案**：用户拍板恢复，见 §4.10；后端链路当年全保留，恢复只花渲染层+token 存储的代价）。
 7. 技能：`name` 英文，`description` 中文；改 bundled skill 必须 bump `LONGMA_REVISION`，`ensureBundledSkills` 才会覆盖 `~/.agents/skills`。
 8. 渲染进程不要 `node:path`；共享逻辑放 `apps/desktop/src/shared/`（无 Node API）。生产 import 可用 `.ts`（tsconfig `allowImportingTsExtensions`）。
 9. 注释短、事实性；不要用注释叙述实现过程。
@@ -281,6 +281,19 @@ ChatPage / ChatInput
 - **QQ「原图」常是 PNG 套 .jpeg 扩展名**：mime 按扩展名报 image/jpeg、字节是 PNG，严格端点拒收。`file-kind.ts` 加 `sniffImageMime` 魔数嗅探（PNG/JPEG/WebP/GIF），staging 时读头 16 字节纠正。
 
 配套：供应商预设新增「火山方舟（按量，含视觉模型）」（ark /api/v3 + doubao vision 系列，doubao-1.5-vision-pro 带 maxTokens:12288——glm-4v-flash max_tokens 上限 1024 同类坑，wizard 现在透传 maxTokens）；列模型失败报错带实际请求 URL 与 Base URL 形态指引；`shared/friendly-error.ts` 把 1210 content.type/max_tokens 类供应商错误转成中文行动指引（sessionStore error 卡片）。真机端到端已验证：QQ 图 → 嗅探 image/png → glm-4v-flash 真实理解并描述图片。
+
+### 4.9a MCP 用户面恢复 + Cindy 同步批次（2026-09-08，0.2.13 后、未发版）
+
+**MCP 服务器用户面（用户翻案恢复，commit e8cbc64）**：当年删 UI 时**主进程链路全保留**（mcp_servers 表 CRUD + IPC 四件套 + preload + mcp-bridge 装配），恢复只花了渲染层 + token 存储：
+- 设置 → 自动操作 → **MCP 服务器**：McpServersSection（列表/启停/两击删除）+ McpServerDialog（类型分段：远程 http / **本地 stdio——比 Cindy 多**；url 校验 https 或 loopback http；headers 每行 `Name: Value`）。
+- **Bearer token 走 safeStorage**（`mcp-token-<id>` 复用 secrets.ts；不落库不回显；update 语义 `token: undefined`=不变/''=清/非空=设新）；mcp-bridge 装配 http server 时合成 Authorization（用户显式 Authorization 优先）。
+- 改动只影响之后新建会话（装配在 startSession）；审批跟会话三档默认 ask。
+
+**Cindy 同步批次（commit 11b5ecf）**：
+- **技能启停**（理念 #793dcf792）：停用=目录移入 `userData/disabled-skills`（pi 只扫 ~/.agents/skills，**位置即状态**，不用偏好文件）；ensureBundledSkills 跳过停用中的预置技能；停用区非内置技能可彻底删；SkillsPanel 启停开关（乐观更新+失败回滚）；项目级技能不给开关（不动用户项目目录）。**坑：listBundledSkillViews 会从安装包源目录把停用技能列回来**——必须查禁用区标 disabled。
+- **浏览器内网导航放行**（#4062）：vendored 本来就有 `dangerouslyAllowPrivateNetwork` policy 字段，LongMa 只在 buildManagedConfig 按 settings（`browser.allowPrivateNetwork`）透传 + BrowserSection 子开关；**切换时 resetBrowserHostForConfigChange 丢弃单例**按新 policy 重建。放行后私网段含 metadata 一并放行（桌面单机可接受，注释已声明）。
+- **pi replay 去重**（等效 #4180）：LongMa 事件直插架构天然 message_end 即落库（无 Cindy 的等结算病灶）；补 per-session 最近 assistant final 去重防 RPC replay 重复行（lastAssistantFinal Map，会话关闭清理）。
+- **不移植（有因）**：#3693 会话已加载窗口——深耦合 Cindy 分段历史/缺口/跳转回填架构（780 行），我们全量加载不同构且已有 memo 化，无卡顿报障驱动。
 
 ### 4.9 电脑操作 / Computer Use（2026-08-27，v1）
 
