@@ -58,7 +58,7 @@ WSL 里可以改代码、跑 `pnpm --filter fundet-desktop test` / `typecheck`�
 | --- | --- |
 | 账号 | 无。纯本地 + BYOK |
 | 窗口 | Windows `frame: false` + 自绘 `WindowControls`；mac hidden titleBar |
-| 设置 Tab | **通用 / 模型供应商 / 搜索 / IM 机器人 / 技能 / 自动操作（浏览器+电脑操作+桌宠+MCP 服务器）**。MCP Servers 用户面 2026-09-08 用户拍板恢复（设置→自动操作→MCP 服务器，支持本地 stdio+远程 http，token 走 safeStorage）。IM 是个人栏（自己填飞书/钉钉/企微凭证，微信扫码），不登录 Cindy 云 |
+| 设置 Tab | **通用 / 模型供应商 / 自动操作（浏览器+电脑操作+桌宠）/ 用量历史 / 搜索 / IM 机器人 / 技能 / MCP 服务器**。MCP 服务器为独立一级 tab（2026-09-08 用户拍板恢复+升独立 tab）：支持本地 stdio+远程 http，token 走 safeStorage，每行连通状态点（进入面板自动检测+手动重测，http POST initialize / stdio 走握手，共用 testMcpConnection）。IM 是个人栏（自己填飞书/钉钉/企微凭证，微信扫码），不登录 Cindy 云 |
 | 技能名 | 英文（`Video`、`social`、`geo`、`web-search`）；介绍文字中文 |
 | 复制 | 必须走 Electron `clipboard` IPC（权限处理器曾拒绝 `navigator.clipboard`） |
 | 分享 | 截当前回合卡片为图片进剪贴板，不要「复制消息链接」 |
@@ -284,9 +284,10 @@ ChatPage / ChatInput
 
 ### 4.9a MCP 用户面恢复 + Cindy 同步批次（2026-09-08，0.2.13 后、未发版）
 
-**MCP 服务器用户面（用户翻案恢复，commit e8cbc64）**：当年删 UI 时**主进程链路全保留**（mcp_servers 表 CRUD + IPC 四件套 + preload + mcp-bridge 装配），恢复只花了渲染层 + token 存储：
-- 设置 → 自动操作 → **MCP 服务器**：McpServersSection（列表/启停/两击删除）+ McpServerDialog（类型分段：远程 http / **本地 stdio——比 Cindy 多**；url 校验 https 或 loopback http；headers 每行 `Name: Value`）。
-- **Bearer token 走 safeStorage**（`mcp-token-<id>` 复用 secrets.ts；不落库不回显；update 语义 `token: undefined`=不变/''=清/非空=设新）；mcp-bridge 装配 http server 时合成 Authorization（用户显式 Authorization 优先）。
+**MCP 服务器用户面（用户翻案恢复，commit e8cbc64 + c1532ac）**：当年删 UI 时**主进程链路全保留**（mcp_servers 表 CRUD + IPC 四件套 + preload + mcp-bridge 装配），恢复只花了渲染层 + token 存储：
+- 设置 → **独立一级 tab「MCP 服务器」**（McpPanel，自自动操作栏移出）：列表带**连通状态点**（绿/红/灰，进入面板自动检测一轮 + 「检测连接」手动重测，失败行内显示错误详情）。
+- McpServerDialog：类型分段（远程 http / **本地 stdio——比 Cindy 多**）；url 校验 https 或 loopback http；headers 每行 `Name: Value`。
+- **Bearer token 走 safeStorage**（`mcp-token-<id>` 复用 secrets.ts；不落库不回显；update 语义 `token: undefined`=不变/''=清/非空=设新）；**连通探测与装配共用 `resolveServerHeaders`**（token 合成统一）。探测 `testMcpConnection`（mcp-bridge.ts 导出）：http POST initialize 10s 超时 2xx 即可达；stdio 复用 StdioMcpHttpProxy（已 export）走一次 spawn+握手即回收。
 - 改动只影响之后新建会话（装配在 startSession）；审批跟会话三档默认 ask。
 
 **Cindy 同步批次（commit 11b5ecf）**：
