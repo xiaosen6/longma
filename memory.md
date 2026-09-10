@@ -149,6 +149,7 @@ ChatPage / ChatInput
 
 | 版本 | 日期 | 要点 |
 | --- | --- | --- |
+| 0.2.14 | 09-10 | **MCP 用户面**（独立设置 tab：本地 stdio+远程 http、safeStorage token、连通状态点+后台心跳 60s 仅 http、进入面板自动检测）+ 技能启停（userData/disabled-skills 位置即状态）+ 浏览器内网导航放行（dangerouslyAllowPrivateNetwork）+ pi replay 去重（#4180 等效）。坑：dd6a190 曾漏提交 mcp-heartbeat.ts 新文件致远端 main 短暂构建损坏（git add -u 不带新文件，补 e6b91dd）；冒烟启动 40s 才 fork 齐 4 进程（Defender 扫新装文件，25s 判死会误报）；冒烟规矩=直接对真实路径 D:\QQ\LongMa 覆盖装（卸载键零污染+用户顺带升级） |
 | 0.2.13 | 09-08 | **桌宠 M4 收官**：审批气泡（就地允许/拒绝）、悬浮工具条（聊天/截图/停止/隐藏）、右键/工具条截图问答（主进程 stage+待领队列，切页不丢）；dino 修复（0.2.12 资产在 UI 选不到）；pi:get-version handler 补注册（关于页 0.2.12 起就是坏的）；focusMainWindow moveTop；托盘死文本修；冒烟覆盖装覆盖了用户卸载键→直接 /D=D:\QQ\LongMa 正装修复并升级 |
 | 0.2.12 | 09-05 | **Cindy 同步批次 + 桌宠三形象**：上下文紧凑单位、关于页 pi 版本显示（spawn pi --version IPC，**handler 当时漏注册**）、桌宠第三形象 dino + 形象选择 UI + setPetTheme 热切；pi 升级只改 latest.json（update.mjs pin 模式）；速度计量修正（c43335b8f/2fd803a3f）为 claude-code/codex 路径不适用已对照排除。**同日：Fundet 发版权移交公司侧——release.yml 删 fundet 双 job（只出 LongMa），fundet 仓 v0.2.12 Release 撤销（tag/资产删，v0.2.11 为 Fundet 现行最新）** |
 | 0.2.11 | 09-04 | **桌宠 M1**（透明置顶窗/6 状态×6 帧序列动画/拖拽/点击跳转主窗/托盘开关；三坑：透明窗须创建即显示、ready-to-show 不触发、img pointer-events 吞事件）|
