@@ -11,13 +11,17 @@ export function BrowserSection(): React.JSX.Element {
   const [enabled, setEnabled] = useState(false);
   const [opening, setOpening] = useState(false);
   const [error, setError] = useState('');
+  const [allowPrivate, setAllowPrivate] = useState(false);
   const [realLogins, setRealLogins] = useState<{ enabled: boolean; source: string | null }>({ enabled: false, source: null });
   const [realError, setRealError] = useState('');
 
   useEffect(() => {
     void window.fundet
       .browserStatus()
-      .then((s) => setEnabled(s.enabled))
+      .then((s) => {
+        setEnabled(s.enabled);
+        setAllowPrivate(s.allowPrivateNetwork);
+      })
       .catch(() => undefined);
     void window.fundet
       .realLoginsStatus()
@@ -111,6 +115,33 @@ export function BrowserSection(): React.JSX.Element {
               {realLogins.enabled
                 ? `已拷贝${realLogins.source === 'edge' ? ' Edge' : realLogins.source === 'brave' ? ' Brave' : ' Chrome'}的登录状态。拷贝前需完全退出系统浏览器。`
                 : '把系统浏览器已登录的网站状态拷贝进专用浏览器，免去重复登录。拷贝前需完全退出系统浏览器。'}
+            </p>
+          </div>
+        </div>
+      )}
+      {enabled && (
+        <div className="mt-3 flex items-start gap-3 border-t border-board pt-3">
+          <Switch.Root
+            checked={allowPrivate}
+            onCheckedChange={(v) => {
+              const prev = allowPrivate;
+              setAllowPrivate(v);
+              void window.fundet
+                .setBrowserAllowPrivate(v)
+                .catch((err) => {
+                  setAllowPrivate(prev);
+                  setError(err instanceof Error ? err.message : String(err));
+                });
+            }}
+            className="mt-0.5 h-[18px] w-[32px] shrink-0 cursor-pointer rounded-full bg-chip data-[state=checked]:bg-accent"
+          >
+            <Switch.Thumb className="block h-[14px] w-[14px] translate-x-[2px] rounded-full bg-card transition-transform data-[state=checked]:translate-x-[16px]" />
+          </Switch.Root>
+          <div className="min-w-0 flex-1">
+            <p className="text-13 text-primary">允许访问内网 / 本机地址</p>
+            <p className="mt-1 text-12 leading-[1.5] text-muted">
+              默认拦截内网与本机地址，防止误操作内网服务。访问公司内网系统、本地开发中的
+              网页（如 localhost）时再打开。
             </p>
           </div>
         </div>

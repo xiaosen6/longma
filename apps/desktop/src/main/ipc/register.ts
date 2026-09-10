@@ -59,7 +59,7 @@ import { searchWithEngine } from '../search/providers.ts';
 import { fetchProviderModels } from '../host/provider-models.js';
 import { getHost } from '../host/pi-host.js';
 import { createConsoleLogger } from '@fundet/agent-core';
-import { ensureBrowserRuntime, stopManagedRuntime } from '../browser/host.js';
+import { ensureBrowserRuntime, stopManagedRuntime, resetBrowserHostForConfigChange } from '../browser/host.js';
 import {
   clearCopiedLogins,
   listInstalledChromium,
@@ -69,11 +69,11 @@ import {
   RealProfileError,
 } from '../browser/real-profile.ts';
 import { setSetting, getSetting } from '../db/settings.js';
-import { BROWSER_ENABLED_SETTING } from '../../shared/browser-settings.ts';
+import { BROWSER_ENABLED_SETTING, BROWSER_ALLOW_PRIVATE_SETTING } from '../../shared/browser-settings.ts';
 import { COMPUTER_ENABLED_SETTING } from '../../shared/computer-settings.ts';
 import { disableCuaDriverTelemetry, resolveCuaDriverCommand } from '../computer/driver.ts';
 import { getBoolSetting, setBoolSetting } from '../db/settings.js';
-import { importSkillFile, listSkills, uninstallSkill } from '../host/skills.js';
+import { importSkillFile, listSkills, uninstallSkill, setSkillEnabled } from '../host/skills.js';
 import { FUNDET_INVOKE, FUNDET_PUSH } from './channels.js';
 import { resolveUnderWorkDir, stageBytesIntoWorkDir, stageFileIntoWorkDir } from '../fs-local.js';
 import { documentExtractSupport, extractDocumentText } from '../doc-text.js';
@@ -111,13 +111,20 @@ export function broadcast(channel: string, payload: unknown): void {
   }
 }
 
+/** 每会话最近一条 assistant final 正文：RPC replay 重发 message_end 时去重（对齐 Cindy #4180） */
+const lastAssistantFinal = new Map<string, string>();
+
 /** 事件落库：user/assistant 文本 + done，工具/thinking/error 事件存 JSON */
 function persistEvent(sessionId: string, event: AgentEvent): void {
   try {
     switch (event.type) {
       case 'text': {
         const data = event.data as { text?: string; isFinal?: boolean };
-        if (data.isFinal && data.text) insertMessage(sessionId, 'assistant', { text: data.text });
+        if (data.isFinal && data.text) {
+          if (lastAssistantFinal.get(sessionId) === data.text) break;
+          lastAssistantFinal.set(sessionId, data.text);
+          insertMessage(sessionId, 'assistant', { text: data.text });
+        }
         break;
       }
       case 'thinking': {
@@ -221,7 +228,10 @@ export function wireSession(session: Session): void {
   );
 
   session.onStatusChange((status) => {
-    if (status === 'closed' || status === 'error') wiredSessions.delete(session.id);
+    if (status === 'closed' || status === 'error') {
+      wiredSessions.delete(session.id);
+      lastAssistantFinal.delete(session.id);
+    }
   });
 }
 
@@ -713,10 +723,18 @@ export function registerIpcHandlers(): void {
   // ---------- 浏览器自动化 ----------
   ipcMain.handle(FUNDET_INVOKE.BROWSER_STATUS, async () => ({
     enabled: getBoolSetting(BROWSER_ENABLED_SETTING, false),
+    allowPrivateNetwork: getBoolSetting(BROWSER_ALLOW_PRIVATE_SETTING, false),
   }));
 
   ipcMain.handle(FUNDET_INVOKE.BROWSER_SET_ENABLED, async (_e, enabled: boolean) => {
     setBoolSetting(BROWSER_ENABLED_SETTING, Boolean(enabled));
+  });
+
+  // 内网导航放行：写设置 + 丢弃已建 runtime 单例（policy 只在装配时读取），
+  // 下次 action 按新 policy 重建；未用过的 runtime 直接丢弃零成本
+  ipcMain.handle(FUNDET_INVOKE.BROWSER_SET_ALLOW_PRIVATE, async (_e, enabled: boolean) => {
+    setBoolSetting(BROWSER_ALLOW_PRIVATE_SETTING, Boolean(enabled));
+    await resetBrowserHostForConfigChange();
   });
 
   // 登录入口：start + focus（已开则聚焦），绝不新开 tab——冷启动时 open 会开出双 tab
@@ -805,6 +823,10 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(FUNDET_INVOKE.SKILLS_UNINSTALL, async (_e, skillDir: string) => {
     uninstallSkill(skillDir);
+  });
+
+  ipcMain.handle(FUNDET_INVOKE.SKILLS_SET_ENABLED, async (_e, name: string, enabled: boolean) => {
+    setSkillEnabled(String(name), enabled === true);
   });
 
   ipcMain.on(FUNDET_INVOKE.WINDOW_MINIMIZE, (event) => {

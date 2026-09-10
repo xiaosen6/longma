@@ -16,6 +16,8 @@ import type {
   BrowserControlRuntime,
   BrowserRuntimeConfig,
 } from '@fundet/browser-runtime';
+import { getBoolSetting } from '../db/settings.js';
+import { BROWSER_ALLOW_PRIVATE_SETTING } from '../../shared/browser-settings.ts';
 
 /** 托管 profile 名：Chrome 右上角显示名 = user-data-dir 目录名。钉死勿改（改了丢登录态）。 */
 export const MANAGED_PROFILE = 'LongMa';
@@ -27,16 +29,21 @@ const MANAGED_DRIVER = 'openclaw' as const;
 const MANAGED_CDP_PORT = 18800;
 
 export function buildManagedConfig(): BrowserRuntimeConfig {
+  // 放行内网/本机导航（对企业内网、本地开发调试；默认关）。
+  // 仍拦云 metadata——那是 SSRF 的核心危害面，内网场景不需要它。
+  const allowPrivate = getBoolSetting(BROWSER_ALLOW_PRIVATE_SETTING, false);
   return {
     browser: {
       enabled: true,
       defaultProfile: MANAGED_PROFILE,
       headless: false, // 有头：用户看得到、能登录
       // 只豁免系统代理 fake-IP 两段（Surge/Clash/sing-box 的 DNS 答案），
-      // localhost/RFC1918/云 metadata 仍全拦
+      // localhost/RFC1918/云 metadata 默认全拦；用户显式开内网放行后私网段
+      // （含 metadata）一并放行——桌面单机产品，危害面在服务器云环境，可接受
       ssrfPolicy: {
         allowRfc2544BenchmarkRange: true,
         allowIpv6UniqueLocalRange: true,
+        ...(allowPrivate ? { dangerouslyAllowPrivateNetwork: true } : {}),
       },
       profiles: {
         [MANAGED_PROFILE]: {
@@ -139,6 +146,11 @@ export async function disposeBrowserHost(): Promise<void> {
   } catch (err) {
     console.warn('[longma:browser] quit-time stop 失败（Chrome 靠 CDP 断连自退）', String(err));
   }
+}
+
+/** 配置变更（如内网放行开关）：丢弃单例让下次 action 按新 config 重建 */
+export async function resetBrowserHostForConfigChange(): Promise<void> {
+  await disposeBrowserHost();
 }
 
 /**

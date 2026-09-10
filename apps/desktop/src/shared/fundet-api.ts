@@ -201,6 +201,8 @@ export interface SkillView {
   path: string;
   workDir?: string;
   bundled?: boolean;
+  /** 已停用：目录移出 pi 扫描区，新会话不可见 */
+  disabled?: boolean;
 }
 
 export type SearchEngineId = 'tavily' | 'brave' | 'bocha' | 'zhipu';
@@ -260,6 +262,8 @@ export interface FundetApi {
   pickSkillFile(): Promise<string | null>;
   importSkill(filePath: string, scope: 'user' | 'project', workDir?: string): Promise<SkillView>;
   uninstallSkill(skillDir: string): Promise<void>;
+  /** 停用/恢复用户级技能（目录移入/移出 userData/disabled-skills） */
+  setSkillEnabled(name: string, enabled: boolean): Promise<void>;
 
   searchStatus(): Promise<SearchStatus>;
   setSearchEngineKey(id: SearchEngineId, key: string): Promise<void>;
@@ -271,6 +275,8 @@ export interface FundetApi {
 
   browserStatus(): Promise<BrowserStatus>;
   setBrowserEnabled(enabled: boolean): Promise<void>;
+  /** 放行内网/本机地址导航（默认关）；切换后丢弃 runtime 单例按新 policy 重建 */
+  setBrowserAllowPrivate(enabled: boolean): Promise<void>;
   /** 打开/拉起托管浏览器窗口（登录用）：start + focus，绝不新开 tab */
   openBrowserForLogin(): Promise<void>;
   realLoginsStatus(): Promise<{ enabled: boolean; source: string | null }>;

@@ -89,6 +89,7 @@ const api: FundetApi = {
   importSkill: (filePath, scope, workDir) =>
     ipcRenderer.invoke(FUNDET_INVOKE.SKILLS_IMPORT, filePath, scope, workDir),
   uninstallSkill: (skillDir) => ipcRenderer.invoke(FUNDET_INVOKE.SKILLS_UNINSTALL, skillDir),
+  setSkillEnabled: (name, enabled) => ipcRenderer.invoke(FUNDET_INVOKE.SKILLS_SET_ENABLED, name, enabled),
 
   searchStatus: () => ipcRenderer.invoke(FUNDET_INVOKE.SEARCH_STATUS),
   setSearchEngineKey: (id, key) => ipcRenderer.invoke(FUNDET_INVOKE.SEARCH_SET_KEY, id, key),
@@ -100,6 +101,7 @@ const api: FundetApi = {
 
   browserStatus: () => ipcRenderer.invoke(FUNDET_INVOKE.BROWSER_STATUS),
   setBrowserEnabled: (enabled) => ipcRenderer.invoke(FUNDET_INVOKE.BROWSER_SET_ENABLED, enabled),
+  setBrowserAllowPrivate: (enabled) => ipcRenderer.invoke(FUNDET_INVOKE.BROWSER_SET_ALLOW_PRIVATE, enabled),
   openBrowserForLogin: () => ipcRenderer.invoke(FUNDET_INVOKE.BROWSER_OPEN),
   realLoginsStatus: () => ipcRenderer.invoke(FUNDET_INVOKE.BROWSER_REAL_LOGINS),
   setRealLogins: (enabled) => ipcRenderer.invoke(FUNDET_INVOKE.BROWSER_SET_REAL_LOGINS, enabled),

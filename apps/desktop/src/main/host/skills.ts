@@ -25,6 +25,8 @@ export interface SkillView {
   workDir?: string;
   /** 安装包预置，设置页不可卸载 */
   bundled?: boolean;
+  /** 已停用：目录被移出 pi 扫描区（userData/disabled-skills），新会话不可见 */
+  disabled?: boolean;
 }
 
 export function userSkillsRoot(): string {
@@ -40,6 +42,11 @@ export function userSkillsRoot(): string {
 
 export function projectSkillsRoot(workDir: string): string {
   return path.join(path.resolve(workDir), '.agents', 'skills');
+}
+
+/** 停用技能的存放区（pi 不扫描 userData，目录位置即状态） */
+function disabledSkillsRoot(): string {
+  return path.join(app.getPath('userData'), 'disabled-skills');
 }
 
 function isBundledSkillDir(dir: string): boolean {
@@ -67,19 +74,24 @@ function listBundledSkillViews(): SkillView[] {
   const root = bundledSkillsRoot();
   if (!root || !fs.existsSync(root)) return [];
   const destRoot = userSkillsRoot();
+  const disabledRoot = disabledSkillsRoot();
   const out: SkillView[] = [];
   for (const ent of fs.readdirSync(root, { withFileTypes: true })) {
     if (!ent.isDirectory()) continue;
     const src = path.join(root, ent.name);
     if (!fs.existsSync(path.join(src, 'SKILL.md'))) continue;
+    // 停用中的预置技能：列出来但标 disabled（path 指向禁用区实际目录）
+    const disabledDir = path.join(disabledRoot, ent.name);
+    const stopped = fs.existsSync(path.join(disabledDir, 'SKILL.md'));
     const installed = path.join(destRoot, ent.name);
-    const meta = readSkillMeta(fs.existsSync(installed) ? installed : src, ent.name);
+    const meta = readSkillMeta(stopped ? disabledDir : fs.existsSync(installed) ? installed : src, ent.name);
     out.push({
       name: meta.name,
       description: meta.description,
       scope: 'user',
-      path: fs.existsSync(installed) ? installed : src,
+      path: stopped ? disabledDir : fs.existsSync(installed) ? installed : src,
       bundled: true,
+      ...(stopped ? { disabled: true } : {}),
     });
   }
   return out;
@@ -105,6 +117,26 @@ export async function listSkills(workDir?: string): Promise<SkillView[]> {
   for (const s of bundled) {
     const prev = byKey.get(s.name.toLowerCase());
     byKey.set(s.name.toLowerCase(), prev ? { ...prev, ...s, path: prev.path, bundled: true } : s);
+  }
+  // 禁用区：停用的技能列出来（标 disabled），设置页可重新开启
+  const disabledRoot = disabledSkillsRoot();
+  if (fs.existsSync(disabledRoot)) {
+    for (const ent of fs.readdirSync(disabledRoot, { withFileTypes: true })) {
+      if (!ent.isDirectory()) continue;
+      const dir = path.join(disabledRoot, ent.name);
+      if (!fs.existsSync(path.join(dir, 'SKILL.md'))) continue;
+      const meta = readSkillMeta(dir, ent.name);
+      const key = meta.name.toLowerCase();
+      if (byKey.has(key)) continue;
+      byKey.set(key, {
+        name: meta.name,
+        description: meta.description,
+        scope: 'user',
+        path: dir,
+        disabled: true,
+        ...(isBundledSkillDir(dir) ? { bundled: true } : {}),
+      });
+    }
   }
   return [...byKey.values()].sort((a, b) => {
     if (a.bundled !== b.bundled) return a.bundled ? -1 : 1;
@@ -142,6 +174,11 @@ export function ensureBundledSkills(): void {
     if (!ent.isDirectory()) continue;
     const src = path.join(srcRoot, ent.name);
     if (!fs.existsSync(path.join(src, 'SKILL.md'))) continue;
+    // 用户停用中的预置技能不重装（停用目录位置即状态，重装会破坏停用语义）
+    if (fs.existsSync(path.join(disabledSkillsRoot(), ent.name))) {
+      count += 1;
+      continue;
+    }
     const dest = path.join(destRoot, ent.name);
     const srcRev = readRevision(src) ?? '1';
     const destRev = fs.existsSync(dest) ? readRevision(dest) : null;
@@ -265,7 +302,52 @@ export function uninstallSkill(skillDir: string): void {
     throw new Error('安装自带的技能不能卸载');
   }
   if (!isManagedSkillDir(resolved)) {
+    // 停用区的用户技能（userData/disabled-skills/<name>）也允许彻底删除
+    const disabledRoot = path.resolve(disabledSkillsRoot());
+    if (
+      path.dirname(resolved) === disabledRoot &&
+      resolved.startsWith(disabledRoot + path.sep)
+    ) {
+      fs.rmSync(resolved, { recursive: true, force: true });
+      return;
+    }
     throw new Error(`只能卸载 ~/.agents/skills 或项目 .agents/skills 下由 ${brand.name} 管理的技能`);
   }
   fs.rmSync(resolved, { recursive: true, force: true });
+}
+
+/** 同盘 rename、跨盘 copy+rm（userData 与 home 可能不同盘） */
+function moveDir(src: string, dest: string): void {
+  try {
+    fs.renameSync(src, dest);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'EXDEV') throw err;
+    copyDir(src, dest);
+    fs.rmSync(src, { recursive: true, force: true });
+  }
+}
+
+/**
+ * 停用/恢复用户级技能（bundled 与用户自装都在 ~/.agents/skills）：
+ * 移动目录本身即状态——pi 只扫描 ~/.agents/skills，移入 userData/disabled-skills
+ * 后新会话即不可见。项目级技能不在此管（不该动用户项目目录）。
+ */
+export function setSkillEnabled(name: string, enabled: boolean): void {
+  // name 直接拼目录路径，必须是纯目录名
+  if (!/^[a-zA-Z0-9_-]+$/.test(name)) throw new Error('非法技能名');
+  if (enabled) {
+    const src = path.join(disabledSkillsRoot(), name);
+    if (!fs.existsSync(src)) throw new Error('该技能不在停用区');
+    const dest = path.join(userSkillsRoot(), name);
+    if (fs.existsSync(dest)) throw new Error(`技能目录已存在同名技能: ${name}`);
+    fs.mkdirSync(userSkillsRoot(), { recursive: true });
+    moveDir(src, dest);
+  } else {
+    const src = path.join(userSkillsRoot(), name);
+    if (!fs.existsSync(src)) throw new Error('技能目录不存在');
+    const dest = path.join(disabledSkillsRoot(), name);
+    fs.mkdirSync(disabledSkillsRoot(), { recursive: true });
+    if (fs.existsSync(dest)) fs.rmSync(dest, { recursive: true, force: true });
+    moveDir(src, dest);
+  }
 }

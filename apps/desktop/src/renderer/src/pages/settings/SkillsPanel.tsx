@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import * as Switch from '@radix-ui/react-switch';
 import { Plus, Trash2 } from 'lucide-react';
 import type { SkillView } from '../../../../shared/fundet-api.js';
 import { getDefaultWorkDir } from '../../lib/defaults';
@@ -50,6 +51,20 @@ export function SkillsPanel(): React.JSX.Element {
     }
   };
 
+  // 停用/恢复：只支持用户级技能（项目级不动用户项目目录）
+  const setEnabled = async (skill: SkillView, enabled: boolean): Promise<void> => {
+    setError('');
+    // 乐观更新，失败回滚
+    setSkills((prev) => prev.map((it) => (it.path === skill.path ? { ...it, disabled: !enabled } : it)));
+    try {
+      await window.fundet.setSkillEnabled(skill.name, enabled);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      await refresh();
+    }
+  };
+
   return (
     <div className="flex flex-col gap-[14px]">
       <div className="flex items-start justify-between gap-3">
@@ -94,14 +109,28 @@ export function SkillsPanel(): React.JSX.Element {
             >
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="truncate text-14 font-medium text-primary">{s.name}</span>
+                  <span className={'truncate text-14 font-medium ' + (s.disabled ? 'text-muted line-through' : 'text-primary')}>
+                    {s.name}
+                  </span>
                   <span className="rounded-full bg-chip px-2 py-0.5 text-11 text-muted">
                     {s.bundled ? '内置' : s.scope === 'user' ? '全局' : '项目'}
                   </span>
+                  {s.disabled && (
+                    <span className="rounded-full bg-chip px-2 py-0.5 text-11 text-muted">已停用</span>
+                  )}
                 </div>
                 <p className="mt-0.5 line-clamp-2 text-12 text-secondary">{s.description}</p>
                 <p className="mt-1 truncate font-mono text-11 text-muted">{s.path}</p>
               </div>
+              {s.scope === 'user' && (
+                <Switch.Root
+                  checked={!s.disabled}
+                  onCheckedChange={(next) => void setEnabled(s, next)}
+                  className="relative mr-1 h-[22px] w-[42px] shrink-0 cursor-pointer rounded-full border border-board bg-card transition-colors data-[state=checked]:bg-[var(--accent,#2563eb)]"
+                >
+                  <Switch.Thumb className="block h-[16px] w-[16px] translate-x-[2px] rounded-full bg-card transition-transform data-[state=checked]:translate-x-[22px]" />
+                </Switch.Root>
+              )}
               {!s.bundled && (
                 <button
                   type="button"
