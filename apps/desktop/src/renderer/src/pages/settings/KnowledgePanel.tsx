@@ -4,8 +4,8 @@
  * 索引异步进行：条目状态 pending/reading/indexing → completed/failed，轮询刷新。
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Database, FilePlus2, FolderPlus, Plus, RefreshCw, Search, Trash2 } from 'lucide-react';
-import type { KnowledgeBaseView, KnowledgeItemView, KnowledgeSearchResult } from '../../../../shared/fundet-api.ts';
+import { ArrowLeft, Database, FilePlus2, FolderPlus, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import type { KnowledgeBaseView, KnowledgeItemView } from '../../../../shared/fundet-api.ts';
 
 function SectionTitle({ children }: { children: React.ReactNode }): React.JSX.Element {
   return <h2 className="text-16 leading-[1.2] font-medium text-primary">{children}</h2>;
@@ -26,10 +26,6 @@ export function KnowledgePanel(): React.JSX.Element {
   const [error, setError] = useState('');
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
-  const [query, setQuery] = useState('');
-  const [topK, setTopK] = useState(8);
-  const [results, setResults] = useState<KnowledgeSearchResult[] | null>(null);
-  const [searching, setSearching] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const refreshBases = useCallback((): void => {
@@ -137,22 +133,6 @@ export function KnowledgePanel(): React.JSX.Element {
     }
   };
 
-  const runSearch = (): void => {
-    const q = query.trim();
-    if (!q) return;
-    setSearching(true);
-    void window.fundet
-      .searchKnowledge(q, selectedId ?? undefined, topK)
-      .then((r) => {
-        setResults(r);
-        setSearching(false);
-      })
-      .catch((err) => {
-        setError(err instanceof Error ? err.message : String(err));
-        setSearching(false);
-      });
-  };
-
   const inputCls =
     'w-full rounded-lg border border-board bg-card px-3 py-2 text-13 text-primary outline-none placeholder:text-muted focus:border-[var(--accent,#2563eb)]';
 
@@ -195,7 +175,6 @@ export function KnowledgePanel(): React.JSX.Element {
               tabIndex={0}
               onClick={() => {
                 setSelectedId(b.id);
-                setResults(null);
                 refreshItems(b.id);
               }}
               onKeyDown={(e) => {
@@ -259,7 +238,6 @@ export function KnowledgePanel(): React.JSX.Element {
               type="button"
               onClick={() => {
                 setSelectedId(null);
-                setResults(null);
               }}
               className="text-muted transition-colors hover:text-primary"
               aria-label="返回"
@@ -331,57 +309,6 @@ export function KnowledgePanel(): React.JSX.Element {
                 ))
               )}
             </div>
-          </div>
-
-          <div className="rounded-xl border border-board bg-card-ivory p-4">
-            <p className="text-13 font-medium text-secondary">检索测试</p>
-            <div className="mt-2 flex items-center gap-2">
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') runSearch();
-                }}
-                placeholder="输入关键词试试召回效果"
-                className={inputCls}
-              />
-              <select
-                value={topK}
-                onChange={(e) => setTopK(Number(e.target.value))}
-                className="h-9 shrink-0 rounded-lg border border-board bg-card px-2 text-13 text-primary outline-none"
-                title="返回条数"
-              >
-                <option value={6}>6 条</option>
-                <option value={8}>8 条</option>
-                <option value={12}>12 条</option>
-                <option value={20}>20 条</option>
-              </select>
-              <button
-                type="button"
-                onClick={runSearch}
-                disabled={searching || !query.trim()}
-                className="flex h-9 shrink-0 items-center gap-1 rounded-lg bg-accent px-3 text-13 text-accent-fg disabled:opacity-50"
-              >
-                <Search size={13} />
-                {searching ? '检索中…' : '检索'}
-              </button>
-            </div>
-            {results && (
-              <div className="mt-3 flex flex-col gap-2">
-                {results.length === 0 ? (
-                  <p className="text-12 text-muted">没有检索到相关内容。换个更具体的关键词试试。</p>
-                ) : (
-                  results.map((r, i) => (
-                    <div key={i} className="rounded-lg border border-board bg-card px-3 py-2">
-                      <p className="text-11 text-muted">
-                        {r.baseName} / {r.itemName} · 第 {r.seq + 1} 块
-                      </p>
-                      <p className="mt-1 line-clamp-4 whitespace-pre-wrap text-12 text-secondary">{r.text}</p>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
           </div>
         </div>
       )}

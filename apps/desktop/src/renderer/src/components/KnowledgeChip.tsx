@@ -89,7 +89,7 @@ export function KnowledgeChip({ selectedBaseId, onSelect }: KnowledgeChipProps):
             还没有可用的知识库。到「设置 → 知识库」新建并导入文档。
           </div>
         ) : (
-          <div className="max-h-[260px] overflow-y-auto">
+          <div className="flex flex-col">
             {bases.map((b) => (
               <button
                 key={b.id}
