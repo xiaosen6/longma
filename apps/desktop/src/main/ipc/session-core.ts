@@ -23,21 +23,12 @@ import { insertMessage } from '../db/messages.js';
 import { addUsageDelta } from '../db/usage.js';
 import { getHost } from '../host/pi-host.js';
 import { FUNDET_PUSH } from './channels.js';
+import { InteractionQueue } from './interaction-queue.js';
 import { documentExtractSupport, extractDocumentText } from '../doc-text.js';
 import type { SessionAttachment, SessionSendInput } from '../../shared/fundet-api.js';
 
-/** permission 审批的兜底超时：超时自动 deny，防 pi 侧永久挂起 */
-export const PERMISSION_INTERACTION_TIMEOUT_MS = 10 * 60 * 1000;
-
-export interface PendingInteraction {
-  sessionId: string;
-  request: InteractionRequest;
-  resolve: (decision: InteractionDecision) => void;
-  timer: NodeJS.Timeout | null;
-}
-
-/** requestId → 待决审批 */
-export const pendingInteractions = new Map<string, PendingInteraction>();
+/** requestId → 待决审批（跨会话单例；超时/结算语义见 interaction-queue.ts） */
+const interactionQueue = new InteractionQueue((channel, payload) => broadcast(channel, payload));
 /** 已接线（事件/审批监听）的 sessionId */
 const wiredSessions = new Set<string>();
 
@@ -144,25 +135,7 @@ export function wireSession(session: Session): void {
     broadcast(FUNDET_PUSH.AGENT_STATUS_CHANGED, { sessionId: session.id, status });
   });
 
-  session.setInteractionListener(
-    (request) =>
-      new Promise<InteractionDecision>((resolve) => {
-        const entry: PendingInteraction = { sessionId: session.id, request, resolve, timer: null };
-        if (request.kind === 'permission') {
-          entry.timer = setTimeout(() => {
-            pendingInteractions.delete(request.requestId);
-            broadcast(FUNDET_PUSH.INTERACTION_DISMISSED, {
-              sessionId: session.id,
-              requestId: request.requestId,
-              reason: 'timeout',
-            });
-            resolve({ kind: 'permission', behavior: 'deny', reason: '审批超时自动拒绝' });
-          }, PERMISSION_INTERACTION_TIMEOUT_MS);
-        }
-        pendingInteractions.set(request.requestId, entry);
-        broadcast(FUNDET_PUSH.INTERACTION_REQUEST, { sessionId: session.id, request });
-      }),
-  );
+  session.setInteractionListener((request) => interactionQueue.enqueue(session.id, request));
 
   session.onStatusChange((status) => {
     if (status === 'closed' || status === 'error') {
@@ -228,17 +201,12 @@ export function autoTitleFromFirstMessage(sessionId: string, text: string): void
 }
 
 export function settleInteraction(requestId: string, decision: InteractionDecision): boolean {
-  const entry = pendingInteractions.get(requestId);
-  if (!entry) return false;
-  pendingInteractions.delete(requestId);
-  if (entry.timer) clearTimeout(entry.timer);
-  entry.resolve(decision);
-  broadcast(FUNDET_PUSH.INTERACTION_DISMISSED, {
-    sessionId: entry.sessionId,
-    requestId,
-    reason: 'resolved',
-  });
-  return true;
+  return interactionQueue.settle(requestId, decision);
+}
+
+/** INTERACTION_GET_PENDING 用的待决清单（跨会话） */
+export function listPendingInteractions(): Array<{ sessionId: string; request: InteractionRequest }> {
+  return interactionQueue.list();
 }
 
 /**

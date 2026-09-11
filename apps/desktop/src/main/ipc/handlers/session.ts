@@ -14,7 +14,7 @@ import {
   autoTitleFromFirstMessage,
   buildUserMessage,
   ensureSession,
-  pendingInteractions,
+  listPendingInteractions,
   settleInteraction,
   wireSession,
 } from '../session-core.js';
@@ -221,12 +221,7 @@ export function registerSessionHandlers(): void {
     },
   );
 
-  ipcMain.handle(FUNDET_INVOKE.INTERACTION_GET_PENDING, async () =>
-    Array.from(pendingInteractions.values()).map((p) => ({
-      sessionId: p.sessionId,
-      request: p.request,
-    })),
-  );
+  ipcMain.handle(FUNDET_INVOKE.INTERACTION_GET_PENDING, async () => listPendingInteractions());
 
   // ---------- 用量历史 ----------
   ipcMain.handle(FUNDET_INVOKE.USAGE_HISTORY, async (_e, days?: number) => getUsageHistory(Math.min(90, Math.max(1, days ?? 30))));

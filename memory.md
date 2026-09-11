@@ -301,6 +301,8 @@ ChatPage / ChatInput
 
 **ChatPage 拆分（0.2.18 后、未发版）**：ChatPage.tsx（847 行）拆出 `pages/chat/`：useSidebarResize（拖拽宽度）/ useCanvasTracker（canvas 状态+artifacts 派生，reset 语义原样）/ useAttachments（合并去重/staging/拖入，onStaged 回调挂钩 canvas 路径）/ usePetShots（PET_SCREENSHOT 订阅+补领，**stage 成功才 bump focusTick**——失败不抢焦点）/ ChatEmptyState（空态）/ ChatHeader（头部+重命名状态内聚，重置依赖 sessionId 非 title）。ChatPage 剩会话动作+send/abort+composer 装配（~530 行）。行为零变化：typecheck+77 单测+CDP `tools/chat-ui-smoke.mjs`（空态/建草稿/头部/输入/无崩溃卡 5 项全过）。
 
+**测试补强批次（0.2.18 后、未发版）**：①`host/stdio-mcp-proxy.ts` 从 mcp-bridge 拆出 StdioMcpHttpProxy（无 electron/db 链）+ `_fixtures/fake-stdio-server.cjs` 假 server，单测 7 例（握手/转发/鉴权 401/initialize 缓存 server 只见一次/notification 202/子进程退出拒 pending/dispose 幂等）；②`ipc/interaction-queue.ts` 审批队列抽类（broadcast 注入；session-core 改用它，handlers/session 的 get-pending 走 listPendingInteractions），单测 5 例（登记广播/结算/重复与未知 id/**permission 10min 超时自动 deny+dismissed(timeout)，mock.timers 驱动**/plan_review 不超时/跨会话 list）。package.json test 脚本纳入 host 与 ipc 目录。全量 89 tests。**新坑两条**：①`node --experimental-strip-types`（strip-only）**不支持 TS 构造器参数属性**（`constructor(private x)` 报 ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX）——进 node --test 链的新类必须显式字段赋值（stdio-mcp-proxy 与 interaction-queue 各踩一次）；②PS 5.1 `Get-Content`/`Set-Content` 处理无 BOM UTF-8 文件会按 ANSI 读写把中文打成 mojibake 破坏语法——**改源码文件一律用专用读写工具，PowerShell 文本批处理必须 [System.IO.File]::ReadAllText/WriteAllText**。
+
 **纯全文检索形态（用户拍板：不做 embedding/向量化）**。零模型依赖、零原生扩展、零外部调用。
 - **migration 0006**：`knowledge_bases/knowledge_items/knowledge_chunks` 三表 + **FTS5 trigram 虚表**（外部内容模式 content_rowid 对齐主表，手动维护；trigram 对中文 ≥3 字子串有效）。**FTS 同步的 delete 命令需要原 text 值**——删除前先按 id 查回 rowid+text 再发 'delete'。
 - **检索双路**：FTS bm25 主路 + **短词（<3 字符）LIKE 子串兜底**（trigram 两字中文词查不到，如「鹿角」；个人库量级 LIKE 全扫仅几十 ms）。查询串双引号转义防 FTS 语法注入。
