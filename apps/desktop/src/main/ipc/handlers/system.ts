@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { BrowserWindow, clipboard, dialog, ipcMain, shell } from 'electron';
+import { BrowserWindow, ClipboardItem, clipboard, dialog, ipcMain, shell } from 'electron';
 import { FUNDET_INVOKE } from '../channels.js';
 import { resolveUnderWorkDir, stageBytesIntoWorkDir, stageFileIntoWorkDir } from '../../fs-local.js';
 import { mimeFromExt } from '../../../shared/file-kind.ts';
@@ -133,7 +133,14 @@ export function registerSystemHandlers(): void {
       };
       const image = await win.webContents.capturePage(bounds);
       if (image.isEmpty()) throw new Error('截图为空');
-      clipboard.writeImage(image);
+      // Electron 44 移除 clipboard.writeImage；多格式剪贴板 API：ClipboardItem（MIME → Blob）。
+      // Buffer 泛型与 BlobPart 不兼容，拷贝进全新 Uint8Array。
+      const png = image.toPNG();
+      const bytes = new Uint8Array(png.byteLength);
+      bytes.set(png);
+      await clipboard.write([
+        new ClipboardItem({ 'image/png': new Blob([bytes], { type: 'image/png' }) }),
+      ]);
     },
   );
 }

@@ -75,7 +75,7 @@
     "@vitejs/plugin-react": "^4.4.0",
     "clsx": "^2.1.1",
     "drizzle-kit": "^0.31.0",
-    "electron": "^37.0.0",
+    "electron": "^44.3.0",
     "electron-builder": "^26.15.3",
     "electron-vite": "^4.0.0",
     "highlight.js": "^11.12.0",
