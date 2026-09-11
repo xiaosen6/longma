@@ -1,6 +1,6 @@
 # LongMa 项目记忆（memory.md）
 
-> 最后更新：2026-08-30。给任何接手的人/AI：先读本文，再读 `README.md`（用户向）。Cindy 源码只读对照，**禁止修改、禁止 fork 进本仓**。
+> 最后更新：2026-09-11。给任何接手的人/AI：先读本文，再读 `README.md`（用户向）。Cindy 源码只读对照，**禁止修改、禁止 fork 进本仓**。
 >
 > 仓库路径：`/mnt/d/AI/TenCent/fundet-buddy-main`（Windows：`D:\AI\TenCent\fundet-buddy-main`）。
 > Cindy 对照：`/mnt/d/AI/Fundet/cindy`（只读）。
@@ -295,6 +295,8 @@ ChatPage / ChatInput
 
 **配套改动**：db/client.ts 导出 getSqlite()（原生 better-sqlite3——FTS5 虚表/rowid 查询 drizzle 覆盖不到）；统计查询用 GROUP BY 聚合替代关联子查询（drizzle sql 模板列限定渲染有坑实测恒 0）；globals.css 全局 button:not(:disabled) cursor:pointer（Tailwind v4 preflight 恢复 v3 语义）。
 
+**索引中断恢复（0.2.18 后、未发版）**：索引队列是内存 promise 链（service.ts `chain`），应用退出/崩溃时在途条目会永久卡在 pending/reading/indexing（重试按钮是 failed 专属，用户无法自救）。修复：`knowledge/recovery.ts` 纯函数 `resetInterruptedKnowledgeItems`（非终态 → failed + 「上次索引未完成（应用中途退出），请重试」），index.ts 在 initDatabase 后调 `recoverInterruptedKnowledgeJobs()`。单测 recovery.test.ts（内存库 4 例）；真机演练（seed 卡死条目→重启→VERIFY-PASS→清理）。**坑**：node --test 直跑链 import 用 `.ts` 后缀的老规矩对新文件同样适用（recovery.ts 首版 `.js` 后缀 ERR_MODULE_NOT_FOUND）。
+
 **纯全文检索形态（用户拍板：不做 embedding/向量化）**。零模型依赖、零原生扩展、零外部调用。
 - **migration 0006**：`knowledge_bases/knowledge_items/knowledge_chunks` 三表 + **FTS5 trigram 虚表**（外部内容模式 content_rowid 对齐主表，手动维护；trigram 对中文 ≥3 字子串有效）。**FTS 同步的 delete 命令需要原 text 值**——删除前先按 id 查回 rowid+text 再发 'delete'。
 - **检索双路**：FTS bm25 主路 + **短词（<3 字符）LIKE 子串兜底**（trigram 两字中文词查不到，如「鹿角」；个人库量级 LIKE 全扫仅几十 ms）。查询串双引号转义防 FTS 语法注入。
@@ -438,7 +440,7 @@ Command "build:fundet" not found. Did you mean "pnpm run build"? / （tools/with
 | **pi 在无 AVX2 的 CPU 上启动即崩**（客户报障 code=3221225501） | 0xC000001D 非法指令：pi 是 bun 单二进制，标准 x64 构建要 AVX/AVX2（约 2013 前 Intel / 2015 前 AMD / 部分虚拟机没有；bun 有 baseline 变体但 pi 只发标准构建）。处理：启动预检 `pi --version` 崩溃码探测 → 原生弹窗明示；发送失败经 `friendlyError` 转中文引导。**这类机器暂无解**，除非 earendil-works/pi 出 baseline 构建 |
 | sharp 的 @img 平台二进制 | pnpm 对 sharp 的 optionalDependencies（@img/sharp-\<plat\> 等）**不在任何 node_modules 建符号链接**，只落 .pnpm store——dev 里 require('@img/...') 其实也是坏的（仅截图路径触发才发现）。pack 脚本从 store 扫 `@img+sharp-*` 并走闭包；dev 要用截图再处理 |
 
-Pi pin：`tools/pi/latest.json` → **0.83.0**。
+Pi pin：`tools/pi/latest.json` → **0.84.4**（升级要同步 release.yml 4 处传参，见 §4.7d）。
 
 用户数据：Windows `%APPDATA%\LongMa\`；DB 现名仍可能是 fundet.db（历史）。
 

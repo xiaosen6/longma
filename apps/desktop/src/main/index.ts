@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { initDatabase } from './db/client.js';
+import { recoverInterruptedKnowledgeJobs } from './knowledge/service.js';
 import { getHost, shutdownHost } from './host/pi-host.js';
 import { resolvePiBinaryPath } from './host/pi-binary.js';
 import { ensureBundledSkills } from './host/skills.js';
@@ -221,6 +222,14 @@ function bootstrap(): void {
   });
   // 1) 数据库（含 better-sqlite3 原生模块自查日志）
   initDatabase();
+  // 1a) 知识库中断恢复：索引队列在内存，上次退出时在途条目重置为失败（可重试），
+  // 防永久卡「索引中」
+  try {
+    const recovered = recoverInterruptedKnowledgeJobs();
+    if (recovered > 0) console.log(`[longma:knowledge] 已重置 ${recovered} 个中断条目为待重试`);
+  } catch (err) {
+    console.warn('[longma:knowledge] 中断条目恢复失败（不阻断启动）', err);
+  }
   // 1b) 安装包预制技能 → ~/.agents/skills（Pi 启动后即可 /skill: 点名）
   // Fundet 品牌不预装技能
   if (brand.bundledSkills) {

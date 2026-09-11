@@ -15,6 +15,7 @@ import { extractDocumentText } from '../doc-text.js';
 import { getDb, getSqlite } from '../db/client.js';
 import { knowledgeBases, knowledgeChunks, knowledgeItems } from '../db/schema.js';
 import { chunkText } from './chunks.ts';
+import { resetInterruptedKnowledgeItems } from './recovery.ts';
 import { WebFetchError, fetchPageAsMarkdown } from './web.ts';
 
 export interface KnowledgeBaseView {
@@ -150,6 +151,11 @@ export function rebuildKnowledgeFts(): void {
 }
 
 // ---------- 索引管线（串行队列） ----------
+
+/** 启动恢复：上次退出/崩溃时卡在非终态的条目重置为 failed（UI 重试按钮可自救） */
+export function recoverInterruptedKnowledgeJobs(): number {
+  return resetInterruptedKnowledgeItems(getDb());
+}
 
 let chain: Promise<void> = Promise.resolve();
 
