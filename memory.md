@@ -149,6 +149,7 @@ ChatPage / ChatInput
 
 | 版本 | 日期 | 要点 |
 | --- | --- | --- |
+| 0.2.18 | 09-11 | **知识库网页源**（URL 抓取存 Markdown 快照入检索：fetch+htmlToText 零依赖剥标签、正文<200 字判 SPA 空壳抛中文错误、快照落 userData/knowledge-raw、条目 type=file/url、重试=重抓）+ 库列表统计修复（GROUP BY 替代关联子查询）+ 全局按钮小手（Tailwind v4 preflight 恢复） |
 | 0.2.17 | 09-11 | 知识库管理页简化（**移除检索测试区块**，用户拍板）+ 注入弹窗去侧边滚动条（去 max-h/overflow，个人库量级不需要） |
 | 0.2.16 | 09-10 | **本地知识库 V1**（纯全文检索 FTS5 trigram + 短词 LIKE 兜底；mcp__knowledge__search/list 工具；设置→知识库管理页+检索测试）+ **V1.5/V2**（失败重试/目录导入/topK/@点名强制注入——composer KnowledgeChip 选库，发送时检索该库注入模型消息前缀，不进用户气泡与落库）。CI 坑：cua-driver.exe 复制 EBUSY 连续 3 次失败（重试循环也没救回）→ **rerun --failed 直接过**（偶发锁，别急着改 workflow） |
 | 0.2.15 | 09-10 | **MCP 服务器独立设置 tab + 连通状态点 + 后台心跳**（http 类 60s 探测状态翻转推渲染层，stdio 不轮询有因）+ **问答页丝滑批次**（流式刷新 32ms/回到底部浮标/切会话位置记忆/滚动补偿，用户真机验证通过）。坑：①NSIS 覆盖装遇文件占用会**静默跳过文件替换**（装完仍旧版不报错）——装完必须验 exe ProductVersion，杀进程后等 5s 再装；②ghproxy 下载大资产偶发超时，`-C -` 续传重试即可 |
