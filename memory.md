@@ -299,6 +299,8 @@ ChatPage / ChatInput
 
 **IPC 拆分（0.2.18 后、未发版）**：register.ts（937 行）按域拆为 `ipc/session-core.ts`（broadcast/persistEvent/wireSession/ensureSession/buildUserMessage/审批 pendingInteractions/settleInteraction——模块级状态唯一持有处）+ `ipc/handlers/{session,providers,mcp,knowledge,system,search,browser,computer,skills}.ts`（各导出 register*Handlers；usage 并入 session；窗口/剪贴板/fs 并入 system）；register.ts 只做聚合 + re-export broadcast/wireSession（index.ts、im/dispatcher 的 import 不变）。验证：typecheck + 77 单测 + CDP 冒烟 `tools/ipc-smoke.mjs`（10 域 invoke 全过，可复用）。
 
+**ChatPage 拆分（0.2.18 后、未发版）**：ChatPage.tsx（847 行）拆出 `pages/chat/`：useSidebarResize（拖拽宽度）/ useCanvasTracker（canvas 状态+artifacts 派生，reset 语义原样）/ useAttachments（合并去重/staging/拖入，onStaged 回调挂钩 canvas 路径）/ usePetShots（PET_SCREENSHOT 订阅+补领，**stage 成功才 bump focusTick**——失败不抢焦点）/ ChatEmptyState（空态）/ ChatHeader（头部+重命名状态内聚，重置依赖 sessionId 非 title）。ChatPage 剩会话动作+send/abort+composer 装配（~530 行）。行为零变化：typecheck+77 单测+CDP `tools/chat-ui-smoke.mjs`（空态/建草稿/头部/输入/无崩溃卡 5 项全过）。
+
 **纯全文检索形态（用户拍板：不做 embedding/向量化）**。零模型依赖、零原生扩展、零外部调用。
 - **migration 0006**：`knowledge_bases/knowledge_items/knowledge_chunks` 三表 + **FTS5 trigram 虚表**（外部内容模式 content_rowid 对齐主表，手动维护；trigram 对中文 ≥3 字子串有效）。**FTS 同步的 delete 命令需要原 text 值**——删除前先按 id 查回 rowid+text 再发 'delete'。
 - **检索双路**：FTS bm25 主路 + **短词（<3 字符）LIKE 子串兜底**（trigram 两字中文词查不到，如「鹿角」；个人库量级 LIKE 全扫仅几十 ms）。查询串双引号转义防 FTS 语法注入。

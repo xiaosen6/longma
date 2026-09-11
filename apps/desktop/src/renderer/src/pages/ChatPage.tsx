@@ -1,7 +1,7 @@
 /**
  * ChatPage — 会话页：固定两栏（Sidebar 260px + 聊天主区）。
  *
- * 主区：slim 头部（标题 + Canvas）→ MessageStream → composer。
+ * 主区：slim 头部（ChatHeader）→ MessageStream → composer。
  * 上下文圆环在输入卡下方右侧（对齐 Cindy ChatInput 底栏）。
  * composer 在有悬挂审批时被 PermissionPrompt 替换。
  *
@@ -9,8 +9,7 @@
  * model 在 providers 里反查 providerId，带 create 参数重发让 main lazy-create。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronRight as ChevronRightIcon, KeyRound, PanelRight, Pencil } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { PanelRight } from 'lucide-react';
 import type { Effort, PermissionMode } from '@fundet/agent-core';
 import type { ProviderView, SessionAttachment, SkillView } from '../../../shared/fundet-api.ts';
 import type { SlashItem } from '../components/SlashPalette';
@@ -41,26 +40,26 @@ import {
   setDefaultWorkDir,
 } from '../lib/defaults';
 import { ChatInput } from '../components/ChatInput';
-import { SessionRenameInput } from '../components/SessionRenameInput';
 import { MessageStream } from '../components/MessageStream';
 import { PermissionPrompt } from '../components/PermissionPrompt';
 import { RunningStatus } from '../components/RunningStatus';
 import { ModelSelector, PermissionSelector } from '../components/SelectorChips';
-import { UsageDashboard } from '../components/UsageDashboard';
-import { brand } from '../../../shared/brand.js';
-import { FolderPickerChip } from '../components/FolderPickerChip';
 import { KnowledgeChip } from '../components/KnowledgeChip';
+import { FolderPickerChip } from '../components/FolderPickerChip';
 import { Sidebar } from '../components/Sidebar';
-import { BrandMark } from '../components/BrandMark';
-import { addRecentFolder } from '../lib/recentFolders';
-import { collectArtifacts, type Artifact } from '../lib/artifacts';
-import { fileKind } from '../../../shared/file-kind.ts';
-import { dataTransferHasFiles, filesFromDataTransfer } from '../lib/file-drop';
 import { CanvasPane } from '../components/CanvasPane';
 import { ContextCapacityRing } from '../components/ContextCapacityRing';
 import { hasFramelessControls } from '../components/WindowControls';
 import { preferScannedContextWindow } from '../../../shared/context-window.js';
+import { addRecentFolder } from '../lib/recentFolders';
+import { dataTransferHasFiles, filesFromDataTransfer } from '../lib/file-drop';
 import { cn } from '../lib/cn';
+import { useSidebarResize } from './chat/useSidebarResize';
+import { useCanvasTracker } from './chat/useCanvasTracker';
+import { useAttachments } from './chat/useAttachments';
+import { usePetShots } from './chat/usePetShots';
+import { ChatEmptyState } from './chat/ChatEmptyState';
+import { ChatHeader } from './chat/ChatHeader';
 
 export function ChatPage(): React.JSX.Element {
   const sessions = useSessionList();
@@ -79,59 +78,54 @@ export function ChatPage(): React.JSX.Element {
     }
   });
 
-  // 侧栏宽度拖拽（200–400px 夹紧；持久化到 localStorage）
-  const [sidebarWidth, setSidebarWidth] = useState(() => {
-    const saved = Number(localStorage.getItem('longma.sidebar-width'));
-    return saved >= 200 && saved <= 400 ? saved : 260;
-  });
-  const startSidebarResize = useCallback((e: React.PointerEvent) => {
-    e.preventDefault();
-    const startX = e.clientX;
-    const startW = sidebarWidth;
-    const move = (ev: PointerEvent): void => {
-      const next = Math.min(400, Math.max(200, startW + ev.clientX - startX));
-      setSidebarWidth(next);
-      localStorage.setItem('longma.sidebar-width', String(next));
-    };
-    const up = (): void => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
-    };
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
-  }, [sidebarWidth]);
+  const { sidebarWidth, startSidebarResize } = useSidebarResize();
   const [workDir, setWorkDir] = useState(getDefaultWorkDir);
-  const [canvasOpen, setCanvasOpen] = useState(false);
-  const [canvasPath, setCanvasPath] = useState<string | null>(null);
-  const [attachments, setAttachments] = useState<SessionAttachment[]>([]);
+  const [attachmentsState, setAttachmentsState] = useState<SessionAttachment[]>([]);
   const [dragOver, setDragOver] = useState(false);
-  const [renamingHeader, setRenamingHeader] = useState(false);
-  const [headerTitleDraft, setHeaderTitleDraft] = useState('');
-  const headerRenameCommitted = useRef(false);
   const dragCountRef = useRef(0);
 
   const slice = useSessionSlice(activeId);
-
-  useEffect(() => {
-    setRenamingHeader(false);
-    headerRenameCommitted.current = false;
-  }, [activeId]);
 
   const activeMeta = useMemo(
     () => sessions.find((s) => s.id === activeId) ?? getDraftSession(activeId) ?? null,
     [sessions, activeId],
   );
 
-  const artifacts = useMemo(() => {
-    const fromItems = collectArtifacts(slice.items);
-    const seen = new Set(fromItems.map((a) => a.path));
-    const extra: Artifact[] = [];
-    for (const a of attachments) {
-      if (seen.has(a.path)) continue;
-      extra.push({ path: a.path, kind: fileKind(a.path), toolName: 'attach' });
-    }
-    return extra.length > 0 ? [...fromItems, ...extra] : fromItems;
-  }, [slice.items, attachments]);
+  const canvas = useCanvasTracker(slice.items, attachmentsState);
+  const sessionWorkDir = activeMeta?.workDir || workDir;
+
+  const stagedToCanvas = useCallback((p: string) => {
+    canvas.setCanvasPath(p);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅引用 setter，稳定引用
+  }, []);
+  const attach = useAttachments(sessionWorkDir, setNotice, stagedToCanvas);
+  const { attachments, mergeAttachments, stagePaths, addDroppedFiles, pickFiles } = attach;
+
+  // 桌宠截图问答：主进程已把截图落盘（切页不丢），这里归一到当前会话工作目录
+  // （stageFiles 对目录内文件零拷贝引用、目录外文件拷进 .longma-uploads）再挂输入区
+  const acceptPetShots = useCallback(
+    async (list: SessionAttachment[]): Promise<void> => {
+      const dir = sessionWorkDir.trim();
+      if (!dir) {
+        setNotice('请先选择工作目录');
+        return;
+      }
+      const staged = await window.fundet.stageFiles(dir, list.map((a) => a.path));
+      mergeAttachments(staged);
+    },
+    [mergeAttachments, sessionWorkDir],
+  );
+  const { petFocusTick } = usePetShots(acceptPetShots, setNotice);
+
+  // 切会话：重置画布/附件/拖拽态
+  useEffect(() => {
+    canvas.reset();
+    attach.reset();
+    setDragOver(false);
+    dragCountRef.current = 0;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 切会话时整体重置
+  }, [activeId]);
+
   const modelSpec = useMemo(() => {
     const id = activeMeta?.model;
     if (!id) return undefined;
@@ -144,26 +138,6 @@ export function ChatPage(): React.JSX.Element {
   const shownWindow = activeMeta?.model
     ? preferScannedContextWindow(activeMeta.model, modelSpec?.contextWindow) ?? 0
     : 0;
-
-  useEffect(() => {
-    setCanvasOpen(false);
-    setCanvasPath(null);
-    setAttachments([]);
-    setDragOver(false);
-    dragCountRef.current = 0;
-  }, [activeId]);
-
-  const latestArtifact = artifacts[artifacts.length - 1]?.path;
-  // 只跟踪最新产物路径（顶栏 Canvas 按钮用），不强制打开——
-  // 产物每回合都在变，强制开会让用户"关不掉"（对齐 Cindy：数据变化不打扰用户）。
-  useEffect(() => {
-    if (latestArtifact && canvasPath === null) setCanvasPath(latestArtifact);
-  }, [latestArtifact, canvasPath]);
-
-  const openCanvas = useCallback((p: string) => {
-    setCanvasPath(p);
-    setCanvasOpen(true);
-  }, []);
 
   useEffect(() => {
     void window.fundet.listProviders().then(setProviders);
@@ -257,68 +231,6 @@ export function ChatPage(): React.JSX.Element {
 
   // ---------- 发送 / 中断 ----------
 
-  const mergeAttachments = useCallback((incoming: SessionAttachment[]): void => {
-    setAttachments((prev) => {
-      const seen = new Set(prev.map((a) => a.path));
-      const next = [...prev];
-      for (const a of incoming) {
-        if (seen.has(a.path)) continue;
-        seen.add(a.path);
-        next.push(a);
-      }
-      return next;
-    });
-    const last = incoming[incoming.length - 1];
-    if (last) setCanvasPath(last.path);
-  }, []);
-
-  const sessionWorkDir = activeMeta?.workDir || workDir;
-
-  const stagePaths = useCallback(
-    async (paths: string[]): Promise<void> => {
-      const dir = sessionWorkDir.trim();
-      if (!dir) {
-        setNotice('请先选择工作目录');
-        return;
-      }
-      try {
-        const staged = await window.fundet.stageFiles(dir, paths);
-        mergeAttachments(staged);
-      } catch (err) {
-        setNotice(err instanceof Error ? err.message : String(err));
-      }
-    },
-    [mergeAttachments, sessionWorkDir],
-  );
-
-  const addDroppedFiles = useCallback(
-    async (fileList: File[]): Promise<void> => {
-      const dir = sessionWorkDir.trim();
-      if (!dir) {
-        setNotice('请先选择工作目录');
-        return;
-      }
-      const paths: string[] = [];
-      const blobs: File[] = [];
-      for (const f of fileList) {
-        const p = window.fundet.getPathForFile(f);
-        if (p) paths.push(p);
-        else blobs.push(f);
-      }
-      if (paths.length > 0) await stagePaths(paths);
-      for (const f of blobs) {
-        try {
-          const buf = await f.arrayBuffer();
-          const staged = await window.fundet.stageBytes(dir, f.name || 'paste', buf);
-          mergeAttachments([staged]);
-        } catch (err) {
-          setNotice(err instanceof Error ? err.message : String(err));
-        }
-      }
-    },
-    [mergeAttachments, sessionWorkDir, stagePaths],
-  );
-
   // 终态错误卡的「重新发送」：重发本轮最后一条用户消息（含附件路径引用）
   const resendLast = useCallback((): void => {
     if (!activeId) return;
@@ -339,52 +251,12 @@ export function ChatPage(): React.JSX.Element {
     })();
   }, [activeId, slice.items]);
 
-  const pickFiles = useCallback(async (): Promise<void> => {
-    const picked = await window.fundet.pickFiles();
-    if (picked && picked.length > 0) await stagePaths(picked);
-  }, [stagePaths]);
-
-  // 桌宠截图问答：主进程已把截图落盘（切页不丢），这里归一到当前会话工作目录
-  // （stageFiles 对目录内文件零拷贝引用、目录外文件拷进 .longma-uploads）再挂输入区
-  const [petFocusTick, setPetFocusTick] = useState(0);
-  const acceptPetShots = useCallback(
-    (list: SessionAttachment[]): void => {
-      if (!list.length) return;
-      const dir = sessionWorkDir.trim();
-      if (!dir) {
-        setNotice('请先选择工作目录');
-        return;
-      }
-      void (async () => {
-        try {
-          const staged = await window.fundet.stageFiles(dir, list.map((a) => a.path));
-          mergeAttachments(staged);
-          setPetFocusTick((t) => t + 1);
-        } catch (err) {
-          setNotice(err instanceof Error ? err.message : String(err));
-        }
-      })();
-    },
-    [mergeAttachments, sessionWorkDir],
-  );
-  useEffect(() => {
-    const off = window.fundet.onPetScreenshot((p) => {
-      if (p.attachment) acceptPetShots([p.attachment]);
-      else setNotice(`截图问答失败：${p.error ?? '未知错误'}`);
-    });
-    return off;
-  }, [acceptPetShots]);
-  // 挂载补收：用户停在设置页等路由时点的截图，主进程排队待领，回聊天页补上
-  useEffect(() => {
-    void window.fundet.petTakePendingScreenshots().then(acceptPetShots).catch(() => undefined);
-  }, [acceptPetShots]);
-
   const send = useCallback(async (): Promise<void> => {
     const text = input.trim();
     if (!activeId || (!text && attachments.length === 0)) return;
     const pending = attachments;
     setInput('');
-    setAttachments([]);
+    setAttachmentsState([]);
     setNotice('');
     // @知识库点名：检索选中库并把原文片段注入模型消息（强制 RAG，不依赖模型调工具）；
     // 注入内容只进模型消息，用户气泡与落库保持原文
@@ -471,7 +343,6 @@ export function ChatPage(): React.JSX.Element {
     [activeId],
   );
 
-
   // ---------- 渲染 ----------
 
   const pendingPermission =
@@ -508,11 +379,11 @@ export function ChatPage(): React.JSX.Element {
         <button
           type="button"
           title="Canvas"
-          onClick={() => setCanvasOpen((v) => !v)}
+          onClick={() => canvas.setCanvasOpen((v) => !v)}
           className={cn(
             'no-drag fixed top-0 z-40 flex h-[46px] w-10 items-center justify-center hover:bg-hover',
             hasFramelessControls() ? 'right-[138px]' : 'right-0',
-            canvasOpen ? 'text-primary' : 'text-muted',
+            canvas.canvasOpen ? 'text-primary' : 'text-muted',
           )}
         >
           <PanelRight size={14} />
@@ -521,65 +392,13 @@ export function ChatPage(): React.JSX.Element {
 
       <main className="flex min-w-0 flex-1 flex-col">
         {!activeId ? (
-          // 空态（对齐 cindy-02 首页解剖）：品牌 wordmark 居中 + 引导卡
-          <div className="flex flex-1 flex-col">
-            {/* 拖拽条在窗口按钮左侧截止（mr 而非 pr：app-region 按元素矩形算，
-                padding 缩不掉；悬浮 no-drag 挖洞在 Electron 37/Windows 上不可靠） */}
-            <div className={cn('drag-region h-[46px] shrink-0', hasFramelessControls() && 'mr-[150px]')} />
-          <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto">
-            <div className="flex w-full max-w-[720px] flex-col items-stretch gap-8 px-6">
-              <div className="flex flex-col items-center gap-3 select-none">
-                <BrandMark size={56} />
-                <div className="text-[40px] leading-none font-medium tracking-tight text-primary">
-                  {brand.name}
-                </div>
-              </div>
-              {providers.length === 0 ? (
-                // 无 provider：内联「连接模型提供商」引导面板（cindy-02 的 Connect 面板）
-                <div className="rounded-container border border-board bg-card p-6">
-                  <p className="text-18 font-medium text-primary select-none">
-                    连接模型提供商以开始
-                  </p>
-                  <p className="mt-1.5 text-13 text-secondary select-none">
-                    还没有可用模型。配置一个 OpenAI / Anthropic 兼容端点（BYOK）即可开始对话。
-                  </p>
-                  <Link
-                    to="/settings"
-                    className="mt-4 flex items-center gap-3 rounded-inner px-3 py-3 transition-colors hover:bg-menu-item-hover select-none"
-                  >
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-chip text-secondary">
-                      <KeyRound size={15} strokeWidth={1.8} />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-14 font-medium text-primary">添加 Provider</span>
-                      <span className="block text-12 text-muted">粘贴 API key 完成连接</span>
-                    </span>
-                    <ChevronRightIcon size={16} className="shrink-0 text-muted" />
-                  </Link>
-                  {notice && <p className="mt-2 text-13 text-error">{notice}</p>}
-                </div>
-              ) : (
-                <div className="rounded-container border border-board bg-card px-8 py-8 text-center select-none">
-                  <p className="text-14 text-secondary">选择文件夹，再开启新对话</p>
-                  <div className="mt-4 flex flex-col items-center gap-3">
-                    <FolderPickerChip cwd={workDir} onSelect={applyWorkDir} size="big" />
-                    <button
-                      type="button"
-                      className="h-9 rounded-full bg-accent px-4 text-13 text-accent-fg"
-                      onClick={() => void createSession()}
-                    >
-                      开启新对话
-                    </button>
-                  </div>
-                  {notice && <p className="mt-2 text-13 text-error">{notice}</p>}
-                </div>
-              )}
-              <div className="w-full">
-                <UsageDashboard />
-              </div>
-            </div>
-          </div>
-          </div>
+          <ChatEmptyState
+            hasProvider={providers.length > 0}
+            workDir={workDir}
+            notice={notice}
+            onPickDir={applyWorkDir}
+            onCreate={() => void createSession()}
+          />
         ) : (
           <div
             className="relative flex min-h-0 min-w-0 flex-1"
@@ -624,219 +443,161 @@ export function ChatPage(): React.JSX.Element {
               </div>
             )}
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-            {/* slim 头部：46px 行高 + 1px Board 下发丝（对齐 Cindy ContentHeader：标题，不是用量环） */}
-            <header
-              className={cn(
-                'relative flex h-[46px] shrink-0 items-center justify-between gap-3 border-b border-board px-4 select-none',
-                hasFramelessControls() && 'pr-[150px]',
-              )}
-            >
-              {/* 拖拽层铺底、在窗口按钮左侧截止：悬浮 no-drag 挖洞在 Electron 37
-                  /Windows 上对真实鼠标不可靠，干脆不与按钮区重叠 */}
-              <div
-                aria-hidden
-                className={cn(
-                  'drag-region absolute inset-y-0 left-0',
-                  hasFramelessControls() ? 'right-[150px]' : 'right-0',
-                )}
+              <ChatHeader
+                sessionId={activeId}
+                title={activeMeta?.title ?? ''}
+                workDir={activeMeta?.workDir ?? null}
+                onRename={async (title) => {
+                  if (!activeId) return;
+                  try {
+                    await renameSession(activeId, title);
+                  } catch (err) {
+                    setNotice(`重命名失败：${err instanceof Error ? err.message : String(err)}`);
+                    throw err;
+                  }
+                }}
               />
-              <div className="no-drag group/title relative flex min-w-0 flex-1 items-center gap-1">
-                {renamingHeader ? (
-                  <SessionRenameInput
-                    value={headerTitleDraft}
-                    onChange={setHeaderTitleDraft}
-                    onCommit={(raw) => {
-                      if (headerRenameCommitted.current) return;
-                      headerRenameCommitted.current = true;
-                      setRenamingHeader(false);
-                      const trimmed = raw.replace(/\s+/g, ' ').trim();
-                      if (!activeId || !trimmed || trimmed === (activeMeta?.title ?? '')) return;
-                      void renameSession(activeId, trimmed).catch((err) => {
-                        setNotice(`重命名失败：${err instanceof Error ? err.message : String(err)}`);
-                      });
-                    }}
-                    onCancel={() => {
-                      headerRenameCommitted.current = true;
-                      setRenamingHeader(false);
-                    }}
-                    className="max-w-[min(420px,70%)]"
-                  />
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      className="min-w-0 truncate text-left text-14 font-medium text-primary"
-                      title="双击重命名"
-                      onDoubleClick={() => {
-                        headerRenameCommitted.current = false;
-                        setHeaderTitleDraft(activeMeta?.title || '会话');
-                        setRenamingHeader(true);
-                      }}
-                    >
-                      {activeMeta?.title || '会话'}
-                    </button>
-                    <button
-                      type="button"
-                      title="重命名"
-                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted opacity-0 hover:bg-hover hover:text-primary group-hover/title:opacity-100 focus-visible:opacity-100"
-                      onClick={() => {
-                        headerRenameCommitted.current = false;
-                        setHeaderTitleDraft(activeMeta?.title || '会话');
-                        setRenamingHeader(true);
-                      }}
-                    >
-                      <Pencil size={13} />
-                    </button>
-                    {activeMeta?.workDir ? (
-                      <span className="ml-1 min-w-0 truncate font-normal text-12 text-muted" title={activeMeta.workDir}>
-                        {activeMeta.workDir.replace(/\\/g, '/').split('/').filter(Boolean).slice(-2).join('/')}
+
+              <MessageStream
+                sessionId={activeId ?? '__draft__'}
+                slice={slice}
+                workDir={activeMeta?.workDir || workDir}
+                onOpenFile={canvas.openCanvas}
+                canFork={Boolean(activeId) && !isDraftSession(activeId)}
+                onFork={async (createdAt) => {
+                  if (!activeId) return;
+                  try {
+                    const id = await forkSessionAt(activeId, createdAt);
+                    setActiveId(id);
+                  } catch (err) {
+                    setNotice(`分叉失败：${err instanceof Error ? err.message : String(err)}`);
+                  }
+                }}
+                onAddToChat={(text) => {
+                  const quote = text
+                    .trim()
+                    .split('\n')
+                    .map((line) => `> ${line}`)
+                    .join('\n');
+                  setInput((prev) => {
+                    const p = prev.trimEnd();
+                    return p ? `${p}\n\n${quote}\n\n` : `${quote}\n\n`;
+                  });
+                  requestAnimationFrame(() => {
+                    document.querySelector<HTMLTextAreaElement>('main textarea')?.focus();
+                  });
+                }}
+                onDelete={async (assistantId) => {
+                  if (!activeId) return;
+                  if (!window.confirm('删除这条回复及其工作过程？此操作不可撤销。')) return;
+                  try {
+                    await deleteAssistantTurn(activeId, assistantId);
+                  } catch (err) {
+                    setNotice(`删除失败：${err instanceof Error ? err.message : String(err)}`);
+                  }
+                }}
+                onRetryError={resendLast}
+              />
+
+              {/* composer：审批悬挂时换成 PermissionPrompt；运行状态行在输入卡上方 */}
+              <div className="px-6 pt-1 pb-4">
+                <div className="mx-auto flex max-w-[820px] flex-col">
+                  {notice && <div className="pb-1 text-12 text-error">{notice}</div>}
+                  {pendingPermission ? (
+                    <PermissionPrompt
+                      request={pendingPermission}
+                      onRespond={(behavior) =>
+                        void resolvePermission(activeId, pendingPermission, behavior)
+                      }
+                    />
+                  ) : (
+                    <>
+                      <RunningStatus
+                        visible={slice.isRunning}
+                        status={slice.statusText}
+                        tokenUsage={slice.usage.tokenUsage}
+                      />
+                      <ChatInput
+                        value={input}
+                        onChange={setInput}
+                        onSend={() => void send()}
+                        onAbort={() => void abort()}
+                        isRunning={slice.isRunning}
+                        sendDisabled={noModel}
+                        slashItems={slashItems}
+                        placeholder={noModel ? '先在设置页添加 Provider，再开始对话…' : '输入消息，或拖入文件…'}
+                        attachments={attachments}
+                        onRemoveAttachment={(p) =>
+                          setAttachmentsState((prev) => prev.filter((a) => a.path !== p))
+                        }
+                        onAddFiles={(files) => void addDroppedFiles(files)}
+                        onPickFiles={() => void pickFiles()}
+                        focusSignal={petFocusTick}
+                        dragOver={dragOver}
+                        leadingControls={
+                          <>
+                            <FolderPickerChip
+                              cwd={activeMeta?.workDir || workDir}
+                              onSelect={applyWorkDir}
+                            />
+                            <KnowledgeChip
+                              selectedBaseId={kbInjectBaseId}
+                              onSelect={(id) => {
+                                setKbInjectBaseId(id);
+                                try {
+                                  if (id) localStorage.setItem('kb-inject-base-id', id);
+                                  else localStorage.removeItem('kb-inject-base-id');
+                                } catch {
+                                  /* localStorage 不可用时仅会话内生效 */
+                                }
+                              }}
+                            />
+                            <PermissionSelector
+                              current={permissionMode}
+                              onSelect={(m) => void selectPermission(m)}
+                            />
+                          </>
+                        }
+                        trailingControls={
+                          <ModelSelector
+                            providers={providers}
+                            currentModel={activeMeta?.model ?? ''}
+                            onSelect={(pid, mid) => void selectModel(pid, mid)}
+                          />
+                        }
+                      />
+                    </>
+                  )}
+                  {/* Cindy：用量环在输入卡下方右侧，不在顶栏 */}
+                  <div className="mt-1.5 flex w-full items-center justify-end gap-3 px-1">
+                    {slice.usage.costUsd > 0 && (
+                      <span className="text-12 tabular-nums text-muted">
+                        ${slice.usage.costUsd.toFixed(4)}
                       </span>
-                    ) : null}
-                  </>
-                )}
-              </div>
-            </header>
-
-            <MessageStream
-              sessionId={activeId ?? '__draft__'}
-              slice={slice}
-              workDir={activeMeta?.workDir || workDir}
-              onOpenFile={openCanvas}
-              canFork={Boolean(activeId) && !isDraftSession(activeId)}
-              onFork={async (createdAt) => {
-                if (!activeId) return;
-                try {
-                  const id = await forkSessionAt(activeId, createdAt);
-                  setActiveId(id);
-                } catch (err) {
-                  setNotice(`分叉失败：${err instanceof Error ? err.message : String(err)}`);
-                }
-              }}
-              onAddToChat={(text) => {
-                const quote = text
-                  .trim()
-                  .split('\n')
-                  .map((line) => `> ${line}`)
-                  .join('\n');
-                setInput((prev) => {
-                  const p = prev.trimEnd();
-                  return p ? `${p}\n\n${quote}\n\n` : `${quote}\n\n`;
-                });
-                requestAnimationFrame(() => {
-                  document.querySelector<HTMLTextAreaElement>('main textarea')?.focus();
-                });
-              }}
-              onDelete={async (assistantId) => {
-                if (!activeId) return;
-                if (!window.confirm('删除这条回复及其工作过程？此操作不可撤销。')) return;
-                try {
-                  await deleteAssistantTurn(activeId, assistantId);
-                } catch (err) {
-                  setNotice(`删除失败：${err instanceof Error ? err.message : String(err)}`);
-                }
-              }}
-              onRetryError={resendLast}
-            />
-
-            {/* composer：审批悬挂时换成 PermissionPrompt；运行状态行在输入卡上方 */}
-            <div className="px-6 pt-1 pb-4">
-              <div className="mx-auto flex max-w-[820px] flex-col">
-                {notice && <div className="pb-1 text-12 text-error">{notice}</div>}
-                {pendingPermission ? (
-                  <PermissionPrompt
-                    request={pendingPermission}
-                    onRespond={(behavior) =>
-                      void resolvePermission(activeId, pendingPermission, behavior)
-                    }
-                  />
-                ) : (
-                  <>
-                    <RunningStatus
-                      visible={slice.isRunning}
-                      status={slice.statusText}
-                      tokenUsage={slice.usage.tokenUsage}
+                    )}
+                    {activeId && !activeId.startsWith('draft-') && (
+                      <span
+                        className="font-mono text-10 text-muted select-text"
+                        title={'会话 ID：' + activeId}
+                      >
+                        {activeId.slice(0, 8)}
+                      </span>
+                    )}
+                    <ContextCapacityRing
+                      contextTokens={slice.usage.contextTokens}
+                      contextWindow={shownWindow}
                     />
-                    <ChatInput
-                      value={input}
-                      onChange={setInput}
-                      onSend={() => void send()}
-                      onAbort={() => void abort()}
-                      isRunning={slice.isRunning}
-                      sendDisabled={noModel}
-                      slashItems={slashItems}
-                      placeholder={noModel ? '先在设置页添加 Provider，再开始对话…' : '输入消息，或拖入文件…'}
-                      attachments={attachments}
-                      onRemoveAttachment={(p) =>
-                        setAttachments((prev) => prev.filter((a) => a.path !== p))
-                      }
-                      onAddFiles={(files) => void addDroppedFiles(files)}
-                      onPickFiles={() => void pickFiles()}
-                      focusSignal={petFocusTick}
-                      dragOver={dragOver}
-                      leadingControls={
-                        <>
-                          <FolderPickerChip
-                            cwd={activeMeta?.workDir || workDir}
-                            onSelect={applyWorkDir}
-                          />
-                          <KnowledgeChip
-                            selectedBaseId={kbInjectBaseId}
-                            onSelect={(id) => {
-                              setKbInjectBaseId(id);
-                              try {
-                                if (id) localStorage.setItem('kb-inject-base-id', id);
-                                else localStorage.removeItem('kb-inject-base-id');
-                              } catch {
-                                /* localStorage 不可用时仅会话内生效 */
-                              }
-                            }}
-                          />
-                          <PermissionSelector
-                            current={permissionMode}
-                            onSelect={(m) => void selectPermission(m)}
-                          />
-                        </>
-                      }
-                      trailingControls={
-                        <ModelSelector
-                          providers={providers}
-                          currentModel={activeMeta?.model ?? ''}
-                          onSelect={(pid, mid) => void selectModel(pid, mid)}
-                        />
-                      }
-                    />
-                  </>
-                )}
-                {/* Cindy：用量环在输入卡下方右侧，不在顶栏 */}
-                <div className="mt-1.5 flex w-full items-center justify-end gap-3 px-1">
-                  {slice.usage.costUsd > 0 && (
-                    <span className="text-12 tabular-nums text-muted">
-                      ${slice.usage.costUsd.toFixed(4)}
-                    </span>
-                  )}
-                  {activeId && !activeId.startsWith('draft-') && (
-                    <span
-                      className="font-mono text-10 text-muted select-text"
-                      title={'会话 ID：' + activeId}
-                    >
-                      {activeId.slice(0, 8)}
-                    </span>
-                  )}
-                  <ContextCapacityRing
-                    contextTokens={slice.usage.contextTokens}
-                    contextWindow={shownWindow}
-                  />
+                  </div>
                 </div>
               </div>
             </div>
-            </div>
-            {canvasOpen && (
+            {canvas.canvasOpen && (
               <CanvasPane
                 workDir={activeMeta?.workDir || workDir}
-                artifacts={artifacts}
-                activePath={canvasPath}
-                onSelect={setCanvasPath}
-                onClose={() => setCanvasOpen(false)}
+                artifacts={canvas.artifacts}
+                activePath={canvas.canvasPath}
+                onSelect={canvas.setCanvasPath}
+                onClose={() => canvas.setCanvasOpen(false)}
               />
             )}
           </div>
