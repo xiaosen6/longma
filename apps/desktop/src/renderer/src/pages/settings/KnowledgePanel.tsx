@@ -4,7 +4,7 @@
  * 索引异步进行：条目状态 pending/reading/indexing → completed/failed，轮询刷新。
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Database, FilePlus2, FolderPlus, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { ArrowLeft, Database, FilePlus2, FolderPlus, Globe, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import type { KnowledgeBaseView, KnowledgeItemView } from '../../../../shared/fundet-api.ts';
 
 function SectionTitle({ children }: { children: React.ReactNode }): React.JSX.Element {
@@ -26,6 +26,8 @@ export function KnowledgePanel(): React.JSX.Element {
   const [error, setError] = useState('');
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
+  const [addingUrl, setAddingUrl] = useState(false);
+  const [urlInput, setUrlInput] = useState('');
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const refreshBases = useCallback((): void => {
@@ -107,6 +109,32 @@ export function KnowledgePanel(): React.JSX.Element {
       setError(added.length > 0 ? '' : '该目录下没有支持的文档');
       refreshItems(selectedId);
       refreshBases();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const addUrl = async (): Promise<void> => {
+    if (!selectedId) return;
+    const url = urlInput.trim();
+    if (!url) return;
+    setError('');
+    setAddingUrl(false);
+    setUrlInput('');
+    try {
+      await window.fundet.addKnowledgeUrl(selectedId, url);
+      refreshItems(selectedId);
+      refreshBases();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const refetchItem = async (it: KnowledgeItemView): Promise<void> => {
+    setError('');
+    try {
+      await window.fundet.refetchKnowledgeItem(it.id);
+      if (selectedId) refreshItems(selectedId);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
@@ -267,11 +295,45 @@ export function KnowledgePanel(): React.JSX.Element {
                   <FilePlus2 size={13} />
                   添加文档
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setAddingUrl(true)}
+                  className="flex h-8 items-center gap-1 rounded-full border border-board px-3 text-12 text-secondary transition-colors hover:text-primary"
+                >
+                  <Globe size={13} />
+                  添加网页
+                </button>
               </div>
             </div>
+            {addingUrl && (
+              <div className="mt-3 flex items-center gap-2 rounded-lg border border-board bg-card px-3 py-2">
+                <Globe size={14} className="shrink-0 text-muted" />
+                <input
+                  autoFocus
+                  value={urlInput}
+                  onChange={(e) => setUrlInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') void addUrl();
+                    if (e.key === 'Escape') setAddingUrl(false);
+                  }}
+                  placeholder="https://example.com/docs/page"
+                  className="min-w-0 flex-1 bg-transparent text-13 text-primary outline-none placeholder:text-muted"
+                />
+                <button type="button" onClick={() => void addUrl()} className="rounded-full bg-accent px-3 py-1 text-12 text-accent-fg">
+                  抓取
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAddingUrl(false)}
+                  className="rounded-full border border-board px-3 py-1 text-12 text-secondary"
+                >
+                  取消
+                </button>
+              </div>
+            )}
             <div className="mt-3 flex flex-col gap-2">
               {items.length === 0 ? (
-                <p className="py-2 text-12 text-muted">还没有文档。添加 md / txt / pdf / docx 后自动建立索引。</p>
+                <p className="py-2 text-12 text-muted">还没有内容。添加文档或网页后自动建立索引。</p>
               ) : (
                 items.map((it) => (
                   <div key={it.id} className="flex items-center gap-3 rounded-lg border border-board bg-card px-3 py-2">
@@ -285,12 +347,23 @@ export function KnowledgePanel(): React.JSX.Element {
                         (it.status === 'failed' ? 'text-error' : 'text-muted')
                       }
                     >
+                      {(it.type === 'url' ? '网页' : '') && it.type === 'url' ? '网页 · ' : ''}
                       {STATUS_LABEL[it.status] ?? it.status} · {it.chunkCount} 块
                     </span>
+                    {it.type === 'url' && it.status !== 'failed' && (
+                      <button
+                        type="button"
+                        title="重新抓取网页"
+                        onClick={() => void refetchItem(it)}
+                        className="shrink-0 text-muted transition-colors hover:text-primary"
+                      >
+                        <RefreshCw size={13} />
+                      </button>
+                    )}
                     {it.status === 'failed' && (
                       <button
                         type="button"
-                        title="重试索引"
+                        title={it.type === 'url' ? '重试抓取' : '重试索引'}
                         onClick={() => void retryItem(it)}
                         className="shrink-0 text-muted transition-colors hover:text-primary"
                       >

@@ -123,6 +123,7 @@ export const knowledgeBases = sqliteTable('knowledge_bases', {
 
 export const knowledgeItems = sqliteTable('knowledge_items', {
   id: text('id').primaryKey(),
+  type: text('type', { enum: ['file', 'url'] }).notNull().default('file'),
   baseId: text('base_id').notNull(),
   name: text('name').notNull(),
   sourcePath: text('source_path').notNull(),

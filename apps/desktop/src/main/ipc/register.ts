@@ -42,11 +42,13 @@ import {
 import { testMcpConnection } from '../host/mcp-bridge.js';
 import {
   addKnowledgeFiles,
+  addKnowledgeUrl,
   createKnowledgeBase,
   deleteKnowledgeBase,
   deleteKnowledgeItem,
   listKnowledgeBases,
   listKnowledgeItems,
+  refetchKnowledgeItem,
   retryKnowledgeItem,
   scanKnowledgeDirectory,
   searchKnowledge,
@@ -647,6 +649,9 @@ export function registerIpcHandlers(): void {
     if (files.length === 0) throw new Error('该目录下没有支持的文档（md / txt / pdf / docx）');
     return addKnowledgeFiles(String(baseId), files);
   });
+  ipcMain.handle(FUNDET_INVOKE.KB_ADD_URL, async (_e, baseId: string, url: string) =>
+    addKnowledgeUrl(String(baseId), String(url)));
+  ipcMain.handle(FUNDET_INVOKE.KB_REFETCH, async (_e, itemId: string) => refetchKnowledgeItem(String(itemId)));
 
   ipcMain.handle(FUNDET_INVOKE.FS_HOME, async () => os.homedir());
   ipcMain.handle(FUNDET_INVOKE.FS_PICK_DIR, async (e) => {

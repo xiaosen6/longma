@@ -97,6 +97,8 @@ const api: FundetApi = {
   retryKnowledgeItem: (itemId) => ipcRenderer.invoke(FUNDET_INVOKE.KB_RETRY, itemId),
   pickKnowledgeDirectory: () => ipcRenderer.invoke(FUNDET_INVOKE.KB_PICK_DIRECTORY),
   addKnowledgeDirectory: (baseId, dirPath) => ipcRenderer.invoke(FUNDET_INVOKE.KB_ADD_DIRECTORY, baseId, dirPath),
+  addKnowledgeUrl: (baseId, url) => ipcRenderer.invoke(FUNDET_INVOKE.KB_ADD_URL, baseId, url),
+  refetchKnowledgeItem: (itemId) => ipcRenderer.invoke(FUNDET_INVOKE.KB_REFETCH, itemId),
   searchKnowledge: (query, baseId, limit) => ipcRenderer.invoke(FUNDET_INVOKE.KB_SEARCH, query, baseId, limit),
 
   listSkills: (workDir) => ipcRenderer.invoke(FUNDET_INVOKE.SKILLS_LIST, workDir),

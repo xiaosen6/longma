@@ -7,6 +7,7 @@
  * 索引管线串行执行（模块级 promise 链），个人单机不需要并发。
  */
 import { randomUUID } from 'node:crypto';
+import { app } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { asc, eq, sql } from 'drizzle-orm';
@@ -14,6 +15,7 @@ import { extractDocumentText } from '../doc-text.js';
 import { getDb, getSqlite } from '../db/client.js';
 import { knowledgeBases, knowledgeChunks, knowledgeItems } from '../db/schema.js';
 import { chunkText } from './chunks.ts';
+import { WebFetchError, fetchPageAsMarkdown } from './web.ts';
 
 export interface KnowledgeBaseView {
   id: string;
@@ -27,6 +29,7 @@ export interface KnowledgeBaseView {
 
 export interface KnowledgeItemView {
   id: string;
+  type: 'file' | 'url';
   baseId: string;
   name: string;
   sourcePath: string;
@@ -165,17 +168,21 @@ async function indexItem(itemId: string): Promise<void> {
   if (!item) return;
   db.update(knowledgeItems).set({ status: 'reading', error: null }).where(eq(knowledgeItems.id, itemId)).run();
   try {
-    // 正文提取：PDF/Word 走 unpdf/mammoth，其余按文本读（md/txt 等）
+    // 正文来源：url 条目读 Markdown 快照；文件条目 PDF/Word 走 unpdf/mammoth，其余按文本读
     let text: string;
-    const ext = path.extname(item.sourcePath).toLowerCase();
-    if (ext === '.pdf' || ext === '.docx') {
-      text = await extractDocumentText(item.sourcePath);
-      // extractDocumentText 对失败场景返回中文说明串，识别出来视为失败
-      if (text.includes('未提取正文') || text.includes('无法读取正文') || text.includes('另存为')) {
-        throw new Error(text);
-      }
+    if (item.type === 'url') {
+      text = fs.readFileSync(snapshotFile(item.baseId, itemId), 'utf-8');
     } else {
-      text = fs.readFileSync(item.sourcePath, 'utf-8');
+      const ext = path.extname(item.sourcePath).toLowerCase();
+      if (ext === '.pdf' || ext === '.docx') {
+        text = await extractDocumentText(item.sourcePath);
+        // extractDocumentText 对失败场景返回中文说明串，识别出来视为失败
+        if (text.includes('未提取正文') || text.includes('无法读取正文') || text.includes('另存为')) {
+          throw new Error(text);
+        }
+      } else {
+        text = fs.readFileSync(item.sourcePath, 'utf-8');
+      }
     }
     db.update(knowledgeItems).set({ status: 'indexing' }).where(eq(knowledgeItems.id, itemId)).run();
 
@@ -222,6 +229,7 @@ export function addKnowledgeFiles(baseId: string, filePaths: string[]): Knowledg
     }
     const row = {
       id: randomUUID(),
+      type: 'file' as const,
       baseId,
       name: path.basename(abs),
       sourcePath: abs,
@@ -237,10 +245,83 @@ export function addKnowledgeFiles(baseId: string, filePaths: string[]): Knowledg
   return out;
 }
 
+/** 网页快照落盘位置（raw 目录按库分文件夹） */
+function snapshotFile(baseId: string, itemId: string): string {
+  return path.join(app.getPath('userData'), 'knowledge-raw', baseId, `${itemId}.md`);
+}
+
+/**
+ * 添加网页条目：抓取正文 → Markdown 快照落盘 → 入库并索引。
+ * 抓取失败/正文过薄（SPA 空壳）直接抛错给用户，不入库。
+ */
+export async function addKnowledgeUrl(baseId: string, url: string): Promise<KnowledgeItemView> {
+  const base = getDb().select().from(knowledgeBases).where(eq(knowledgeBases.id, baseId)).get();
+  if (!base) throw new Error('知识库不存在');
+  const { title, markdown } = await fetchPageAsMarkdown(url.trim());
+  const id = randomUUID();
+  const snapshot = snapshotFile(baseId, id);
+  fs.mkdirSync(path.dirname(snapshot), { recursive: true });
+  fs.writeFileSync(snapshot, markdown, 'utf-8');
+  const name = title.slice(0, 80);
+  const row = {
+    id,
+    type: 'url' as const,
+    baseId,
+    name,
+    sourcePath: url.trim(),
+    status: 'pending',
+    error: null,
+    chunkCount: 0,
+    createdAt: Date.now(),
+  };
+  getDb().insert(knowledgeItems).values(row).run();
+  enqueueIndexItem(row.id);
+  return { ...row };
+}
+
+/** 重新抓取网页（覆盖快照）并重索引；失败标 failed 可再试 */
+export function refetchKnowledgeItem(itemId: string): void {
+  const item = getDb().select().from(knowledgeItems).where(eq(knowledgeItems.id, itemId)).get();
+  if (!item) throw new Error('条目不存在');
+  if (item.type !== 'url') throw new Error('仅网页条目支持重新抓取');
+  enqueueUrlFetch(item.id, item.sourcePath, item.baseId);
+}
+
+/** url 条目的抓取任务：抓最新 → 覆盖快照 → 重索引 */
+function enqueueUrlFetch(itemId: string, url: string, baseId: string): void {
+  chain = chain
+    .then(async () => {
+      const db = getDb();
+      db.update(knowledgeItems).set({ status: 'reading', error: null }).where(eq(knowledgeItems.id, itemId)).run();
+      const { markdown } = await fetchPageAsMarkdown(url);
+      const snapshot = snapshotFile(baseId, itemId);
+      fs.mkdirSync(path.dirname(snapshot), { recursive: true });
+      fs.writeFileSync(snapshot, markdown, 'utf-8');
+      enqueueIndexItem(itemId);
+    })
+    .catch((err) => {
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn('[longma:knowledge] 网页抓取失败', { itemId, error: message });
+      try {
+        getDb()
+          .update(knowledgeItems)
+          .set({ status: 'failed', error: message })
+          .where(eq(knowledgeItems.id, itemId))
+          .run();
+      } catch {
+        /* DB 不可用时忽略 */
+      }
+    });
+}
+
 /** 失败条目重试：重置状态并重新入队索引 */
 export function retryKnowledgeItem(itemId: string): void {
   const item = getDb().select().from(knowledgeItems).where(eq(knowledgeItems.id, itemId)).get();
   if (!item) throw new Error('条目不存在');
+  if (item.type === 'url') {
+    refetchKnowledgeItem(itemId);
+    return;
+  }
   if (!fs.existsSync(item.sourcePath)) throw new Error('源文件已不存在，请删除该条目后重新添加');
   getDb()
     .update(knowledgeItems)

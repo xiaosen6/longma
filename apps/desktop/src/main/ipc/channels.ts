@@ -44,6 +44,8 @@ export const FUNDET_INVOKE = {
   KB_RETRY: 'kb:retry',
   KB_PICK_DIRECTORY: 'kb:pick-directory',
   KB_ADD_DIRECTORY: 'kb:add-directory',
+  KB_ADD_URL: 'kb:add-url',
+  KB_REFETCH: 'kb:refetch',
   SKILLS_LIST: 'skills:list',
   SKILLS_PICK: 'skills:pick',
   SKILLS_IMPORT: 'skills:import',

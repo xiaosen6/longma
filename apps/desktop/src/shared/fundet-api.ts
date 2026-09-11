@@ -225,6 +225,7 @@ export interface KnowledgeBaseView {
 
 export interface KnowledgeItemView {
   id: string;
+  type: 'file' | 'url';
   baseId: string;
   name: string;
   sourcePath: string;
@@ -322,6 +323,10 @@ export interface FundetApi {
   pickKnowledgeDirectory(): Promise<string | null>;
   /** 递归扫描目录并导入全部支持文档（上限 200 个） */
   addKnowledgeDirectory(baseId: string, dirPath: string): Promise<KnowledgeItemView[]>;
+  /** 抓取网页正文存 Markdown 快照并入队索引；抓取失败抛中文错误 */
+  addKnowledgeUrl(baseId: string, url: string): Promise<KnowledgeItemView>;
+  /** 网页条目重新抓取（覆盖快照）并重索引 */
+  refetchKnowledgeItem(itemId: string): Promise<void>;
   /** 检索测试（管理页用；与会话内 mcp__knowledge__search 同一实现） */
   searchKnowledge(query: string, baseId?: string, limit?: number): Promise<KnowledgeSearchResult[]>;
 
