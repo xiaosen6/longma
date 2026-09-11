@@ -217,6 +217,11 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Tailwind v4 preflight 把 button 光标改回 default；恢复 v3 的指针语义 */
+button:not(:disabled) {
+  cursor: pointer;
+}
+
 code,
 pre,
 kbd {

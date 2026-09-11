@@ -48,20 +48,32 @@ export interface KnowledgeSearchResult {
 // ---------- 查询视图 ----------
 
 export function listKnowledgeBases(): KnowledgeBaseView[] {
-  return getDb()
+  // 统计用 GROUP BY 聚合 + JS 合并（关联子查询在 drizzle sql 模板里列限定渲染有坑，实测恒 0）
+  const bases = getDb()
     .select({
       id: knowledgeBases.id,
       name: knowledgeBases.name,
       status: knowledgeBases.status,
       error: knowledgeBases.error,
       createdAt: knowledgeBases.createdAt,
-      fileCount: sql<number>`(SELECT COUNT(*) FROM knowledge_items WHERE base_id = ${knowledgeBases.id})`,
-      chunkCount: sql<number>`(SELECT COALESCE(SUM(chunk_count), 0) FROM knowledge_items WHERE base_id = ${knowledgeBases.id})`,
     })
     .from(knowledgeBases)
     .orderBy(asc(knowledgeBases.createdAt))
-    .all()
-    .map((r) => ({ ...r, fileCount: Number(r.fileCount), chunkCount: Number(r.chunkCount) }));
+    .all();
+  const stats = getDb()
+    .select({
+      baseId: knowledgeItems.baseId,
+      fileCount: sql<number>`COUNT(*)`,
+      chunkCount: sql<number>`COALESCE(SUM(${knowledgeItems.chunkCount}), 0)`,
+    })
+    .from(knowledgeItems)
+    .groupBy(knowledgeItems.baseId)
+    .all();
+  const statMap = new Map(stats.map((s) => [s.baseId, { fileCount: Number(s.fileCount), chunkCount: Number(s.chunkCount) }]));
+  return bases.map((b) => ({
+    ...b,
+    ...(statMap.get(b.id) ?? { fileCount: 0, chunkCount: 0 }),
+  }));
 }
 
 export function listKnowledgeItems(baseId: string): KnowledgeItemView[] {
