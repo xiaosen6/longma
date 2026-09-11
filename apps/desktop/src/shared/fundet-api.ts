@@ -87,12 +87,24 @@ export interface SessionAttachment {
   size?: number;
 }
 
+/** 知识库引用（溯源角标数据）：@点名注入时随消息保存的检索结果，渲染层据此把正文 [n] 变成可点角标 */
+export interface KnowledgeRef {
+  itemName: string;
+  /** 块序号（0 起，与注入前缀「第 N 块」展示一致为 seq+1） */
+  seq: number;
+  text: string;
+  baseId?: string;
+  baseName?: string;
+}
+
 export interface SessionSendInput {
   sessionId: string;
   text: string;
   attachments?: SessionAttachment[];
-  /** @知识库点名注入：检索结果前缀块，只进模型消息，不进用户气泡与落库 */
+  /** @知识库点名注入：检索结果前缀块，只进模型消息，不进用户气泡 */
   knowledgeContext?: string;
+  /** 本回合注入的知识库检索结果（与 knowledgeContext 同源）：落库供回复角标溯源 */
+  kbRefs?: KnowledgeRef[];
   /** sessionId 对应的会话不在内存（或不存在）时的 lazy-create 参数 */
   create?: SessionCreateInput;
 }

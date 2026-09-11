@@ -16,7 +16,7 @@
     "dist:mac": "electron-builder --mac --x64 --arm64",
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "node --test --experimental-strip-types src/shared/*.test.ts src/main/fs-local.test.ts src/main/doc-text.test.ts src/main/search/*.test.ts src/main/im/*.test.ts src/main/knowledge/*.test.ts src/main/host/stdio-mcp-proxy.test.ts src/main/ipc/interaction-queue.test.ts src/renderer/src/lib/artifacts.test.ts",
+    "test": "node --test --experimental-strip-types src/shared/*.test.ts src/main/fs-local.test.ts src/main/doc-text.test.ts src/main/search/*.test.ts src/main/im/*.test.ts src/main/knowledge/*.test.ts src/main/host/stdio-mcp-proxy.test.ts src/main/ipc/interaction-queue.test.ts src/renderer/src/lib/*.test.ts",
     "rebuild:native": "electron-rebuild -f -w better-sqlite3 -o better-sqlite3",
     "postinstall": "node ../../tools/electron-ensure.cjs",
     "predev": "pnpm --filter @fundet/browser-runtime compile",

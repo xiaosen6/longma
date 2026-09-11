@@ -15,6 +15,7 @@ import { extractDocumentText } from '../doc-text.js';
 import { getDb, getSqlite } from '../db/client.js';
 import { knowledgeBases, knowledgeChunks, knowledgeItems } from '../db/schema.js';
 import { chunkText } from './chunks.ts';
+import { buildKnowledgeQuery } from './query.ts';
 import { resetInterruptedKnowledgeItems } from './recovery.ts';
 import { WebFetchError, fetchPageAsMarkdown } from './web.ts';
 
@@ -362,9 +363,8 @@ export function scanKnowledgeDirectory(dirPath: string): string[] {
 
 /**
  * 检索：FTS5 trigram（bm25 排序）为主 + LIKE 短词兜底。
- * trigram tokenizer 只支持 ≥3 字符查询——中文两字词（如「鹿角」）FTS 匹配不到，
- * 对 <3 字符的词元补一路 LIKE 子串扫描（个人库 chunk 量级全扫仅几十 ms）。
- * 两路结果去重合并，FTS 命中排前。
+ * 查询预处理见 query.ts（buildKnowledgeQuery：自然句拆词 + OR 组装——
+ * 整句 MATCH 是短语匹配，长句召回恒 0 的老缺陷在 v0.2.19 后修复）。
  */
 export function searchKnowledge(query: string, baseId: string | undefined, limit: number): KnowledgeSearchResult[] {
   const q = query.trim();
@@ -382,33 +382,32 @@ export function searchKnowledge(query: string, baseId: string | undefined, limit
     score: -r.rank,
   });
 
-  // FTS 路：整句 MATCH（≥3 字符 token 才有意义；短 token 被 trigram 忽略）
-  const escaped = q.replace(/"/g, '""');
-  const ftsParams: unknown[] = [escaped];
-  if (baseId) ftsParams.push(baseId);
-  ftsParams.push(capped);
-  const ftsRows = db
-    .prepare(
-      `SELECT c.base_id AS baseId, c.seq AS seq, c.text AS text, i.name AS itemName,
-              bm25(knowledge_chunks_fts) AS rank
-       FROM knowledge_chunks_fts f
-       JOIN knowledge_chunks c ON c.rowid = f.rowid
-       JOIN knowledge_items i ON i.id = c.item_id
-       WHERE knowledge_chunks_fts MATCH ? ${baseFilter}
-       ORDER BY rank
-       LIMIT ?`,
-    )
-    .all(...ftsParams) as Array<{ baseId: string; seq: number; text: string; itemName: string; rank: number }>;
+  // FTS 路：词元 OR 匹配（buildKnowledgeQuery；无有效词元则跳过本路）
+  const { ftsExpr, shortTerms: queryShortTerms } = buildKnowledgeQuery(q);
+  let ftsRows: Array<{ baseId: string; seq: number; text: string; itemName: string; rank: number }> = [];
+  if (ftsExpr) {
+    const ftsParams: unknown[] = [ftsExpr];
+    if (baseId) ftsParams.push(baseId);
+    ftsParams.push(capped);
+    ftsRows = db
+      .prepare(
+        `SELECT c.base_id AS baseId, c.seq AS seq, c.text AS text, i.name AS itemName,
+                bm25(knowledge_chunks_fts) AS rank
+         FROM knowledge_chunks_fts f
+         JOIN knowledge_chunks c ON c.rowid = f.rowid
+         JOIN knowledge_items i ON i.id = c.item_id
+         WHERE knowledge_chunks_fts MATCH ? ${baseFilter}
+         ORDER BY rank
+         LIMIT ?`,
+      )
+      .all(...ftsParams) as Array<{ baseId: string; seq: number; text: string; itemName: string; rank: number }>;
+  }
 
   // LIKE 路：短词元（<3 字符，如两字中文词）子串兜底
-  const shortTerms = q
-    .split(/[\s,，。；;]+/)
-    .map((t) => t.trim())
-    .filter((t) => t.length > 0 && t.length < 3);
   const seen = new Set(ftsRows.map((r) => `${r.baseId}:${r.itemName}:${r.seq}`));
   const likeRows: Array<{ baseId: string; seq: number; text: string; itemName: string; rank: number }> = [];
-  if (shortTerms.length > 0) {
-    for (const term of shortTerms) {
+  if (queryShortTerms.length > 0) {
+    for (const term of queryShortTerms) {
       if (likeRows.length >= capped) break;
       const likeParams: unknown[] = [`%${term}%`];
       if (baseId) likeParams.push(baseId);

@@ -220,7 +220,7 @@ export async function buildUserMessage(
 ): Promise<UserMessage> {
   const files = attachments ?? [];
   const kbPrefix = knowledgeContext?.trim()
-    ? `【知识库检索结果——以下是用户知识库中与问题相关的原文片段，回答时优先依据并注明来源文件】\n\n${knowledgeContext.trim()}\n\n---\n\n`
+    ? `【知识库检索结果——以下是用户知识库中与问题相关的原文片段，回答时优先依据，并在引用处用 [1] [2] 这样的编号角标标注对应片段】\n\n${knowledgeContext.trim()}\n\n---\n\n`
     : '';
   if (files.length === 0) return { type: 'user', content: kbPrefix + text };
   const blocks: UserContentBlock[] = [];

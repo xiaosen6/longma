@@ -22,6 +22,7 @@ import { MessageActionBar } from './MessageActionBar';
 import { ShareTurnModal, type ShareTurnPayload } from './ShareTurnModal';
 import { groupWorkItems, WorkGroupBlock } from './WorkGroupBlock';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import type { KnowledgeRef } from '../../../shared/fundet-api.ts';
 import { cn } from '../lib/cn';
 import { mayExceedVisualLineThreshold, useUserMessageAutoCollapse } from './chat/userMessageCollapse';
 
@@ -142,6 +143,17 @@ function lastUserTextBefore(items: DisplayItem[], assistantId: string): string {
   return '';
 }
 
+/** 溯源角标数据：assistant 回复对应的上游 user 消息携带的知识库引用 */
+function lastUserKbRefsBefore(items: DisplayItem[], assistantId: string): KnowledgeRef[] | undefined {
+  const idx = items.findIndex((it) => it.kind === 'assistant' && it.id === assistantId);
+  const from = idx >= 0 ? idx : items.length; // 流式文本（无 id 命中）取最后一条 user
+  for (let i = from - 1; i >= 0; i--) {
+    const prev = items[i];
+    if (prev.kind === 'user') return prev.kbRefs;
+  }
+  return undefined;
+}
+
 function AssistantTurn({
   item,
   pinned,
@@ -151,6 +163,7 @@ function AssistantTurn({
   onFork,
   onAddToChat,
   onDelete,
+  kbRefs,
 }: {
   item: AssistantItem;
   pinned: boolean;
@@ -160,6 +173,7 @@ function AssistantTurn({
   onFork?: () => Promise<void>;
   onAddToChat?: () => void;
   onDelete?: () => Promise<void>;
+  kbRefs?: KnowledgeRef[];
 }): React.JSX.Element {
   const [hovered, setHovered] = useState(false);
   return (
@@ -169,7 +183,7 @@ function AssistantTurn({
       onMouseLeave={() => setHovered(false)}
     >
       <div className="w-full max-w-full min-w-0">
-        <AssistantMessage text={item.text} workDir={workDir} onOpenFile={onOpenFile} />
+        <AssistantMessage text={item.text} workDir={workDir} onOpenFile={onOpenFile} kbRefs={kbRefs} />
         <MessageActionBar
           createdAt={item.createdAt}
           copyText={item.text}
@@ -346,11 +360,12 @@ export function MessageStream({
               return <UserBubble key={item.id} text={item.text} attachments={item.attachments} onOpenFile={onOpenFile} />
             case 'assistant': {
               const showBar = isTurnTailAssistant(grouped, index, slice.isRunning, hasStreaming);
+              const kbRefs = lastUserKbRefsBefore(slice.items, item.id);
               if (!showBar) {
                 return (
                   <div key={item.id} className="flex justify-start">
                     <div className="w-full max-w-full min-w-0">
-                      <AssistantMessage text={item.text} workDir={workDir} onOpenFile={onOpenFile} />
+                      <AssistantMessage text={item.text} workDir={workDir} onOpenFile={onOpenFile} kbRefs={kbRefs} />
                     </div>
                   </div>
                 );
@@ -364,6 +379,7 @@ export function MessageStream({
                   pinned={item.id === pinnedId}
                   workDir={workDir}
                   onOpenFile={onOpenFile}
+                  kbRefs={kbRefs}
                   onShare={() =>
                     setSharePayload({
                       userText,
@@ -423,6 +439,7 @@ export function MessageStream({
                 streaming
                 workDir={workDir}
                 onOpenFile={onOpenFile}
+                kbRefs={lastUserKbRefsBefore(slice.items, '__streaming__')}
               />
             </div>
           </div>

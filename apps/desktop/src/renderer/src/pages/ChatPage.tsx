@@ -11,7 +11,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PanelRight } from 'lucide-react';
 import type { Effort, PermissionMode } from '@fundet/agent-core';
-import type { ProviderView, SessionAttachment, SkillView } from '../../../shared/fundet-api.ts';
+import type { ProviderView, SessionAttachment, SkillView, KnowledgeRef } from '../../../shared/fundet-api.ts';
 import type { SlashItem } from '../components/SlashPalette';
 import {
   abortSession,
@@ -259,14 +259,22 @@ export function ChatPage(): React.JSX.Element {
     setAttachmentsState([]);
     setNotice('');
     // @知识库点名：检索选中库并把原文片段注入模型消息（强制 RAG，不依赖模型调工具）；
-    // 注入内容只进模型消息，用户气泡与落库保持原文
+    // 注入内容只进模型消息，用户气泡与落库保持原文；kbRefs 随消息落库供回复角标溯源
     let knowledgeContext: string | undefined;
+    let kbRefs: KnowledgeRef[] | undefined;
     if (kbInjectBaseId && text) {
       try {
         const results = await window.fundet.searchKnowledge(text, kbInjectBaseId, 6);
         if (results.length > 0) {
           const parts = results.map((r, i) => `[${i + 1}] 来源：${r.itemName}（第 ${r.seq + 1} 块）\n${r.text}`);
           knowledgeContext = parts.join('\n\n');
+          kbRefs = results.map((r) => ({
+            itemName: r.itemName,
+            seq: r.seq,
+            text: r.text,
+            baseId: r.baseId,
+            baseName: r.baseName,
+          }));
         }
       } catch {
         // 检索失败不阻断发送——模型仍可走 mcp__knowledge__search 自主检索
@@ -296,7 +304,7 @@ export function ChatPage(): React.JSX.Element {
         };
       }
     }
-    await sendMessage(activeId, text, create, pending.length > 0 ? pending : undefined, knowledgeContext);
+    await sendMessage(activeId, text, create, pending.length > 0 ? pending : undefined, knowledgeContext, kbRefs);
   }, [activeId, activeMeta, attachments, input, providers, kbInjectBaseId]);
 
   const abort = useCallback(async (): Promise<void> => {

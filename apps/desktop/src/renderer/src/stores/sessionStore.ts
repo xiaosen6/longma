@@ -15,6 +15,7 @@ import { useSyncExternalStore } from 'react';
 import { friendlyError, friendlyProviderError } from '../../../shared/friendly-error.ts';
 import type { AgentEvent, InteractionRequest, UsageSnapshot } from '@fundet/agent-core';
 import type {
+  KnowledgeRef,
   MessageView,
   SessionAttachment,
   SessionCreateInput,
@@ -26,7 +27,15 @@ import type {
 // ---------------------------------------------------------------------------
 
 export type DisplayItem =
-  | { kind: 'user'; id: string; text: string; createdAt?: number; attachments?: SessionAttachment[] }
+  | {
+      kind: 'user';
+      id: string;
+      text: string;
+      createdAt?: number;
+      attachments?: SessionAttachment[];
+      /** 本回合 @知识库注入的检索结果（溯源角标数据，气泡不显示） */
+      kbRefs?: KnowledgeRef[];
+    }
   | {
       kind: 'assistant';
       id: string;
@@ -564,12 +573,14 @@ function rebuildItems(messages: MessageView[]): DisplayItem[] {
           const attachments = Array.isArray(c.attachments)
             ? (c.attachments as SessionAttachment[])
             : undefined;
+          const kbRefs = Array.isArray(c.kbRefs) ? (c.kbRefs as KnowledgeRef[]) : undefined;
           items.push({
             kind: 'user',
             id: m.id,
             text: c.text,
             createdAt: m.createdAt,
             ...(attachments && attachments.length > 0 ? { attachments } : {}),
+            ...(kbRefs && kbRefs.length > 0 ? { kbRefs } : {}),
           });
         }
         break;
@@ -627,6 +638,7 @@ export async function sendMessage(
   create?: SessionCreateInput,
   attachments?: SessionAttachment[],
   knowledgeContext?: string,
+  kbRefs?: KnowledgeRef[],
 ): Promise<void> {
   appendItem(sessionId, {
     kind: 'user',
@@ -634,6 +646,7 @@ export async function sendMessage(
     text,
     createdAt: Date.now(),
     ...(attachments && attachments.length > 0 ? { attachments } : {}),
+    ...(kbRefs && kbRefs.length > 0 ? { kbRefs } : {}),
   });
   patchSlice(sessionId, { isRunning: true, statusText: 'Working…' });
   notifySlice(sessionId);
@@ -648,6 +661,7 @@ export async function sendMessage(
       create,
       attachments,
       ...(knowledgeContext ? { knowledgeContext } : {}),
+      ...(kbRefs && kbRefs.length > 0 ? { kbRefs } : {}),
     });
     if (result.accepted) {
       // 草稿首条消息已被 main 接受（lazy-create 落 DB）：摘掉草稿标记，

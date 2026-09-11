@@ -97,6 +97,8 @@ export function registerSessionHandlers(): void {
       insertMessage(session.id, 'user', {
         text: input.text,
         ...(attachments.length > 0 ? { attachments } : {}),
+        // 溯源角标：引用元数据随用户消息落库（气泡不显示；assistant 正文 [n] 据此渲染角标）
+        ...(input.kbRefs && input.kbRefs.length > 0 ? { kbRefs: input.kbRefs } : {}),
       });
       autoTitleFromFirstMessage(
         session.id,
