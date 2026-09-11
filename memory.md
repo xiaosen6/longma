@@ -289,6 +289,12 @@ ChatPage / ChatInput
 
 ### 4.9c 本地知识库 V1（2026-09-10，0.2.15 后、未发版；规划见 docs/knowledge-base-plan.md）
 
+**V1.5/V2 增强（随 0.2.16 发）**：failed 条目重试按钮（reset+重新入队；url 条目 retry=重抓）；「导入文件夹」（scanKnowledgeDirectory 递归 md/txt/pdf/docx，跳 node_modules/.git 等，上限 200）；composer **KnowledgeChip 选库 @点名强制注入**——发送时检索该库 top6 原文片段作为前缀块注入模型消息。**注入契约（重要）**：SessionSendInput.knowledgeContext 只进模型消息前缀块（buildUserMessage），**不进用户气泡与落库**；检索失败不阻断发送（模型仍可自主调工具）。
+
+**网页源（随 0.2.18 发）**：migration 0007 给 knowledge_items 加 type 列（file/url，默认 file）。web.ts：fetchPageAsMarkdown（UA/redirect follow/15s 超时；正文 <200 字判 SPA 空壳抛中文错误不入库）+ htmlToText（零依赖剥 script/style/nav/header/footer、块级转行、实体解码）。快照落 userData/knowledge-raw/<baseId>/<itemId>.md（含 source/url/fetchedAt frontmatter）；url 条目索引读快照；「重新抓取」= 覆盖快照+重索引。面板「添加网页」URL 输入行 + url 条目刷新按钮。
+
+**配套改动**：db/client.ts 导出 getSqlite()（原生 better-sqlite3——FTS5 虚表/rowid 查询 drizzle 覆盖不到）；统计查询用 GROUP BY 聚合替代关联子查询（drizzle sql 模板列限定渲染有坑实测恒 0）；globals.css 全局 button:not(:disabled) cursor:pointer（Tailwind v4 preflight 恢复 v3 语义）。
+
 **纯全文检索形态（用户拍板：不做 embedding/向量化）**。零模型依赖、零原生扩展、零外部调用。
 - **migration 0006**：`knowledge_bases/knowledge_items/knowledge_chunks` 三表 + **FTS5 trigram 虚表**（外部内容模式 content_rowid 对齐主表，手动维护；trigram 对中文 ≥3 字子串有效）。**FTS 同步的 delete 命令需要原 text 值**——删除前先按 id 查回 rowid+text 再发 'delete'。
 - **检索双路**：FTS bm25 主路 + **短词（<3 字符）LIKE 子串兜底**（trigram 两字中文词查不到，如「鹿角」；个人库量级 LIKE 全扫仅几十 ms）。查询串双引号转义防 FTS 语法注入。
