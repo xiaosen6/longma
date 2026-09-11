@@ -131,7 +131,7 @@ ChatPage / ChatInput
 
 | 任务 | 文件 |
 | --- | --- |
-| 发消息 / 附件 | `apps/desktop/src/main/ipc/register.ts`、`sessionStore.ts`、`ChatPage.tsx` |
+| 发消息 / 附件 | `main/ipc/session-core.ts`（wireSession/审批/落库/用量采集）、`main/ipc/handlers/session.ts`（SESSION_* handler）、`sessionStore.ts`、`ChatPage.tsx` |
 | 拖文件 / 回形针 | `ChatInput.tsx`、`lib/file-drop.ts`、`main/fs-local.ts` |
 | Canvas 预览 | `lib/artifacts.ts`、`CanvasPane.tsx`、`shared/file-kind.ts`、`main/file-protocol.ts` |
 | IPC 契约 | `src/shared/fundet-api.ts`、`preload/index.ts`、`main/ipc/channels.ts` |
@@ -296,6 +296,8 @@ ChatPage / ChatInput
 **配套改动**：db/client.ts 导出 getSqlite()（原生 better-sqlite3——FTS5 虚表/rowid 查询 drizzle 覆盖不到）；统计查询用 GROUP BY 聚合替代关联子查询（drizzle sql 模板列限定渲染有坑实测恒 0）；globals.css 全局 button:not(:disabled) cursor:pointer（Tailwind v4 preflight 恢复 v3 语义）。
 
 **索引中断恢复（0.2.18 后、未发版）**：索引队列是内存 promise 链（service.ts `chain`），应用退出/崩溃时在途条目会永久卡在 pending/reading/indexing（重试按钮是 failed 专属，用户无法自救）。修复：`knowledge/recovery.ts` 纯函数 `resetInterruptedKnowledgeItems`（非终态 → failed + 「上次索引未完成（应用中途退出），请重试」），index.ts 在 initDatabase 后调 `recoverInterruptedKnowledgeJobs()`。单测 recovery.test.ts（内存库 4 例）；真机演练（seed 卡死条目→重启→VERIFY-PASS→清理）。**坑**：node --test 直跑链 import 用 `.ts` 后缀的老规矩对新文件同样适用（recovery.ts 首版 `.js` 后缀 ERR_MODULE_NOT_FOUND）。
+
+**IPC 拆分（0.2.18 后、未发版）**：register.ts（937 行）按域拆为 `ipc/session-core.ts`（broadcast/persistEvent/wireSession/ensureSession/buildUserMessage/审批 pendingInteractions/settleInteraction——模块级状态唯一持有处）+ `ipc/handlers/{session,providers,mcp,knowledge,system,search,browser,computer,skills}.ts`（各导出 register*Handlers；usage 并入 session；窗口/剪贴板/fs 并入 system）；register.ts 只做聚合 + re-export broadcast/wireSession（index.ts、im/dispatcher 的 import 不变）。验证：typecheck + 77 单测 + CDP 冒烟 `tools/ipc-smoke.mjs`（10 域 invoke 全过，可复用）。
 
 **纯全文检索形态（用户拍板：不做 embedding/向量化）**。零模型依赖、零原生扩展、零外部调用。
 - **migration 0006**：`knowledge_bases/knowledge_items/knowledge_chunks` 三表 + **FTS5 trigram 虚表**（外部内容模式 content_rowid 对齐主表，手动维护；trigram 对中文 ≥3 字子串有效）。**FTS 同步的 delete 命令需要原 text 值**——删除前先按 id 查回 rowid+text 再发 'delete'。
