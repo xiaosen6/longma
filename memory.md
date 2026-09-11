@@ -149,7 +149,7 @@ ChatPage / ChatInput
 
 | 版本 | 日期 | 要点 |
 | --- | --- | --- |
-| 0.2.19 | 09-11 | **Electron 37→44.3.0**（唯一破坏点 clipboard.writeImage→ClipboardItem；**首次 Electron 44 打包态本地覆盖装冒烟过闸后才推 tag**；坑：pnpm 升级后二进制需 ELECTRON_MIRROR 补装、CI 遇下载失败同配镜像；better-sqlite3 v13 跨 ABI 无需 rebuild）+ **知识库索引中断恢复**（启动时非终态条目重置可重试，防崩溃永久卡「索引中」）+ **IPC 拆分**（register.ts→session-core+9 域 handlers）+ **ChatPage 拆分**（→pages/chat/ 4 hooks+2 组件）+ **测试补强 77→89**（StdioMcpHttpProxy 7 例+审批链 InteractionQueue 5 例；坑：strip-only 不支持参数属性、PS5.1 中文 mojibake） |
+| 0.2.19 | 09-11 | **Electron 37→44.3.0**（唯一破坏点 clipboard.writeImage→ClipboardItem；打包态本地覆盖装冒烟过闸后发版；坑：pnpm 升级后二进制需 ELECTRON_MIRROR 补装；better-sqlite3 v13 跨 ABI 无需 rebuild）+ **知识库索引中断恢复**（启动时非终态条目重置可重试，防崩溃永久卡「索引中」）+ **IPC 拆分**（register.ts→session-core+9 域 handlers）+ **ChatPage 拆分**（→pages/chat/ 4 hooks+2 组件）+ **测试补强 77→89**（StdioMcpHttpProxy 7 例+审批链 InteractionQueue 5 例；坑：strip-only 不支持参数属性、PS5.1 中文 mojibake）。**发版闸门新坑**：本地打包必须用根命令 `pnpm dist:win`——`pnpm --filter fundet-desktop dist:win` **跳过 build 前置**，把 out/ 里历史残留（本例为某次 fundet 品牌构建的 renderer）打进安装包（装机后 title/品牌=Fundet，险些带病发版）；产物品牌验证用 CDP `document.title === 'LongMa'` + app.asar hash 对比 win-unpacked |
 | 0.2.18 | 09-11 | **知识库网页源**（URL 抓取存 Markdown 快照入检索：fetch+htmlToText 零依赖剥标签、正文<200 字判 SPA 空壳抛中文错误、快照落 userData/knowledge-raw、条目 type=file/url、重试=重抓）+ 库列表统计修复（GROUP BY 替代关联子查询）+ 全局按钮小手（Tailwind v4 preflight 恢复） |
 | 0.2.17 | 09-11 | 知识库管理页简化（**移除检索测试区块**，用户拍板）+ 注入弹窗去侧边滚动条（去 max-h/overflow，个人库量级不需要） |
 | 0.2.16 | 09-10 | **本地知识库 V1**（纯全文检索 FTS5 trigram + 短词 LIKE 兜底；mcp__knowledge__search/list 工具；设置→知识库管理页+检索测试）+ **V1.5/V2**（失败重试/目录导入/topK/@点名强制注入——composer KnowledgeChip 选库，发送时检索该库注入模型消息前缀，不进用户气泡与落库）。CI 坑：cua-driver.exe 复制 EBUSY 连续 3 次失败（重试循环也没救回）→ **rerun --failed 直接过**（偶发锁，别急着改 workflow） |
