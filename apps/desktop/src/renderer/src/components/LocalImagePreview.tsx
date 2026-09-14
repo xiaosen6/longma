@@ -22,6 +22,8 @@ interface LocalImagePreviewProps {
   className?: string;
   alt?: string;
   maxHeight?: string;
+  /** 双路加载都失败（文件不存在/不可读）时回调，由外层退化为普通文本 */
+  onBroken?: () => void;
 }
 
 export function LocalImagePreview({
@@ -31,16 +33,20 @@ export function LocalImagePreview({
   className,
   alt,
   maxHeight = '360px',
-}: LocalImagePreviewProps): React.JSX.Element {
+  onBroken,
+}: LocalImagePreviewProps): React.JSX.Element | null {
   const protocolUrl = buildFilePreviewUrl(workDir, path);
   const [url, setUrl] = useState<string | null>(protocolUrl);
   const [error, setError] = useState('');
   const [zoom, setZoom] = useState(false);
   const [usedFallback, setUsedFallback] = useState(false);
+  /** 双路（协议 URL → data URL）都失败：退化为纯文本文件名，绝不显示破图 */
+  const [broken, setBroken] = useState(false);
 
   useEffect(() => {
     setError('');
     setUsedFallback(false);
+    setBroken(false);
     if (protocolUrl) {
       setUrl(protocolUrl);
       return;
@@ -54,20 +60,30 @@ export function LocalImagePreview({
 
   const fallbackToDataUrl = (): void => {
     if (usedFallback) {
-      setError('无法加载图片');
+      setBroken(true);
+      onBroken?.();
       return;
     }
     setUsedFallback(true);
     void window.fundet
       .readFileDataUrl(path, workDir)
       .then((next) => setUrl(next))
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)));
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : String(err));
+        setBroken(true);
+        onBroken?.();
+      });
   };
 
   const open = (): void => {
+    if (broken) return;
     onOpen?.(path);
     if (url) setZoom(true);
   };
+
+  // 双路加载都失败：渲染为 null，由外层（onBroken 回调方）退化为普通文本，
+  // 绝不显示破图占位（增强失败静默退化）
+  if (broken) return null;
 
   return (
     <span className={cn('my-2 block', className)}>

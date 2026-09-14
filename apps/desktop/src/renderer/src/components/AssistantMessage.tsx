@@ -45,6 +45,33 @@ function flattenText(node: ReactNode): string {
   return '';
 }
 
+/** 行内 code 是图片路径时的预览芯片：文件加载失败（双路都挂）整体退回普通 code 文本 */
+function FilePathCodeChip({
+  raw,
+  workDir,
+  onOpenFile,
+}: {
+  raw: string;
+  workDir: string;
+  onOpenFile?: (path: string) => void;
+}): React.JSX.Element {
+  const [broken, setBroken] = useState(false);
+  if (broken) return <code>{raw}</code>;
+  return (
+    <span className="my-2 block">
+      <button
+        type="button"
+        title="点击预览图片"
+        onClick={() => onOpenFile?.(raw)}
+        className="cursor-pointer font-mono text-12 text-secondary underline decoration-board underline-offset-2 hover:text-primary"
+      >
+        {raw}
+      </button>
+      <LocalImagePreview path={raw} workDir={workDir} onOpen={onOpenFile} onBroken={() => setBroken(true)} />
+    </span>
+  );
+}
+
 /** markdown components 配置工厂：流式块组件与终版全文渲染共用 */
 function buildMdComponents(ctx: {
   workDir?: string;
@@ -108,20 +135,11 @@ function buildMdComponents(ctx: {
       const raw = flattenText(children).trim();
       const isBlock = Boolean(className) || raw.includes('\n');
       if (!isBlock && looksLikeFilePath(raw) && isImagePath(raw)) {
-        return (
-          <span className="my-2 block">
-            <button
-              type="button"
-              title="点击预览图片"
-              onClick={() => onOpenFile?.(raw)}
-              className="cursor-pointer font-mono text-12 text-secondary underline decoration-board underline-offset-2 hover:text-primary"
-            >
-              {raw}
-            </button>
-            {workDir ? (
-              <LocalImagePreview path={raw} workDir={workDir} onOpen={onOpenFile} alt={undefined} />
-            ) : null}
-          </span>
+        // 模块级组件持有 broken 状态：文件不存在时整体退回普通 code（不破图）
+        return workDir ? (
+          <FilePathCodeChip raw={raw} workDir={workDir} onOpenFile={onOpenFile} />
+        ) : (
+          <code className={className}>{children}</code>
         );
       }
       return <code className={className}>{children}</code>;
