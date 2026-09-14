@@ -609,7 +609,11 @@ GEO 只审计用户给出的站点（CLI 自抓），不是通用搜索。
 - 自建搜索索引。
 - 保证 GEO 能让 ChatGPT 引用。
 
-### 7.5 Cindy 移植批次二（2026-08-30，commit 17e1a7d~e376475 后续）
+### 7.5 Cindy 上游移植批次二（2026-08-30，commit 17e1a7d~e376475 后续）
+
+**2026-09-12 对照（两周增量 1063 提交，v0.1.77→79）**：
+- **值得移植（待用户拍板）**：①**流式 markdown 块级复用**（ceb279db0/404573454）——Cindy 实测 2 万字符流式帧 p95 284ms→33ms、样式写入 153k→700 次；我们同病灶（末条每 32ms 全量 ReactMarkdown 重解析，memo 只保历史），移植思路=流式文本按块边界（段落/围栏）切稳定块 memo，只重解析尾部未完成块，word fade 延迟归 DOM refs 持有；已知限制：超大单块仍全文解析。②PDF 预览懒渲染（b6434fa1e，Canvas 长卡顿场景）。③侧栏按创建时间排序（a0f65f93b，小功能）。④provider 双击重命名（cf1f8ca2e，微小）。
+- **不移植（有因）**：#3693 会话已加载窗口重做（d2f9ef9f4）——仍深耦合 makerChatStore/historyGap/跳转回填分段历史架构，我们全量加载+memo 无卡顿报障，维持原判；#4365 确认请求串线修复——病灶在 Codex 多端（mobile/device-link 双端 resolve）+ Cindy store，我们 Pi 单端 InteractionQueue（重复/超时结算语义已有单测覆盖）不同构；remote-desktop/device-link/Cindy Make/bots/plugins OAuth/teammates——设备互联/账号云/多 Agent 红线域；mobile 系列组件不可搬；maker-core 212 提交大半是多账号/Codex/CC harness 域。
 
 - **使用我的浏览器登录态**（对齐 f1dd63ec 精简版）：main/browser/real-profile.ts——探测系统 Chrome/Edge/Brave（Local State mtime 排序）→ last_used profile → SQLite online-backup（better-sqlite3 backup，源浏览器开着也能一致性拷）→ 改写 Local State 指向 Default（名字标 LongMa）→ staging 原子发布进托管 user-data + 完成标记。开关在设置→自动操作→浏览器自动化内（需先开主开关），**拷贝/清除前强制 stopManagedRuntime**（host 新增，quiesce→stop→resumeAfterStop，vendored runtime 下次 action 按需重启）。关=清登录库恢复空白。Windows Chrome 运行时锁库 → PROFILE_LOCKED 中文提示（设计内）。与 Cindy 差异：他们是独立 Cindy-real 双身份避免清掉手写登录态，龙马 v1 直接覆盖托管 profile（确认弹窗声明），v2 可演进双身份。**未真测成功拷贝路径**（本机 Chrome 开着），实现照 Cindy proven 逻辑。
 - **终态错误只弹一次 + 重发按钮**：sessionStore error 事件——终态错误卡每轮只留一张（重复替换文案），瞬时重试提示原地更新不堆叠；错误卡新增「重新发送」按钮（resendLast 重发最后一条用户消息含附件路径）。
