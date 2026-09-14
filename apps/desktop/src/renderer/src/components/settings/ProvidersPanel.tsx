@@ -389,7 +389,15 @@ export function ProvidersPanel(): React.JSX.Element {
                     size={22}
                   />
                 </span>
-                <div className="min-w-0 flex-1">
+                <div
+                  className="min-w-0 flex-1"
+                  title="双击编辑供应商"
+                  onDoubleClick={() => {
+                    // 双击重命名/编辑（对齐 Cindy #4313）：复用编辑对话框
+                    setEditing(selected);
+                    setCustomOpen(true);
+                  }}
+                >
                   <div className="flex items-center gap-2">
                     <h3 className="truncate text-16 font-medium text-primary">{selected.name}</h3>
                     <span className="rounded-full bg-chip px-2 py-0.5 text-11 text-secondary">{shown} models</span>

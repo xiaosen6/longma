@@ -12,8 +12,8 @@
  * - 底部：设置入口做成「用户胶囊」同款（icon 圆 + 文字的 pill 卡，对齐 Cindy
  *   UserInfoSection 的 Not-signed-in 胶囊位）。
  */
-import { useRef, useState, useSyncExternalStore } from 'react';
-import { CirclePlus, MessageSquare, Pencil, Trash2, UserRound } from 'lucide-react';
+import { useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { Activity, CalendarClock, CirclePlus, MessageSquare, Pencil, Trash2, UserRound } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { SessionListItem } from '../../../shared/fundet-api.js';
 import { cn } from '../lib/cn';
@@ -205,6 +205,18 @@ export function Sidebar({
   onResizeStart,
 }: SidebarProps): React.JSX.Element {
   const profile = useSyncExternalStore(subscribeProfile, getProfile, getProfile);
+  // 会话排序：active=最近活跃（updatedAt，默认，与 main 侧返回序一致）/ created=创建时间
+  const [sortBy, setSortBy] = useState<'active' | 'created'>(() => {
+    try {
+      return localStorage.getItem('longma.sidebar-sort') === 'created' ? 'created' : 'active';
+    } catch {
+      return 'active';
+    }
+  });
+  const sortedSessions = useMemo(() => {
+    if (sortBy === 'active') return sessions;
+    return [...sessions].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+  }, [sessions, sortBy]);
   return (
     <aside
       className="relative z-20 flex h-full shrink-0 flex-col border-r border-board bg-surface"
@@ -255,15 +267,37 @@ export function Sidebar({
         </div>
       </div>
 
-      {/* 会话区标签（对齐 Cindy 的「Chat」段标） */}
-      <div className="px-6 pt-1 pb-1 text-13 text-muted select-none">会话</div>
+      {/* 会话区标签 + 排序切换（对齐 Cindy 的「Chat」段标） */}
+      <div className="flex items-center justify-between px-6 pt-1 pb-1">
+        <span className="text-13 text-muted select-none">会话</span>
+        <button
+          type="button"
+          title={sortBy === 'created' ? '当前：按创建时间排序（点击切换为最近活跃）' : '当前：按最近活跃排序（点击切换为创建时间）'}
+          aria-label="切换会话排序"
+          data-sidebar-action="sort-toggle"
+          onClick={() => {
+            const next = sortBy === 'created' ? 'active' : 'created';
+            setSortBy(next);
+            try {
+              localStorage.setItem('longma.sidebar-sort', next);
+            } catch { /* localStorage 不可用时仅会话内生效 */ }
+          }}
+          className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-hover hover:text-primary"
+        >
+          {sortBy === 'created' ? (
+            <CalendarClock size={12} strokeWidth={1.8} />
+          ) : (
+            <Activity size={12} strokeWidth={1.8} />
+          )}
+        </button>
+      </div>
 
       {/* 会话列表 */}
       <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3 pb-2">
         {sessions.length === 0 && (
           <div className="px-3 pt-1 text-13 text-muted select-none">还没有会话</div>
         )}
-        {sessions.map((s) => (
+        {sortedSessions.map((s) => (
           <SessionRow
             key={s.id}
             session={s}

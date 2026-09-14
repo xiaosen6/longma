@@ -162,6 +162,7 @@ function Preview({ workDir, artifact }: { workDir: string; artifact: Artifact })
           title={basename(artifact.path)}
           className="min-h-[240px] w-full flex-1 rounded-inner border border-board bg-white"
           sandbox="allow-scripts allow-same-origin allow-forms allow-modals"
+          loading="lazy"
           src={mediaUrl}
         />
       )}
@@ -169,6 +170,7 @@ function Preview({ workDir, artifact }: { workDir: string; artifact: Artifact })
         <iframe
           title={basename(artifact.path)}
           className="min-h-[240px] w-full flex-1 rounded-inner border border-board bg-card"
+          loading="lazy"
           src={mediaUrl}
         />
       )}

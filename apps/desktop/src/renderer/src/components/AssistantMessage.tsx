@@ -1,11 +1,13 @@
 /**
  * AssistantMessage — 助手消息正文：react-markdown + GFM + 代码高亮。
  *
- * 流式渲染：store 的 100ms 节流控制频率；流式期间挂 streamWordFade 插件做
- * 逐词淡入（DESIGN.md §14.4 第五类 sanctioned motion 的简化版，详见
- * lib/streamWordFade.ts），reduced-motion 下不挂。终版渲染零 span 包装。
+ * 流式渲染：store 的 32ms 节流控制频率；流式期间按 markdown 块边界切分
+ * （lib/streamingBlocks.ts），已封口的块 memo 后零重解析、每 tick 只重解析
+ * 尾部未完成块（对齐 Cindy ceb279db0 块级复用：长文档流式帧耗时数量级下降），
+ * 尾块挂 streamWordFade 逐词淡入（reduced-motion 下不挂）；终版渲染零 span
+ * 包装、单 ReactMarkdown 全文（跨块上下文零差异）。
  */
-import { memo, useRef, useState, type ReactNode } from 'react';
+import { memo, useMemo, useRef, useState, type ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
@@ -15,6 +17,7 @@ import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 import { normalizeMathDelimiters } from '../lib/mathMarkdown';
 import { normalizeKbCitations, parseKbCiteHref } from '../lib/kbCitation';
+import { splitStreamingBlocks } from '../lib/streamingBlocks';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { isImagePath } from '../lib/artifacts';
 import { createStreamFadeState, rehypeStreamWordFade, type StreamFadeState } from '../lib/streamWordFade';
@@ -24,7 +27,7 @@ import type { KnowledgeRef } from '../../../shared/fundet-api.ts';
 
 interface AssistantMessageProps {
   text: string;
-  /** 流式进行中：启用逐词淡入 */
+  /** 流式进行中：启用块级复用与逐词淡入 */
   streaming?: boolean;
   workDir?: string;
   onOpenFile?: (path: string) => void;
@@ -41,6 +44,125 @@ function flattenText(node: ReactNode): string {
   }
   return '';
 }
+
+/** markdown components 配置工厂：流式块组件与终版全文渲染共用 */
+function buildMdComponents(ctx: {
+  workDir?: string;
+  onOpenFile?: (path: string) => void;
+  kbRefs?: KnowledgeRef[];
+  activeCite: number | null;
+  setActiveCite: (n: number | null) => void;
+}) {
+  const { workDir, onOpenFile, kbRefs, activeCite, setActiveCite } = ctx;
+  return {
+    pre: ({ children }: { children?: ReactNode }) => {
+      // ```mermaid 围栏 → SVG 图表（解析失败回落源码）
+      const child = Array.isArray(children) ? children[0] : children;
+      const cls = (child as { props?: { className?: string } } | undefined)?.props?.className;
+      if (typeof cls === 'string' && isMermaidClassName(cls)) {
+        const raw = flattenText((child as { props?: { children?: ReactNode } }).props?.children);
+        return <MarkdownMermaidBlock raw={raw} />;
+      }
+      return <pre>{children}</pre>;
+    },
+    a: ({ href, children }: { href?: string; children?: ReactNode }) => {
+      // 知识库溯源角标：[n](#kb-n) → 上标小角标，点击在消息底部展开原文块
+      const cite = parseKbCiteHref(href);
+      if (cite !== null && kbRefs && cite <= kbRefs.length) {
+        const ref = kbRefs[cite - 1];
+        const active = activeCite === cite;
+        return (
+          <button
+            type="button"
+            title={`来源：${ref.itemName}（第 ${ref.seq + 1} 块）`}
+            onClick={() => setActiveCite(active ? null : cite)}
+            className={
+              'mx-0.5 inline-flex h-[15px] min-w-[15px] cursor-pointer items-center justify-center rounded-[4px] px-[3px] align-super text-[10px] leading-none transition-colors ' +
+              (active
+                ? 'bg-accent text-accent-fg'
+                : 'bg-chip text-secondary hover:bg-menu-item-hover hover:text-primary')
+            }
+          >
+            {cite}
+          </button>
+        );
+      }
+      // http(s) 进系统浏览器；相对/本地路径走右侧 Canvas 预览。
+      // 不拦截会让 Electron 主窗口整页跳走（will-navigate 还有一道主进程兜底）。
+      return (
+        <a
+          href={href}
+          className="cursor-pointer"
+          onClick={(e) => {
+            if (!href || href.startsWith('#')) return;
+            e.preventDefault();
+            if (/^https?:\/\//i.test(href)) void window.fundet.openExternal(href);
+            else onOpenFile?.(href);
+          }}
+        >
+          {children}
+        </a>
+      );
+    },
+    code: ({ className, children }: { className?: string; children?: ReactNode }) => {
+      const raw = flattenText(children).trim();
+      const isBlock = Boolean(className) || raw.includes('\n');
+      if (!isBlock && looksLikeFilePath(raw) && isImagePath(raw)) {
+        return (
+          <span className="my-2 block">
+            <button
+              type="button"
+              title="点击预览图片"
+              onClick={() => onOpenFile?.(raw)}
+              className="cursor-pointer font-mono text-12 text-secondary underline decoration-board underline-offset-2 hover:text-primary"
+            >
+              {raw}
+            </button>
+            {workDir ? (
+              <LocalImagePreview path={raw} workDir={workDir} onOpen={onOpenFile} alt={undefined} />
+            ) : null}
+          </span>
+        );
+      }
+      return <code className={className}>{children}</code>;
+    },
+    img: ({ src, alt }: { src?: string; alt?: string }) => {
+      if (src && workDir && !/^https?:\/\//i.test(src) && !src.startsWith('data:')) {
+        return <LocalImagePreview path={src} workDir={workDir} onOpen={onOpenFile} alt={alt} />;
+      }
+      return <img src={src} alt={alt} className="max-h-[360px] max-w-full rounded-inner object-contain" />;
+    },
+  };
+}
+
+interface StreamingBlockViewProps {
+  text: string;
+  stable: boolean;
+  /** 尾块专属的淡入账本（stable 块不挂 fade 插件） */
+  fadeState: StreamFadeState | null;
+  components: ReturnType<typeof buildMdComponents>;
+}
+
+/** 流式块视图：stable 块 text 不变时整体 skip render（零重解析） */
+const StreamingBlockView = memo(function StreamingBlockView({
+  text,
+  stable,
+  fadeState,
+  components,
+}: StreamingBlockViewProps): React.JSX.Element {
+  const rehypePlugins = fadeState && !stable
+    ? [rehypeHighlight, rehypeStreamWordFade(fadeState)]
+    : [rehypeHighlight];
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm, remarkCjkFriendly, remarkMath]}
+      rehypePlugins={rehypePlugins}
+      components={components}
+    >
+      {text}
+    </ReactMarkdown>
+  );
+});
 
 // 长会话里历史消息的 text/workDir/onOpenFile 都不变；不 memo 的话流式期间
 // 每 100ms 全列表重渲染、react-markdown 重解析全部历史。
@@ -69,98 +191,36 @@ function AssistantMessageImpl({
     kbRefs?.length ?? 0,
   );
 
-  const rehypePlugins =
-    streaming && fadeStateRef.current
-      ? [rehypeHighlight, rehypeStreamWordFade(fadeStateRef.current)]
-      : [rehypeHighlight, rehypeKatex];
+  const components = useMemo(
+    () => buildMdComponents({ workDir, onOpenFile, kbRefs, activeCite, setActiveCite }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fade/kbRefs/workDir 引用稳定；activeCite 变化需重建（角标高亮态）
+    [workDir, onOpenFile, kbRefs, activeCite],
+  );
+
+  const streamingBlocks = streaming ? splitStreamingBlocks(normalizedText) : null;
 
   return (
     <div className="md text-primary select-text">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkCjkFriendly, remarkMath]}
-        rehypePlugins={rehypePlugins}
-        components={{
-          pre: ({ children }) => {
-            // ```mermaid 围栏 → SVG 图表（解析失败回落源码）
-            const child = Array.isArray(children) ? children[0] : children;
-            const cls = (child as { props?: { className?: string } } | undefined)?.props?.className;
-            if (typeof cls === 'string' && isMermaidClassName(cls)) {
-              const raw = flattenText((child as { props?: { children?: ReactNode } }).props?.children);
-              return <MarkdownMermaidBlock raw={raw} />;
-            }
-            return <pre>{children}</pre>;
-          },
-          a: ({ href, children }) => {
-            // 知识库溯源角标：[n](#kb-n) → 上标小角标，点击在消息底部展开原文块
-            const cite = parseKbCiteHref(href);
-            if (cite !== null && kbRefs && cite <= kbRefs.length) {
-              const ref = kbRefs[cite - 1];
-              const active = activeCite === cite;
-              return (
-                <button
-                  type="button"
-                  title={`来源：${ref.itemName}（第 ${ref.seq + 1} 块）`}
-                  onClick={() => setActiveCite(active ? null : cite)}
-                  className={
-                    'mx-0.5 inline-flex h-[15px] min-w-[15px] cursor-pointer items-center justify-center rounded-[4px] px-[3px] align-super text-[10px] leading-none transition-colors ' +
-                    (active
-                      ? 'bg-accent text-accent-fg'
-                      : 'bg-chip text-secondary hover:bg-menu-item-hover hover:text-primary')
-                  }
-                >
-                  {cite}
-                </button>
-              );
-            }
-            // http(s) 进系统浏览器；相对/本地路径走右侧 Canvas 预览。
-            // 不拦截会让 Electron 主窗口整页跳走（will-navigate 还有一道主进程兜底）。
-            return (
-              <a
-                href={href}
-                className="cursor-pointer"
-                onClick={(e) => {
-                  if (!href || href.startsWith('#')) return;
-                  e.preventDefault();
-                  if (/^https?:\/\//i.test(href)) void window.fundet.openExternal(href);
-                  else onOpenFile?.(href);
-                }}
-              >
-                {children}
-              </a>
-            );
-          },
-          code: ({ className, children }) => {
-            const raw = flattenText(children).trim();
-            const isBlock = Boolean(className) || raw.includes('\n');
-            if (!isBlock && looksLikeFilePath(raw) && isImagePath(raw)) {
-              return (
-                <span className="my-2 block">
-                  <button
-                    type="button"
-                    title="点击预览图片"
-                    onClick={() => onOpenFile?.(raw)}
-                    className="cursor-pointer font-mono text-12 text-secondary underline decoration-board underline-offset-2 hover:text-primary"
-                  >
-                    {raw}
-                  </button>
-                  {workDir ? (
-                    <LocalImagePreview path={raw} workDir={workDir} onOpen={onOpenFile} />
-                  ) : null}
-                </span>
-              );
-            }
-            return <code className={className}>{children}</code>;
-          },
-          img: ({ src, alt }) => {
-            if (src && workDir && !/^https?:\/\//i.test(src) && !src.startsWith('data:')) {
-              return <LocalImagePreview path={src} workDir={workDir} onOpen={onOpenFile} alt={alt} />;
-            }
-            return <img src={src} alt={alt} className="max-h-[360px] max-w-full rounded-inner object-contain" />;
-          },
-        }}
-      >
-        {normalizedText}
-      </ReactMarkdown>
+      {streaming && streamingBlocks ? (
+        // 流式：块级复用（stable 块 memo 跳过；尾块挂逐词淡入）
+        streamingBlocks.map((b) => (
+          <StreamingBlockView
+            key={b.key}
+            text={b.text}
+            stable={b.stable}
+            fadeState={fadeStateRef.current}
+            components={components}
+          />
+        ))
+      ) : (
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm, remarkCjkFriendly, remarkMath]}
+          rehypePlugins={[rehypeHighlight, rehypeKatex]}
+          components={components}
+        >
+          {normalizedText}
+        </ReactMarkdown>
+      )}
       {activeCite !== null && kbRefs && kbRefs[activeCite - 1] ? (
         <div className="mt-2 rounded-inner border border-board bg-card px-3 py-2.5">
           <div className="flex items-start justify-between gap-2">
