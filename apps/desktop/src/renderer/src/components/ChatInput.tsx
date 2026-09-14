@@ -9,7 +9,7 @@
  * 附件：回形针选择 + 粘贴图片/文件；拖入由外层会话列承接。
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Paperclip, X } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import { cn } from '../lib/cn';
 import { brand } from '../../../shared/brand.js';
 import { SendButton } from './SendButton';
@@ -37,6 +37,8 @@ interface ChatInputProps {
   onRemoveAttachment?: (path: string) => void;
   onAddFiles?: (files: File[]) => void;
   onPickFiles?: () => void;
+  /** 粘贴多行/长文本时折叠为附件（对齐 Cindy「粘贴的文本(N 行)」），不进 textarea */
+  onPasteText?: (text: string) => void;
   /** 数字递增时聚焦输入框（桌宠截图等外部附件到达时） */
   focusSignal?: number;
   dragOver?: boolean;
@@ -58,6 +60,7 @@ export function ChatInput({
   onRemoveAttachment,
   onAddFiles,
   onPickFiles,
+  onPasteText,
   focusSignal,
   dragOver,
 }: ChatInputProps): React.JSX.Element {
@@ -111,7 +114,7 @@ export function ChatInput({
   return (
     <div
       className={cn(
-        'relative flex w-full flex-col rounded-container border transition-colors',
+        'relative flex w-full flex-col rounded-[16px] border transition-colors',
         'border-board bg-card',
         'focus-within:border-[var(--input-focus-border)]',
         dragOver && 'border-[var(--focus-ring)]',
@@ -173,7 +176,21 @@ export function ChatInput({
           }}
           onPaste={(e) => {
             const dt = e.clipboardData;
-            if (!dt || !onAddFiles) return;
+            if (!dt) return;
+            // 多行/长文本粘贴 → 折叠为「粘贴的文本(N 行)」附件（对齐 Cindy）：
+            // 阈值 10 行或 800 字符，不带文件时触发；粘贴文件走原文件管线
+            if (onPasteText) {
+              const plain = dt.getData('text/plain');
+              if (plain) {
+                const lines = plain.split(/\r?\n/).length;
+                if (lines >= 10 || plain.length >= 800) {
+                  e.preventDefault();
+                  onPasteText(plain);
+                  return;
+                }
+              }
+            }
+            if (!onAddFiles) return;
             const files: File[] = [];
             for (const item of Array.from(dt.items ?? [])) {
               if (item.kind === 'file') {
@@ -233,7 +250,7 @@ export function ChatInput({
                 onClick={onPickFiles}
                 className="flex h-7 w-7 items-center justify-center rounded-full text-muted hover:bg-hover hover:text-primary disabled:opacity-40"
               >
-                <Paperclip size={14} />
+                <Plus size={16} />
               </button>
             )}
             {leadingControls}

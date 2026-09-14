@@ -17,6 +17,7 @@ import {
   abortSession,
   deleteAssistantTurn,
   deleteDraftSession,
+  editAndResendUserMessage,
   ensureDraftSession,
   ensureHistory,
   forkSessionAt,
@@ -231,6 +232,47 @@ export function ChatPage(): React.JSX.Element {
 
   // ---------- 发送 / 中断 ----------
 
+  /** @知识库点名注入（发送与编辑重发共用）：检索选中库 → 前缀块 + 溯源引用 */
+  const buildKbInjection = useCallback(
+    async (text: string): Promise<{ knowledgeContext?: string; kbRefs?: KnowledgeRef[] }> => {
+      if (!kbInjectBaseId || !text) return {};
+      try {
+        const results = await window.fundet.searchKnowledge(text, kbInjectBaseId, 6);
+        if (results.length === 0) return {};
+        return {
+          knowledgeContext: results
+            .map((r, i) => `[${i + 1}] 来源：${r.itemName}（第 ${r.seq + 1} 块）\n${r.text}`)
+            .join('\n\n'),
+          kbRefs: results.map((r) => ({
+            itemName: r.itemName,
+            seq: r.seq,
+            text: r.text,
+            baseId: r.baseId,
+            baseName: r.baseName,
+          })),
+        };
+      } catch {
+        // 检索失败不阻断发送——模型仍可走 mcp__knowledge__search 自主检索
+        return {};
+      }
+    },
+    [kbInjectBaseId],
+  );
+
+  // 用户消息编辑重发：删除本条及之后全部消息，发送编辑后的文本（对齐 Cindy 编辑气泡）
+  const editUserMessage = useCallback(
+    async (userId: string, newText: string): Promise<void> => {
+      if (!activeId) return;
+      try {
+        const { knowledgeContext, kbRefs } = await buildKbInjection(newText);
+        await editAndResendUserMessage(activeId, userId, newText, knowledgeContext, kbRefs);
+      } catch (err) {
+        setNotice(`编辑重发失败：${err instanceof Error ? err.message : String(err)}`);
+      }
+    },
+    [activeId, buildKbInjection],
+  );
+
   // 终态错误卡的「重新发送」：重发本轮最后一条用户消息（含附件路径引用）
   const resendLast = useCallback((): void => {
     if (!activeId) return;
@@ -260,26 +302,7 @@ export function ChatPage(): React.JSX.Element {
     setNotice('');
     // @知识库点名：检索选中库并把原文片段注入模型消息（强制 RAG，不依赖模型调工具）；
     // 注入内容只进模型消息，用户气泡与落库保持原文；kbRefs 随消息落库供回复角标溯源
-    let knowledgeContext: string | undefined;
-    let kbRefs: KnowledgeRef[] | undefined;
-    if (kbInjectBaseId && text) {
-      try {
-        const results = await window.fundet.searchKnowledge(text, kbInjectBaseId, 6);
-        if (results.length > 0) {
-          const parts = results.map((r, i) => `[${i + 1}] 来源：${r.itemName}（第 ${r.seq + 1} 块）\n${r.text}`);
-          knowledgeContext = parts.join('\n\n');
-          kbRefs = results.map((r) => ({
-            itemName: r.itemName,
-            seq: r.seq,
-            text: r.text,
-            baseId: r.baseId,
-            baseName: r.baseName,
-          }));
-        }
-      } catch {
-        // 检索失败不阻断发送——模型仍可走 mcp__knowledge__search 自主检索
-      }
-    }
+    const { knowledgeContext, kbRefs } = await buildKbInjection(text);
     // 重启后旧会话 / 本地草稿都不在 main 内存：带 create 让 main lazy-create。
     // 草稿有精确的 providerId；历史会话按 model 在 providers 里反查。
     let create: Parameters<typeof sendMessage>[2];
@@ -305,7 +328,7 @@ export function ChatPage(): React.JSX.Element {
       }
     }
     await sendMessage(activeId, text, create, pending.length > 0 ? pending : undefined, knowledgeContext, kbRefs);
-  }, [activeId, activeMeta, attachments, input, providers, kbInjectBaseId]);
+  }, [activeId, activeMeta, attachments, input, providers, buildKbInjection]);
 
   const abort = useCallback(async (): Promise<void> => {
     if (activeId) await abortSession(activeId);
@@ -505,6 +528,7 @@ export function ChatPage(): React.JSX.Element {
                   }
                 }}
                 onRetryError={resendLast}
+                onEditUser={editUserMessage}
               />
 
               {/* composer：审批悬挂时换成 PermissionPrompt；运行状态行在输入卡上方 */}
@@ -540,13 +564,14 @@ export function ChatPage(): React.JSX.Element {
                         }
                         onAddFiles={(files) => void addDroppedFiles(files)}
                         onPickFiles={() => void pickFiles()}
+                        onPasteText={(text) => void attach.pasteText(text)}
                         focusSignal={petFocusTick}
                         dragOver={dragOver}
                         leadingControls={
                           <>
-                            <FolderPickerChip
-                              cwd={activeMeta?.workDir || workDir}
-                              onSelect={applyWorkDir}
+                            <PermissionSelector
+                              current={permissionMode}
+                              onSelect={(m) => void selectPermission(m)}
                             />
                             <KnowledgeChip
                               selectedBaseId={kbInjectBaseId}
@@ -560,10 +585,6 @@ export function ChatPage(): React.JSX.Element {
                                 }
                               }}
                             />
-                            <PermissionSelector
-                              current={permissionMode}
-                              onSelect={(m) => void selectPermission(m)}
-                            />
                           </>
                         }
                         trailingControls={
@@ -576,25 +597,31 @@ export function ChatPage(): React.JSX.Element {
                       />
                     </>
                   )}
-                  {/* Cindy：用量环在输入卡下方右侧，不在顶栏 */}
-                  <div className="mt-1.5 flex w-full items-center justify-end gap-3 px-1">
-                    {slice.usage.costUsd > 0 && (
-                      <span className="text-12 tabular-nums text-muted">
-                        ${slice.usage.costUsd.toFixed(4)}
-                      </span>
-                    )}
-                    {activeId && !activeId.startsWith('draft-') && (
-                      <span
-                        className="font-mono text-10 text-muted select-text"
-                        title={'会话 ID：' + activeId}
-                      >
-                        {activeId.slice(0, 8)}
-                      </span>
-                    )}
-                    <ContextCapacityRing
-                      contextTokens={slice.usage.contextTokens}
-                      contextWindow={shownWindow}
+                  {/* 输入卡下方一行（对齐 Cindy）：左=工作目录 chip，右=成本/会话短 id/用量环 */}
+                  <div className="mt-1.5 flex w-full items-center justify-between gap-3 px-1">
+                    <FolderPickerChip
+                      cwd={activeMeta?.workDir || workDir}
+                      onSelect={applyWorkDir}
                     />
+                    <div className="flex items-center justify-end gap-3">
+                      {slice.usage.costUsd > 0 && (
+                        <span className="text-12 tabular-nums text-muted">
+                          ${slice.usage.costUsd.toFixed(4)}
+                        </span>
+                      )}
+                      {activeId && !activeId.startsWith('draft-') && (
+                        <span
+                          className="font-mono text-10 text-muted select-text"
+                          title={'会话 ID：' + activeId}
+                        >
+                          {activeId.slice(0, 8)}
+                        </span>
+                      )}
+                      <ContextCapacityRing
+                        contextTokens={slice.usage.contextTokens}
+                        contextWindow={shownWindow}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>

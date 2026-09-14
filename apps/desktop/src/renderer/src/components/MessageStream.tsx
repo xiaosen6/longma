@@ -36,63 +36,127 @@ const STICK_THRESHOLD = 48;
  */
 const scrollMemory = new Map<string, number>();
 /** 用户消息气泡：长文本自动收起（抄 Cindy userMessageCollapse：镜像节点实测行数
- * + ResizeObserver 跟宽重算），折叠态 line-clamp-10 + 「展开全文 / 收起」。 */
+ * + ResizeObserver 跟宽重算），折叠态 line-clamp-10 + 「展开全文 / 收起」。
+ * hover 显示「编辑」：就地编辑后从本条起重发（删除本条及之后全部消息）。 */
 function UserBubble({
   text,
   attachments,
   onOpenFile,
+  onEdit,
 }: {
   text: string;
   attachments?: Array<{ path: string; name: string }>;
   onOpenFile?: (path: string) => void;
+  onEdit?: (newText: string) => void;
 }) {
   const mayExceed = mayExceedVisualLineThreshold(text);
   const { mirrorRef, shouldCollapse } = useUserMessageAutoCollapse(text, mayExceed);
   const [expanded, setExpanded] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
   const collapsed = shouldCollapse && !expanded;
-  return (
-    <div className="flex justify-end">
-      <div className="max-w-[488px] rounded-container border border-board bg-card px-4 py-3 text-15 leading-[1.6] text-primary select-text">
-        {attachments && attachments.length > 0 && (
-          <div className="mb-2 flex flex-wrap gap-1.5">
-            {attachments.map((a) => (
-              <button
-                key={a.path}
-                type="button"
-                title={a.path}
-                className="max-w-full truncate rounded-full border border-board bg-chip px-2 py-0.5 text-11 text-secondary hover:text-primary"
-                onClick={() => onOpenFile?.(a.path)}
-              >
-                {a.name}
-              </button>
-            ))}
+
+  const commitEdit = (): void => {
+    const next = draft.trim();
+    setEditing(false);
+    if (!next || next === text || !onEdit) return;
+    onEdit(next);
+  };
+
+  if (editing) {
+    return (
+      <div className="flex justify-end">
+        <div className="max-w-[488px] w-full rounded-container border border-board bg-card px-3 py-2.5">
+          <textarea
+            autoFocus
+            value={draft}
+            rows={Math.min(10, draft.split('\n').length + 1)}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') { e.preventDefault(); setEditing(false); }
+              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                commitEdit();
+              }
+            }}
+            className="w-full resize-none bg-transparent text-15 leading-[1.6] text-primary outline-none"
+          />
+          <div className="mt-1.5 flex items-center justify-end gap-2">
+            <button
+              type="button"
+              className="rounded-full px-2.5 py-1 text-12 text-secondary hover:bg-hover hover:text-primary"
+              onClick={() => setEditing(false)}
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              className="rounded-full bg-accent px-2.5 py-1 text-12 text-accent-fg"
+              onClick={commitEdit}
+            >
+              发送
+            </button>
           </div>
-        )}
-        {mayExceed ? (
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="group/user flex justify-end">
+      <div className="relative max-w-[488px]">
+        <div className="rounded-container border border-board bg-card px-4 py-3 text-15 leading-[1.6] text-primary select-text">
+          {attachments && attachments.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              {attachments.map((a) => (
+                <button
+                  key={a.path}
+                  type="button"
+                  title={a.path}
+                  className="max-w-full truncate rounded-full border border-board bg-chip px-2 py-0.5 text-11 text-secondary hover:text-primary"
+                  onClick={() => onOpenFile?.(a.path)}
+                >
+                  {a.name}
+                </button>
+              ))}
+            </div>
+          )}
+          {mayExceed ? (
+            <div
+              ref={mirrorRef}
+              aria-hidden
+              className="max-h-0 overflow-hidden whitespace-pre-wrap break-words text-15 leading-[1.6] [overflow-wrap:anywhere]"
+            >
+              {text}
+            </div>
+          ) : null}
           <div
-            ref={mirrorRef}
-            aria-hidden
-            className="max-h-0 overflow-hidden whitespace-pre-wrap break-words text-15 leading-[1.6] [overflow-wrap:anywhere]"
+            className={cn(
+              'whitespace-pre-wrap break-words [overflow-wrap:anywhere]',
+              collapsed && 'line-clamp-10',
+            )}
           >
             {text}
           </div>
-        ) : null}
-        <div
-          className={cn(
-            'whitespace-pre-wrap break-words [overflow-wrap:anywhere]',
-            collapsed && 'line-clamp-10',
-          )}
-        >
-          {text}
+          {shouldCollapse ? (
+            <button
+              type="button"
+              className="mt-1.5 flex items-center gap-1 text-13 text-secondary hover:text-primary"
+              onClick={() => setExpanded((v) => !v)}
+            >
+              {expanded ? '收起' : '展开全文'}
+              {expanded ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
+            </button>
+          ) : null}
         </div>
-        {shouldCollapse ? (
+        {onEdit ? (
           <button
             type="button"
-            className="mt-1.5 flex items-center gap-1 text-13 text-secondary hover:text-primary"
-            onClick={() => setExpanded((v) => !v)}
+            title="编辑并从这条重新生成"
+            onClick={() => { setDraft(text); setEditing(true); }}
+            className="absolute -bottom-3 right-2 z-10 rounded-full bg-[#262626] px-2.5 py-0.5 text-11 leading-none text-white opacity-0 shadow-sm transition-opacity group-hover/user:opacity-100 hover:bg-[#3a3a3a]"
           >
-            {expanded ? '收起' : '展开全文'}
-            {expanded ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
+            编辑
           </button>
         ) : null}
       </div>
@@ -115,6 +179,8 @@ interface MessageStreamProps {
   onDelete?: (assistantId: string) => Promise<void>;
   /** 终态错误卡的「重新发送」：重发本轮最后一条用户消息 */
   onRetryError?: () => void;
+  /** 用户消息编辑重发（就地编辑→删除本条及之后→发送新文本） */
+  onEditUser?: (userId: string, newText: string) => Promise<void>;
 }
 
 function isTurnTailAssistant(
@@ -210,6 +276,7 @@ export function MessageStream({
   onAddToChat,
   onDelete,
   onRetryError,
+  onEditUser,
 }: MessageStreamProps): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
@@ -357,7 +424,19 @@ export function MessageStream({
           }
           switch (item.kind) {
             case 'user':
-              return <UserBubble key={item.id} text={item.text} attachments={item.attachments} onOpenFile={onOpenFile} />
+              return (
+                <UserBubble
+                  key={item.id}
+                  text={item.text}
+                  attachments={item.attachments}
+                  onOpenFile={onOpenFile}
+                  onEdit={
+                    onEditUser && canFork && !slice.isRunning
+                      ? (newText) => void onEditUser(item.id, newText)
+                      : undefined
+                  }
+                />
+              );
             case 'assistant': {
               const showBar = isTurnTailAssistant(grouped, index, slice.isRunning, hasStreaming);
               const kbRefs = lastUserKbRefsBefore(slice.items, item.id);

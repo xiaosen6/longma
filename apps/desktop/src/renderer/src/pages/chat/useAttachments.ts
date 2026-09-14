@@ -16,6 +16,7 @@ export function useAttachments(
   stagePaths: (paths: string[]) => Promise<void>;
   addDroppedFiles: (fileList: File[]) => Promise<void>;
   pickFiles: () => Promise<void>;
+  pasteText: (text: string) => Promise<void>;
   reset: () => void;
 } {
   const [attachments, setAttachments] = useState<SessionAttachment[]>([]);
@@ -85,9 +86,33 @@ export function useAttachments(
     if (picked && picked.length > 0) await stagePaths(picked);
   }, [stagePaths]);
 
+  /** 粘贴多行/长文本 → 落盘为 txt 附件，显示名「粘贴的文本(N 行)」（对齐 Cindy） */
+  const pasteText = useCallback(
+    async (text: string): Promise<void> => {
+      const dir = sessionWorkDir.trim();
+      if (!dir) {
+        setNotice('请先选择工作目录');
+        return;
+      }
+      const lines = text.split(/\r?\n/).length;
+      try {
+        const staged = await window.fundet.stageBytes(
+          dir,
+          `pasted-${Date.now()}.txt`,
+          new TextEncoder().encode(text).buffer as ArrayBuffer,
+        );
+        // 落盘名唯一化；chip 显示名按 Cindy 形态
+        mergeAttachments([{ ...staged, name: `粘贴的文本(${lines} 行)` }]);
+      } catch (err) {
+        setNotice(err instanceof Error ? err.message : String(err));
+      }
+    },
+    [mergeAttachments, sessionWorkDir, setNotice],
+  );
+
   const reset = useCallback((): void => {
     setAttachments([]);
   }, []);
 
-  return { attachments, setAttachments, mergeAttachments, stagePaths, addDroppedFiles, pickFiles, reset };
+  return { attachments, setAttachments, mergeAttachments, stagePaths, addDroppedFiles, pickFiles, pasteText, reset };
 }

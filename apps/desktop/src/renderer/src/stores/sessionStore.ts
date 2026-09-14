@@ -736,6 +736,31 @@ export async function forkSessionAt(sessionId: string, upToCreatedAt: number): P
   return id;
 }
 
+/** 编辑用户消息并重发（Cindy 形态）：删除本条及之后全部消息（DB+本地），发送新文本 */
+export async function editAndResendUserMessage(
+  sessionId: string,
+  userId: string,
+  newText: string,
+  knowledgeContext?: string,
+  kbRefs?: KnowledgeRef[],
+): Promise<void> {
+  const s = getSlice(sessionId);
+  const idx = s.items.findIndex((it) => it.kind === 'user' && it.id === userId);
+  if (idx < 0) return;
+  const target = s.items[idx];
+  if (target.kind !== 'user') return;
+  const prev = idx > 0 ? s.items[idx - 1] : null;
+  const prevTs = prev && 'createdAt' in prev && prev.createdAt ? prev.createdAt : 0;
+  if (!isDraftSession(sessionId)) {
+    // deleteMessagesInRange 是 (after, until] 开闭区间：prevTs 保住之前内容
+    await window.fundet.deleteTurn(sessionId, prevTs, Date.now() + 60_000);
+  }
+  const items = s.items.slice(0, idx);
+  patchSlice(sessionId, { items });
+  notifySlice(sessionId);
+  await sendMessage(sessionId, newText, undefined, undefined, knowledgeContext, kbRefs);
+}
+
 /** 审批：允许一次 / 本会话总允许 / 拒绝 */
 export async function resolvePermission(
   sessionId: string,
