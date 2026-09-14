@@ -581,6 +581,8 @@ GEO 只审计用户给出的站点（CLI 自抓），不是通用搜索。
 
 **桌宠路线图（用户已拍板方向）**：M1 已完成（0.2.11）；双形象+设置页区块已完成（0.2.12：black-heels/qipao/dino 三主题，设置→自动操作→桌宠，setPetTheme 热切；**坑：dino 提交只带资产，PetSection THEMES 漏加导致 UI 选不到——已修随下版**）；**M4 已全部完成（0.2.12 后补，未发版：审批气泡+右键截图问答+悬浮工具条，CDP 实证全链路）**；M2 养成系统（用户拍板放后面：使用量驱动经验/成长阶段/持久化；usage_daily+getUsageHistory 数据现成，需新表 pet_state+migration；成长绑定全局还是主题待用户拍板；素材=蛋/幼年/少年待用户生图，提示词框架已在 docs/pet-sprite-prompts.md）；M3 自定义+Petdex 格式导入+AI 生成形象（帧路径需改 longma-file:// 才能装 userData 自定义素材）。
 
+**桌宠帧数评估结论（2026-09-12，用户已确认方向：后面升级）**：现状三主题统一 6 状态 × **6 帧**、`FRAME_MS=140`（≈7fps）、单循环 0.84s（pet.html 硬编码帧清单 ['01'..'06']）。**单独提帧率=动作变快而非更流畅（6 帧姿态差不变），正解是帧数与帧率一起提：完美目标每状态 12 帧 + 83ms（12fps，循环保持 ~1s）；退一档 10 帧 + 100ms**。优先级 idle/working（用户盯最久）> attention/happy > sleep（有 CSS 呼吸，可不加）。加帧时 pet.html 的硬编码帧清单要改成动态（pet.html 无 Node 不能 readdir——主进程注入帧数或命名约定扫描到缺失即停）；零素材快赢=idle 叠加极轻微 CSS 呼吸（照 sleep 的 breathe 先例）。
+
 **桌宠验证技巧坑（CDP）**：①`window.fundet`（contextBridge）对象及其属性**只读**，赋值覆盖静默失败——spy 模式验证按钮会真调 API（petToggle 真关窗→后续 evaluate 挂死）；验证按钮只能查渲染/DOM 或真调后的可观测效果，不能拦截。②dev 起 CDP 后 fundet 注入需要时间，petToggle 前 `typeof window.fundet !== 'undefined'` 轮询就绪，否则 invoke 静默吞。
 
 - [x] `system-prompt.md` 四个技能 + `mcp__search__web_search`（2026-08-23）。
