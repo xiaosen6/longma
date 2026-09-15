@@ -149,6 +149,7 @@ ChatPage / ChatInput
 
 | 版本 | 日期 | 要点 |
 | --- | --- | --- |
+| 0.2.24 | 09-14 | **用户消息操作条对齐 Cindy**（hover 气泡下方出操作条：相对时间+复制/分享/分叉/编辑/更多五图标；分享=该条之后最近 assistant 回复组成回合；更多=删除本条及之后 deleteFromUserMessage；去掉 0.2.23 的悬浮黑胶囊编辑钮——形态不对用户打回重做）+ **编辑重发**保留（就地 textarea→发送=删本条及之后+重发 editAndResendUserMessage，kb 注入复用 buildKbInjection） |
 | 0.2.23 | 09-14 | **已发布**（CI 绿/Release published 12 资产/latest.yml 已验/用户机覆盖装冒烟过：0.2.23.0+asar hash+IPC 10 域 PASS）。**用户消息就地编辑重发**（hover 气泡出「编辑」→ 就地 textarea → 发送=删本条及之后全部+重发，editAndResendUserMessage）+ **输入卡对齐 Cindy**（附件回形针→Plus；权限+知识库留底部行；FolderPickerChip 移到输入卡下方一行左侧对齐 Cindy「AI OS」位；粘贴 ≥10 行或 ≥800 字符折叠为「粘贴的文本(N 行)」附件——落盘 pasted-<ts>.txt 唯一名；输入卡圆角 12→16px） |
 | 0.2.22 | 09-14 | **已发布**（CI 绿/Release published 12 资产/latest.yml 已验/用户机覆盖装冒烟过：0.2.22.0+asar hash+IPC 10 域 PASS）。**行内 code 裸文件名破图修复**（模型列文件名清单时行内 code 被升级为图片预览，缺目录前缀按 workDir 拼 404→协议+dataURL 双失败→破图占位卡死；修复=双失败退化为普通 code，增强失败静默退化） |
 | 0.2.21 | 09-12 | **已发布**（CI 绿/Release published 12 资产/latest.yml 已验/用户机覆盖装冒烟过：0.2.21.0+asar hash+title=LongMa+IPC 10 域 PASS）。**Cindy 移植批次三**：①**流式 markdown 块级复用**（streamingBlocks 切块：空行边界/围栏保护/尾块 unstable，stable 块 memo 零重解析，每 tick 只重解析尾块；终版仍单渲染保跨块上下文；对齐 Cindy ceb279db0，其实测 2 万字符帧 p95 284ms→33ms）②Canvas PDF/HTML iframe 懒加载 ③侧栏排序切换（最近活跃/创建时间，localStorage）④Provider 详情双击编辑。单测 109 绿 + CDP cindy-batch-verify + kb-cite-e2e 回归 15 角标 PASS |
