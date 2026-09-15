@@ -761,6 +761,23 @@ export async function editAndResendUserMessage(
   await sendMessage(sessionId, newText, undefined, undefined, knowledgeContext, kbRefs);
 }
 
+/** 删除某条用户消息及其后的全部消息（DB+本地），不重发 */
+export async function deleteFromUserMessage(sessionId: string, userId: string): Promise<void> {
+  const s = getSlice(sessionId);
+  const idx = s.items.findIndex((it) => it.kind === 'user' && it.id === userId);
+  if (idx < 0) return;
+  const target = s.items[idx];
+  if (target.kind !== 'user') return;
+  const prev = idx > 0 ? s.items[idx - 1] : null;
+  const prevTs = prev && 'createdAt' in prev && prev.createdAt ? prev.createdAt : 0;
+  if (!isDraftSession(sessionId)) {
+    await window.fundet.deleteTurn(sessionId, prevTs, Date.now() + 60_000);
+  }
+  const items = s.items.slice(0, idx);
+  patchSlice(sessionId, { items });
+  notifySlice(sessionId);
+}
+
 /** 审批：允许一次 / 本会话总允许 / 拒绝 */
 export async function resolvePermission(
   sessionId: string,

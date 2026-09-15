@@ -15,8 +15,9 @@
  *   不含「复制当前消息链接」。
  */
 import { useEffect, useLayoutEffect, useMemo, useState, useRef } from 'react';
-import { AlertCircle, ArrowDown, Info } from 'lucide-react';
+import { AlertCircle, ArrowDown, Check, Copy, Ellipsis, Info, Pencil, Share, Split } from 'lucide-react';
 import type { DisplayItem, SessionSlice } from '../stores/sessionStore';
+import { deleteFromUserMessage } from '../stores/sessionStore';
 import { AssistantMessage } from './AssistantMessage';
 import { MessageActionBar } from './MessageActionBar';
 import { ShareTurnModal, type ShareTurnPayload } from './ShareTurnModal';
@@ -35,26 +36,55 @@ const STICK_THRESHOLD = 48;
  * 上方内容异步撑高时会失真，但远好于每次归零；完整锚点版等有真实需要再做。
  */
 const scrollMemory = new Map<string, number>();
+/** 用户消息操作条图标按钮样式（对齐 MessageActionBar ICON_BTN） */
+const USER_ICON_BTN =
+  'flex h-6 w-6 items-center justify-center rounded-[4px] text-muted transition-colors hover:bg-hover hover:text-primary disabled:opacity-40';
+
+function formatRelativeUser(ts: number): string {
+  const d = Date.now() - ts;
+  if (d < 45_000) return '刚刚';
+  if (d < 3_600_000) return `${Math.max(1, Math.round(d / 60_000))} 分钟前`;
+  if (d < 86_400_000) return `${Math.max(1, Math.round(d / 3_600_000))} 小时前`;
+  return new Date(ts).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
 /** 用户消息气泡：长文本自动收起（抄 Cindy userMessageCollapse：镜像节点实测行数
  * + ResizeObserver 跟宽重算），折叠态 line-clamp-10 + 「展开全文 / 收起」。
- * hover 显示「编辑」：就地编辑后从本条起重发（删除本条及之后全部消息）。 */
+ * 下方操作条（hover 显示，对齐 Cindy 图标形态）：时间 + 复制/分享/分叉/编辑/更多。
+ * 编辑 = 就地编辑后从本条起重发（删除本条及之后全部消息）。 */
 function UserBubble({
   text,
   attachments,
   onOpenFile,
   onEdit,
+  createdAt,
+  onCopy,
+  onShare,
+  onFork,
+  onDeleteAfter,
 }: {
   text: string;
   attachments?: Array<{ path: string; name: string }>;
   onOpenFile?: (path: string) => void;
   onEdit?: (newText: string) => void;
+  createdAt?: number;
+  onCopy?: (text: string) => Promise<void>;
+  onShare?: () => void;
+  onFork?: () => void | Promise<void>;
+  onDeleteAfter?: () => Promise<void>;
 }) {
   const mayExceed = mayExceedVisualLineThreshold(text);
   const { mirrorRef, shouldCollapse } = useUserMessageAutoCollapse(text, mayExceed);
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
+  const [hovered, setHovered] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [forking, setForking] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const collapsed = shouldCollapse && !expanded;
+  const actionsVisible = hovered || menuOpen;
 
   const commitEdit = (): void => {
     const next = draft.trim();
@@ -66,7 +96,7 @@ function UserBubble({
   if (editing) {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[488px] w-full rounded-container border border-board bg-card px-3 py-2.5">
+        <div className="w-full max-w-[488px] rounded-container border border-board bg-card px-3 py-2.5">
           <textarea
             autoFocus
             value={draft}
@@ -102,62 +132,140 @@ function UserBubble({
     );
   }
 
+  const doCopy = async (): Promise<void> => {
+    if (!onCopy) return;
+    await onCopy(text);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1800);
+  };
+
   return (
-    <div className="group/user flex justify-end">
-      <div className="relative max-w-[488px]">
-        <div className="rounded-container border border-board bg-card px-4 py-3 text-15 leading-[1.6] text-primary select-text">
-          {attachments && attachments.length > 0 && (
-            <div className="mb-2 flex flex-wrap gap-1.5">
-              {attachments.map((a) => (
-                <button
-                  key={a.path}
-                  type="button"
-                  title={a.path}
-                  className="max-w-full truncate rounded-full border border-board bg-chip px-2 py-0.5 text-11 text-secondary hover:text-primary"
-                  onClick={() => onOpenFile?.(a.path)}
-                >
-                  {a.name}
-                </button>
-              ))}
-            </div>
-          )}
-          {mayExceed ? (
-            <div
-              ref={mirrorRef}
-              aria-hidden
-              className="max-h-0 overflow-hidden whitespace-pre-wrap break-words text-15 leading-[1.6] [overflow-wrap:anywhere]"
-            >
-              {text}
-            </div>
-          ) : null}
+    <div className="group/user flex flex-col items-end" onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
+      <div className="max-w-[488px] rounded-container border border-board bg-card px-4 py-3 text-15 leading-[1.6] text-primary select-text">
+        {attachments && attachments.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            {attachments.map((a) => (
+              <button
+                key={a.path}
+                type="button"
+                title={a.path}
+                className="max-w-full truncate rounded-full border border-board bg-chip px-2 py-0.5 text-11 text-secondary hover:text-primary"
+                onClick={() => onOpenFile?.(a.path)}
+              >
+                {a.name}
+              </button>
+            ))}
+          </div>
+        )}
+        {mayExceed ? (
           <div
-            className={cn(
-              'whitespace-pre-wrap break-words [overflow-wrap:anywhere]',
-              collapsed && 'line-clamp-10',
-            )}
+            ref={mirrorRef}
+            aria-hidden
+            className="max-h-0 overflow-hidden whitespace-pre-wrap break-words text-15 leading-[1.6] [overflow-wrap:anywhere]"
           >
             {text}
           </div>
-          {shouldCollapse ? (
-            <button
-              type="button"
-              className="mt-1.5 flex items-center gap-1 text-13 text-secondary hover:text-primary"
-              onClick={() => setExpanded((v) => !v)}
-            >
-              {expanded ? '收起' : '展开全文'}
-              {expanded ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
-            </button>
-          ) : null}
+        ) : null}
+        <div
+          className={cn(
+            'whitespace-pre-wrap break-words [overflow-wrap:anywhere]',
+            collapsed && 'line-clamp-10',
+          )}
+        >
+          {text}
         </div>
+        {shouldCollapse ? (
+          <button
+            type="button"
+            className="mt-1.5 flex items-center gap-1 text-13 text-secondary hover:text-primary"
+            onClick={() => setExpanded((v) => !v)}
+          >
+            {expanded ? '收起' : '展开全文'}
+            {expanded ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
+          </button>
+        ) : null}
+      </div>
+      {/* 操作条（对齐 Cindy 用户消息：时间 + 复制/分享/分叉/编辑/更多，hover 显示） */}
+      <div
+        className={cn(
+          'mt-0.5 flex h-6 items-center gap-0.5 transition-opacity duration-150',
+          actionsVisible ? 'opacity-100' : 'pointer-events-none opacity-0',
+        )}
+      >
+        {createdAt ? (
+          <span className="mr-1 text-12 text-muted" title={new Date(createdAt).toLocaleString('zh-CN')}>
+            {formatRelativeUser(createdAt)}
+          </span>
+        ) : null}
+        <button
+          type="button"
+          className={USER_ICON_BTN}
+          title={copied ? '已复制' : '复制'}
+          aria-label="复制"
+          onClick={() => void doCopy()}
+        >
+          {copied ? <Check size={14} /> : <Copy size={14} />}
+        </button>
+        {onShare ? (
+          <button type="button" className={USER_ICON_BTN} title="分享为图片" aria-label="分享为图片" onClick={onShare}>
+            <Share size={14} />
+          </button>
+        ) : null}
+        {onFork ? (
+          <button
+            type="button"
+            className={USER_ICON_BTN}
+            title="分叉到新会话"
+            aria-label="分叉到新会话"
+            disabled={forking}
+            onClick={() => {
+              if (forking) return;
+              setForking(true);
+              Promise.resolve(onFork()).finally(() => setForking(false));
+            }}
+          >
+            <Split size={14} />
+          </button>
+        ) : null}
         {onEdit ? (
           <button
             type="button"
+            className={USER_ICON_BTN}
             title="编辑并从这条重新生成"
+            aria-label="编辑"
             onClick={() => { setDraft(text); setEditing(true); }}
-            className="absolute -bottom-3 right-2 z-10 rounded-full bg-[#262626] px-2.5 py-0.5 text-11 leading-none text-white opacity-0 shadow-sm transition-opacity group-hover/user:opacity-100 hover:bg-[#3a3a3a]"
           >
-            编辑
+            <Pencil size={14} />
           </button>
+        ) : null}
+        {onDeleteAfter ? (
+          <div className="relative">
+            <button
+              type="button"
+              className={USER_ICON_BTN}
+              title="更多"
+              aria-label="更多"
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen((v) => !v)}
+            >
+              <Ellipsis size={14} />
+            </button>
+            {menuOpen && (
+              <div className="absolute bottom-full right-0 z-20 mb-1 w-[180px] rounded-xl border border-board bg-card p-1 shadow-[var(--shadow-menu)]">
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-inner px-2 py-1.5 text-left text-13 text-error hover:bg-hover"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setDeleting(true);
+                    void onDeleteAfter().finally(() => setDeleting(false));
+                  }}
+                >
+                  删除本条及之后{deleting ? '…' : ''}
+                </button>
+              </div>
+            )}
+          </div>
         ) : null}
       </div>
     </div>
@@ -423,20 +531,45 @@ export function MessageStream({
             );
           }
           switch (item.kind) {
-            case 'user':
+            case 'user': {
+              // 分享：取本条之后最近的 assistant 回复组成回合（无回复则不显示分享钮）
+              const userIdx = slice.items.findIndex((it) => it.kind === 'user' && it.id === item.id);
+              let replyText: string | undefined;
+              for (let j = userIdx + 1; j < slice.items.length; j++) {
+                const it = slice.items[j];
+                if (it.kind === 'assistant') { replyText = it.text; break; }
+              }
+              const canEdit = Boolean(onEditUser) && canFork && !slice.isRunning;
+              const editUser = onEditUser;
               return (
                 <UserBubble
                   key={item.id}
                   text={item.text}
                   attachments={item.attachments}
                   onOpenFile={onOpenFile}
-                  onEdit={
-                    onEditUser && canFork && !slice.isRunning
-                      ? (newText) => void onEditUser(item.id, newText)
+                  createdAt={item.createdAt}
+                  onCopy={async (t) => { await window.fundet.copyText(t); }}
+                  onShare={replyText !== undefined ? () => setSharePayload({ userText: item.text, assistantText: replyText, createdAt: item.createdAt }) : undefined}
+                  onFork={
+                    canFork && item.createdAt !== undefined && item.createdAt !== null && onFork
+                      ? () => {
+                          const ts = item.createdAt;
+                          if (typeof ts !== 'number') return;
+                          void onFork(ts);
+                        }
+                      : undefined
+                  }
+                  onEdit={canEdit && editUser ? (newText) => void editUser(item.id, newText) : undefined}
+                  onDeleteAfter={
+                    canEdit
+                      ? async () => {
+                          await deleteFromUserMessage(sessionId, item.id);
+                        }
                       : undefined
                   }
                 />
               );
+            }
             case 'assistant': {
               const showBar = isTurnTailAssistant(grouped, index, slice.isRunning, hasStreaming);
               const kbRefs = lastUserKbRefsBefore(slice.items, item.id);
