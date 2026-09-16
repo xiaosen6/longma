@@ -6,9 +6,9 @@
 > Cindy 对照：`/mnt/d/AI/Fundet/cindy`（只读）。
 > 历史名：仓库/包名大量使用 `fundet`（`@fundet/agent-core`、`window.fundet`、`FUNDET_*` IPC）。
 >
-> **双品牌（2026-08-30 起）**：同一套代码构建两个独立产品——**LongMa（龙马）** 和 **Fundet**。两品牌功能一模一样，只有名称、logo（红球经纬线）、自我介绍口径（Fundet=AI 助手，LongMa=AI 编程助手）和更新源不同。属于不同公司的产品。每次发版必须**同步出两套安装包**（4 个产物：双平台 × 双品牌），更新源各自独立。品牌配置见 `shared/brand.ts`，构建命令见 §8。
+> **双品牌（2026-08-30 起）**：同一套代码构建两个独立产品——**LongMa（龙马）** 和 **Fundet**。两品牌功能一模一样，只有名称、logo（红球经纬线）、自我介绍口径（Fundet=AI 助手，LongMa=AI 编程助手）和更新源不同。属于不同公司的产品。品牌配置见 `shared/brand.ts`，构建命令见 §8。**发版现状（2026-09-05 起）**：本仓 release.yml 只出 **LongMa** 双平台产物；Fundet 构建发版已移交公司侧自管，本仓不再出 Fundet 安装包（BRAND=fundet 构建能力保留仅供本地验证）。
 >
-> **⚠️ Fundet 已剥离为独立项目（2026-09-01）**：完整源码（v0.2.9 底子）复制到 `D:\AI\Fundet`（独立 git，commit 45eb138），由**另一个 AI 负责**，本仓 AI 只管 LongMa。Fundet 仓已做：默认品牌 fundet（无 BRAND env）、打包/CI 单仓化（发布 xiaosen6/fundet）、内部标识 Fundet 化（MANAGED_PROFILE/.fundet-uploads/Fundet-IM 等）、全文清洗（源码零「龙马」）、自有 memory.md+README、cindy/ 参考快照不入库。**本仓不变**：仍双品牌 CI（v0.2.10 起若要砍 fundet job 先问用户）；LongMa 内部常量仍用 LongMa 值（保护存量客户）；两仓以后独立演进，互搬改动注意品牌分叉（brand.ts/打包配置/CI 已不同）。
+> **⚠️ Fundet 已剥离为独立项目（2026-09-01）**：完整源码（v0.2.9 底子）复制到 `D:\AI\Fundet`（独立 git，commit 45eb138），由**另一个 AI 负责**，本仓 AI 只管 LongMa。Fundet 仓已做：默认品牌 fundet（无 BRAND env）、打包/CI 单仓化（发布 xiaosen6/fundet）、内部标识 Fundet 化（MANAGED_PROFILE/.fundet-uploads/Fundet-IM 等）、全文清洗（源码零「龙马」）、自有 memory.md+README、cindy/ 参考快照不入库。**本仓 CI 现状**：0.2.12（09-05，commit fc483e0）起 release.yml 已删 fundet 双 job 只出 LongMa，Fundet 发版后续由公司侧 GitLab（fundet-harness/fundet-buddy）自管；LongMa 内部常量仍用 LongMa 值（保护存量客户）；两仓独立演进，互搬改动注意品牌分叉（brand.ts/打包配置/CI 已不同）。
 
 **Fundet 与 LongMa 的全部差异**：
 | 差异点 | LongMa | Fundet |
@@ -47,7 +47,7 @@ WSL 里可以改代码、跑 `pnpm --filter fundet-desktop test` / `typecheck`�
 
 **LongMa / Fundet** = 本地优先桌面 Agent（双品牌，同代码）：聊天/Agent + 技能 + BYOK + 浏览器自动化 + 电脑操作 + IM 机器人。模型请求走用户自己的 Key，不经过我们的云。
 
-- Electron 37 + electron-vite + React 19 + Tailwind 4。
+- Electron 44（0.2.19 起自 37 升级）+ electron-vite + React 19 + Tailwind 4。
 - Agent 底座只有 **Pi v0.83.0**（`earendil-works/pi`，bun 单二进制，`--mode rpc`）。
 - UI 视觉对齐 Cindy **CINDY skin**（米色浅色 + CINDY Dark），品牌是蓝马头 Logo，文案中文。
 - **不要做成 Cindy fork。** 不搬：账号/OAuth、Ghost 插件、Office、设备互联、IM、语音、定时任务、Claude Code/Codex harness、SkillHub 市场。
@@ -58,7 +58,7 @@ WSL 里可以改代码、跑 `pnpm --filter fundet-desktop test` / `typecheck`�
 | --- | --- |
 | 账号 | 无。纯本地 + BYOK |
 | 窗口 | Windows `frame: false` + 自绘 `WindowControls`；mac hidden titleBar |
-| 设置 Tab | **通用 / 模型供应商 / 自动操作（浏览器+电脑操作+桌宠）/ 用量历史 / 搜索 / IM 机器人 / 技能 / MCP 服务器**。MCP 服务器为独立一级 tab（2026-09-08 用户拍板恢复+升独立 tab）：支持本地 stdio+远程 http，token 走 safeStorage，每行连通状态点（进入面板自动检测+手动重测，http POST initialize / stdio 走握手，共用 testMcpConnection）。IM 是个人栏（自己填飞书/钉钉/企微凭证，微信扫码），不登录 Cindy 云 |
+| 设置 Tab | **通用 / 模型供应商 / 自动操作（浏览器+电脑操作+桌宠）/ 用量历史 / 搜索 / IM 机器人 / 技能 / MCP 服务器 / 知识库**（共 9 个；知识库 tab 0.2.16 随本地知识库加入）。MCP 服务器为独立一级 tab（2026-09-08 用户拍板恢复+升独立 tab）：支持本地 stdio+远程 http，token 走 safeStorage，每行连通状态点（进入面板自动检测+手动重测，http POST initialize / stdio 走握手，共用 testMcpConnection）。IM 是个人栏（自己填飞书/钉钉/企微凭证，微信扫码），不登录 Cindy 云 |
 | 技能名 | 英文（`Video`、`social`、`geo`、`web-search`）；介绍文字中文 |
 | 复制 | 必须走 Electron `clipboard` IPC（权限处理器曾拒绝 `navigator.clipboard`） |
 | 分享 | 截当前回合卡片为图片进剪贴板，不要「复制消息链接」 |
@@ -73,7 +73,7 @@ WSL 里可以改代码、跑 `pnpm --filter fundet-desktop test` / `typecheck`�
 
 ## 2. 硬约束（改代码前必守）
 
-0. **双品牌同步发版**：每次发版必须同时出 LongMa + Fundet 两套安装包（4 个产物）。渲染层/main 不得硬编码品牌名——统一走 `shared/brand.ts` 的 `brand.name`。新功能先在 longma 默认品牌下开发验证，fundet 构建只需 `BRAND=fundet` 切换。
+0. **~~双品牌同步发版~~（已过时——0.2.12 起 Fundet 发版移交公司侧，本仓 release.yml 只出 LongMa；Fundet 侧由 D:\AI\Fundet 仓负责）**。仍有效的部分：渲染层/main 不得硬编码品牌名——统一走 `shared/brand.ts` 的 `brand.name`。新功能在 longma 默认品牌下开发验证，fundet 构建能力保留（`BRAND=fundet`）仅供本地验证对照。
 
 1. **不修改 Cindy 仓库。** 只读参考 `ChatInput` / Canvas / 插件搜索实现。
 2. **不 fork Cindy 进 LongMa。** 值得搬的交互用手写移植。
@@ -396,7 +396,7 @@ Command "build:fundet" not found. Did you mean "pnpm run build"? / （tools/with
 
 **/theme 丢失坑（0.2.10 三发才稳）**：pi v0.84+ 的 Windows zip 换了打包结构，update.mjs 原来用 bsdtar 从 **stdin 流式**解 zip 会静默丢 theme/ 目录 → 包内 pi 缺 theme，RPC 启动即崩（退出码 1，应用全挂）。extractArchive 已改：.zip 走 PowerShell Expand-Archive（seek 完整读取），.tar.gz 维持 stdin+tar。**发版冒烟必须验 resources/pi/<plat>/theme/ 三件套存在**。
 
-**另修**：release.yml 的 pi 版本是硬编码传参（update.mjs 0.83.0），只改 latest.json 无效——workflow 4 处已改 0.84.4。**新规矩：pi 升级要同时改 latest.json 和 release.yml 传参**（或把 update.mjs 改成读 latest.json）。
+**另修**：release.yml 的 pi 版本是硬编码传参（update.mjs 0.83.0），只改 latest.json 无效——workflow 4 处已改 0.84.4。**pi 升级规矩（c553f34 后简化）**：update.mjs 无版本参数时读 latest.json pin，release.yml 已不带版本号——**升级 pi 只改 `tools/pi/latest.json` 一处即可**（本条曾是"要同步改 4 处"，已过时修正）。
 
 **新增能力**：用户长消息自动折叠（抄 Cindy userMessageCollapse：>14 视觉行收起，line-clamp-10 + 展开全文/收起）；markdown 对齐 Cindy：数学公式（normalizeMathDelimiters + remark-math + rehype-katex）、CJK 优化（remark-cjk-friendly）、mermaid 图表 SVG（chat/MarkdownMermaidBlock 轻量版，动态加载失败回落源码）。新依赖：remark-math/rehype-katex/katex/remark-cjk-friendly/mermaid。
 
