@@ -10,7 +10,8 @@ async function getPageWsUrl() {
   for (let i = 0; i < 30; i++) {
     try {
       const targets = await (await fetch(`${BASE}/json`)).json();
-      const page = targets.find((t) => t.type === 'page' && t.url.includes('localhost:5173'));
+      // dev= localhost:5173；打包版= file:// —— 取任意非桌宠 page target
+      const page = targets.find((t) => t.type === 'page' && !t.url.includes('/pet.html'));
       if (page) return page.webSocketDebuggerUrl;
     } catch { /* CDP 还没起来 */ }
     await new Promise((r) => setTimeout(r, 1000));
