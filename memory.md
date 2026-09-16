@@ -84,7 +84,7 @@ WSL 里可以改代码、跑 `pnpm --filter fundet-desktop test` / `typecheck`�
 7. 技能：`name` 英文，`description` 中文；改 bundled skill 必须 bump `LONGMA_REVISION`，`ensureBundledSkills` 才会覆盖 `~/.agents/skills`。
 8. 渲染进程不要 `node:path`；共享逻辑放 `apps/desktop/src/shared/`（无 Node API）。生产 import 可用 `.ts`（tsconfig `allowImportingTsExtensions`）。
 9. 注释短、事实性；不要用注释叙述实现过程。
-10. **改完产品事实立刻改 `memory.md`**（设置 Tab、技能清单、搜索/GEO/IM 边界）。本文是下一轮 AI 的真源，过期比缺文档更糟。
+10. **改完产品事实立刻改 `memory.md`**（设置 Tab、技能清单、搜索/GEO/IM 边界）。本文是下一轮 AI 的真源，过期比缺文档更糟。**注意两类内容的区别**：速查表/坑实录是记录型（只增不改）；§1/头部/硬约束/操作规矩是**声明型**（描述现状，必须随代码回头改写）——速查表记了 ≠ §1 同步了（2026-09-14 曾发现 4 处声明型偏差均属此模式）。防复发：`tools/check-memory-sync.cjs` 在 ci.yml 把关（Electron 版本/速查表行/Pi pin/Fundet job/设置 Tab 五项断言），改依赖/加 tab/升 pi 而 memory 未同步会被 CI 拦下。
 11. IM 机器人只做**个人凭证**（飞书/钉钉/企微填开放平台 Key，微信 iLink 扫码）。不要搬 Cindy 官方 Hook / 账号云。入站接到现有 Pi 会话，不要拷 Cindy orchestrator 整棵。
 
 ---

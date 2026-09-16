@@ -25,4 +25,6 @@ jobs:
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
       - run: pnpm typecheck
+      # memory.md 声明与代码事实一致性（Electron 版本/速查表/Pi pin/Fundet job/设置 Tab）
+      - run: node tools/check-memory-sync.cjs
       - run: pnpm test:unit
