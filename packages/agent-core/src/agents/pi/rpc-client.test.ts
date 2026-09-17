@@ -1,11 +1,12 @@
 import { EventEmitter } from 'node:events';
+import type { Readable as NodeReadableStream } from 'node:stream';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({ spawn: vi.fn() }));
 
 vi.mock('node:child_process', () => ({ spawn: mocks.spawn }));
 
-import { PiRpcProcess } from './rpc-client.js';
+import { attachJsonlReader, MAX_JSONL_BUFFER_CHARS, PiRpcProcess, PI_RPC_OVERSIZED_FRAME_ERROR } from './rpc-client.js';
 
 function makeStream() {
   return new EventEmitter();
@@ -76,5 +77,54 @@ describe('PiRpcProcess process observer', () => {
         throw new Error('observer failed');
       }),
     ).not.toThrow();
+  });
+});
+
+describe('PiRpcProcess oversized JSONL frames（对齐 Cindy #4518）', () => {
+  it('超限帧让 pending get_entries 立即失败,不误伤其它命令,不空等超时', async () => {
+    const child = makeChild();
+    mocks.spawn.mockReturnValue(child);
+    const proc = createProcess();
+
+    const getEntries = proc.request({ type: 'get_entries', path: 'x' });
+    const steer = proc.request({ type: 'steer', text: 'y' });
+    await Promise.resolve();
+
+    // 无换行的超限块 → 进入跳帧模式并通知协议层
+    child.stdout.emit('data', Buffer.from('a'.repeat(MAX_JSONL_BUFFER_CHARS + 10)));
+    const resp = await getEntries;
+    expect(resp.success).toBe(false);
+    expect(resp.error).toBe(PI_RPC_OVERSIZED_FRAME_ERROR);
+    expect(resp.command).toBe('get_entries');
+
+    // steer 不在被猜中的受害范围内：仍 pending（未 settle）
+    const settled = await Promise.race([steer.then(() => true), Promise.resolve(false)]);
+    expect(settled).toBe(false);
+
+    // 跳帧恢复后,残余被丢弃、后续合法帧正常解析（帧对齐保持）
+    const stream = new EventEmitter() as unknown as NodeReadableStream;
+    const lines: string[] = [];
+    attachJsonlReader(stream, (l) => lines.push(l), () => {});
+    stream.emit('data', Buffer.from('a'.repeat(MAX_JSONL_BUFFER_CHARS + 5) + '\n{"ok":1}\n'));
+    expect(lines).toEqual(['{"ok":1}']);
+  });
+
+  it('跨 chunk 的超限行:残余继续丢,直到换行后恢复分帧', () => {
+    const stream = new EventEmitter() as unknown as NodeReadableStream;
+    const lines: string[] = [];
+    let oversized = 0;
+    attachJsonlReader(
+      stream,
+      (l) => lines.push(l),
+      () => {
+        oversized += 1;
+      },
+    );
+    stream.emit('data', Buffer.from('b'.repeat(MAX_JSONL_BUFFER_CHARS + 1)));
+    stream.emit('data', Buffer.from('残余无换行'));
+    stream.emit('data', Buffer.from('继续丢\n'));
+    stream.emit('data', Buffer.from('{"next":true}\n'));
+    expect(lines).toEqual(['{"next":true}']);
+    expect(oversized).toBeGreaterThanOrEqual(1);
   });
 });

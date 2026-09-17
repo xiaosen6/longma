@@ -12,6 +12,8 @@ import type {
 } from '@fundet/agent-core';
 import type { ImBotsStatus, ImChannelId, ImSaveInput } from './im-bots.ts';
 export type { ImBotsStatus, ImChannelId, ImChannelStatus, ImSaveInput } from './im-bots.ts';
+import type { OpenPathResult } from './open-path-result.js';
+export type { OpenPathResult } from './open-path-result.js';
 import type { BrowserStatus } from './browser-settings.ts';
 export type { BrowserStatus } from './browser-settings.ts';
 import type { ComputerStatus } from './computer-settings.ts';
@@ -410,7 +412,7 @@ export interface FundetApi {
   getPathForFile(file: Blob): string;
   readTextFile(filePath: string, workDir: string): Promise<string>;
   readFileDataUrl(filePath: string, workDir: string): Promise<string>;
-  openPath(filePath: string): Promise<void>;
+  openPath(filePath: string): Promise<OpenPathResult>;
   platform: NodeJS.Platform;
   windowMinimize(): void;
   windowMaximize(): void;

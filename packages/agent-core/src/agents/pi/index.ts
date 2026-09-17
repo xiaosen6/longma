@@ -23,6 +23,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { promises as fs } from 'node:fs';
 import { randomBytes } from 'node:crypto';
+import { scanPiSessionJsonl } from './session-jsonl-scan.js';
 
 import {
   AgentNotAuthenticatedError,
@@ -1389,7 +1390,41 @@ export class PiAgent extends BaseAgent {
       throw err;
     }
 
-    const readPersistedPlanMode = async (): Promise<boolean | null> => {
+    // 本地 session JSONL 元数据扫描（移植 Cindy #4518）：带图长历史的 get_entries
+    // 会撑破 16Mi JSONL 帧；user entry ids / plan-mode 镜像优先本地流式扫描
+    // （每行只解析前 4KiB 前缀），失败才回落 RPC。mtime+size 缓存防轮询重复扫。
+    let localSessionScanCache:
+      | { file: string; mtimeMs: number; size: number; scan: Awaited<ReturnType<typeof scanPiSessionJsonl>> & object }
+      | null = null;
+
+    const readLocalSessionScan = async () => {
+      if (typeof sdkSessionId !== 'string' || !path.isAbsolute(sdkSessionId)) return null;
+      try {
+        const stat = await fs.stat(sdkSessionId);
+        if (
+          localSessionScanCache
+          && localSessionScanCache.file === sdkSessionId
+          && localSessionScanCache.mtimeMs === stat.mtimeMs
+          && localSessionScanCache.size === stat.size
+        ) {
+          return localSessionScanCache.scan;
+        }
+        const scan = await scanPiSessionJsonl(sdkSessionId);
+        if (scan) {
+          localSessionScanCache = {
+            file: sdkSessionId,
+            mtimeMs: stat.mtimeMs,
+            size: stat.size,
+            scan,
+          };
+        }
+        return scan;
+      } catch {
+        return null;
+      }
+    };
+
+    const readPersistedPlanModeFromEntries = async (): Promise<boolean | null> => {
       const entriesResp = await proc.request({ type: 'get_entries' });
       if (!entriesResp.success) return null;
       const entries =
@@ -1403,28 +1438,40 @@ export class PiAgent extends BaseAgent {
       return false;
     };
 
+    const readPersistedPlanMode = async (): Promise<boolean | null> => {
+      const local = await readLocalSessionScan();
+      if (local) return local.lastPlanModeEnabled ?? false;
+      return readPersistedPlanModeFromEntries();
+    };
+
+    const readPiUserEntryIdsFromEntries = async (): Promise<Set<string> | null> => {
+      const response = await proc.request({ type: 'get_entries' });
+      if (!response.success) return null;
+      const data = typeof response.data === 'object' && response.data !== null
+        ? response.data as Record<string, unknown>
+        : null;
+      // malformed success 不能当“空历史”，否则下一次正常读取会把任意既有 user entry
+      // 误判成刚发送的消息并串错附件。
+      if (!Array.isArray(data?.entries)) return null;
+      const entries = data.entries;
+      const ids = new Set<string>();
+      for (const raw of entries) {
+        if (typeof raw !== 'object' || raw === null) continue;
+        const entry = raw as Record<string, unknown>;
+        if (entry.type !== 'message' || typeof entry.id !== 'string' || entry.id.length === 0) continue;
+        const message = typeof entry.message === 'object' && entry.message !== null
+          ? entry.message as Record<string, unknown>
+          : null;
+        if (message?.role === 'user') ids.add(entry.id);
+      }
+      return ids;
+    };
+
     const readPiUserEntryIds = async (): Promise<Set<string> | null> => {
       try {
-        const response = await proc.request({ type: 'get_entries' });
-        if (!response.success) return null;
-        const data = typeof response.data === 'object' && response.data !== null
-          ? response.data as Record<string, unknown>
-          : null;
-        // malformed success 不能当“空历史”，否则下一次正常读取会把任意既有 user entry
-        // 误判成刚发送的消息并串错附件。
-        if (!Array.isArray(data?.entries)) return null;
-        const entries = data.entries;
-        const ids = new Set<string>();
-        for (const raw of entries) {
-          if (typeof raw !== 'object' || raw === null) continue;
-          const entry = raw as Record<string, unknown>;
-          if (entry.type !== 'message' || typeof entry.id !== 'string' || entry.id.length === 0) continue;
-          const message = typeof entry.message === 'object' && entry.message !== null
-            ? entry.message as Record<string, unknown>
-            : null;
-          if (message?.role === 'user') ids.add(entry.id);
-        }
-        return ids;
+        const local = await readLocalSessionScan();
+        if (local) return local.userEntryIds;
+        return await readPiUserEntryIdsFromEntries();
       } catch (error) {
         this.deps.logger.warn('pi user-entry snapshot failed (attachment link unavailable)', {
           message: error instanceof Error ? error.message : String(error),

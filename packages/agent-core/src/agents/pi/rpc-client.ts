@@ -44,6 +44,10 @@ export interface PiRpcSpawnOptions {
   onProcessSpawned?: (pid: number) => void | (() => void);
 }
 
+/** 超限帧被丢弃时 pending get_entries 收到的错误文案（对齐 Cindy #4518）。 */
+export const PI_RPC_OVERSIZED_FRAME_ERROR =
+  'RPC response exceeded 16 MiB and was discarded.';
+
 const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 const KILL_GRACE_MS = 3_000;
 
@@ -54,6 +58,7 @@ export class PiRpcProcess {
     resolve: (resp: PiRpcResponse) => void;
     reject: (err: Error) => void;
     timer: NodeJS.Timeout;
+    commandType: string;
   }>();
   private closed = false;
   private readonly logger: Logger;
@@ -76,7 +81,9 @@ export class PiRpcProcess {
       }
     }
 
-    attachJsonlReader(this.child.stdout, (line) => this.handleStdoutLine(line));
+    attachJsonlReader(this.child.stdout, (line) => this.handleStdoutLine(line), () => {
+      this.failOversizedPending();
+    });
     attachJsonlReader(this.child.stderr, (line) => {
       if (line.trim().length === 0) return;
       this.logger.warn('pi stderr', { line: line.slice(0, 2000) });
@@ -118,13 +125,14 @@ export class PiRpcProcess {
     if (this.closed) throw new Error('pi process already exited');
     const id = `c${this.nextRequestId++}`;
     const payload = JSON.stringify({ ...command, id });
+    const commandType = String(command.type ?? 'unknown');
 
     return new Promise<PiRpcResponse>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
-        reject(new Error(`pi rpc timeout after ${timeoutMs}ms: ${String(command.type)}`));
+        reject(new Error(`pi rpc timeout after ${timeoutMs}ms: ${commandType}`));
       }, timeoutMs);
-      this.pending.set(id, { resolve, reject, timer });
+      this.pending.set(id, { resolve, reject, timer, commandType });
       this.child.stdin.write(payload + '\n', (err) => {
         if (err) {
           const entry = this.pending.get(id);
@@ -206,35 +214,116 @@ export class PiRpcProcess {
     }
     this.pending.clear();
   }
+
+  /** 超限帧被丢：只结束能确定归属的 pending get_entries（对齐 Cindy #4518——
+   *  通知不带帧 id，事件帧也可能超限，不能把唯一 pending 的 steer/abort 猜成受害者），
+   *  resolve 一个 success:false 响应而非 reject，让调用方走既有失败分支，不空等 30s 超时。 */
+  private failOversizedPending(): void {
+    const victims = [...this.pending.entries()].filter(([, entry]) => entry.commandType === 'get_entries');
+    if (victims.length === 0) {
+      this.logger.warn('pi rpc: discarded oversized JSONL frame with no matching pending get_entries');
+      return;
+    }
+    for (const [id, entry] of victims) {
+      clearTimeout(entry.timer);
+      this.pending.delete(id);
+      entry.resolve({
+        type: 'response',
+        id,
+        command: entry.commandType,
+        success: false,
+        error: PI_RPC_OVERSIZED_FRAME_ERROR,
+      });
+    }
+  }
 }
 
 /**
  * 协议合规的 JSONL 读取:只按 \n 切,strip 尾部 \r,跨 chunk 维护缓冲。
  * (pi docs/rpc.md 明确警告 Node readline 不合规。)
+ *
+ * 缓冲无界增长防护(对齐 Cindy 轮 21 H-3 + #4518):损坏/恶意 pi 进程持续输出
+ * 无 \n 的字节流会 OOM 整个进程;合法 get_entries 带图长历史也可能超过 16Mi。
+ * 超限时丢掉**当前这一行**——不能把行边界重置成"从此开始是新帧"(残余 base64
+ * 会被当下一行 JSON),正确做法是继续丢到下一个 \n 再恢复分帧。
  */
+export const MAX_JSONL_BUFFER_CHARS = 16 * 1024 * 1024;
+
 export function attachJsonlReader(
   stream: NodeJS.ReadableStream,
   onLine: (line: string) => void,
+  onOversizedFrame?: () => void,
 ): void {
-  const decoder = new StringDecoder('utf8');
+  let decoder = new StringDecoder('utf8');
   let buffer = '';
+  let skippingOversizedLine = false;
 
-  stream.on('data', (chunk: Buffer | string) => {
-    buffer += typeof chunk === 'string' ? chunk : decoder.write(chunk);
+  // 丢弃时必须重建 StringDecoder——被丢帧末尾残留的半个多字节字符会留在
+  // decoder 内污染后续合法帧。
+  const resetDecoder = (): void => {
+    decoder = new StringDecoder('utf8');
+  };
+
+  const dropThroughNewline = (): boolean => {
+    const newlineIndex = buffer.indexOf('\n');
+    if (newlineIndex === -1) {
+      buffer = '';
+      resetDecoder();
+      return false;
+    }
+    buffer = buffer.slice(newlineIndex + 1);
+    skippingOversizedLine = false;
+    return true;
+  };
+
+  const emitCompleteLines = (): void => {
     while (true) {
+      if (skippingOversizedLine) {
+        if (!dropThroughNewline()) return;
+        continue;
+      }
       const newlineIndex = buffer.indexOf('\n');
-      if (newlineIndex === -1) break;
+      if (newlineIndex === -1) {
+        if (buffer.length > MAX_JSONL_BUFFER_CHARS) {
+          console.warn(
+            `[pi] JSONL line buffer exceeded ${MAX_JSONL_BUFFER_CHARS} chars without newline — discarding until next newline`,
+          );
+          skippingOversizedLine = true;
+          onOversizedFrame?.();
+          dropThroughNewline();
+        }
+        return;
+      }
+      if (newlineIndex > MAX_JSONL_BUFFER_CHARS) {
+        console.warn(
+          `[pi] JSONL line exceeded ${MAX_JSONL_BUFFER_CHARS} chars — discarding oversized frame`,
+        );
+        onOversizedFrame?.();
+        buffer = buffer.slice(newlineIndex + 1);
+        continue;
+      }
       let line = buffer.slice(0, newlineIndex);
       buffer = buffer.slice(newlineIndex + 1);
       if (line.endsWith('\r')) line = line.slice(0, -1);
       onLine(line);
     }
+  };
+
+  stream.on('data', (chunk: Buffer | string) => {
+    buffer += typeof chunk === 'string' ? chunk : decoder.write(chunk);
+    emitCompleteLines();
   });
 
   stream.on('end', () => {
     buffer += decoder.end();
-    if (buffer.length > 0) {
+    if (buffer.length > 0 && !skippingOversizedLine) {
       onLine(buffer.endsWith('\r') ? buffer.slice(0, -1) : buffer);
     }
+  });
+
+  // 未处理 'error' 事件会让 Readable 抛未捕获异常崩进程——传输层错误由
+  // child.on('error')/close 统一处理,这里仅阻止裸崩溃。
+  stream.on('error', () => {
+    /* 传输层错误由上层(child 'error' / close)处理 */
   });
 }

@@ -6,6 +6,7 @@
  */
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import { FUNDET_INVOKE, FUNDET_PUSH } from '../main/ipc/channels.js';
+import { classifyIpcLifecycle, type OpenPathResult } from '../shared/open-path-result.js';
 import type {
   AgentEventPayload,
   FundetApi,
@@ -168,7 +169,19 @@ const api: FundetApi = {
     ipcRenderer.invoke(FUNDET_INVOKE.FS_READ_TEXT, filePath, workDir),
   readFileDataUrl: (filePath, workDir) =>
     ipcRenderer.invoke(FUNDET_INVOKE.FS_READ_DATA_URL, filePath, workDir),
-  openPath: (filePath) => ipcRenderer.invoke(FUNDET_INVOKE.FS_OPEN_PATH, filePath),
+  // IPC 传输层失败收进结果边界而非 rejection（窗口关闭期不产生未处理拒绝噪音）
+  openPath: async (filePath) => {
+    try {
+      await ipcRenderer.invoke(FUNDET_INVOKE.FS_OPEN_PATH, filePath);
+      return { success: true } satisfies OpenPathResult;
+    } catch (cause) {
+      const error =
+        cause instanceof Error
+          ? cause.message.replace(/^Error invoking remote method ['"][^'"]+['"]: (?:Error: )?/, '')
+          : String(cause);
+      return { success: false, error, failureKind: classifyIpcLifecycle(error) };
+    }
+  },
   platform: process.platform,
   windowMinimize: () => ipcRenderer.send(FUNDET_INVOKE.WINDOW_MINIMIZE),
   windowMaximize: () => ipcRenderer.send(FUNDET_INVOKE.WINDOW_MAXIMIZE),

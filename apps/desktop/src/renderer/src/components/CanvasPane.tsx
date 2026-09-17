@@ -135,7 +135,14 @@ function Preview({ workDir, artifact }: { workDir: string; artifact: Artifact })
             type="button"
             title="用系统打开"
             className="text-muted hover:text-primary"
-            onClick={() => void window.fundet.openPath(artifact.path)}
+            onClick={() => {
+              void window.fundet.openPath(artifact.path).then((r) => {
+                // 生命周期失败（窗口关闭期）静默；真实打开失败只进控制台（无打扰出口）
+                if (!r.success && r.failureKind !== 'ipc_lifecycle') {
+                  console.warn('[canvas] 打开文件失败', r.error);
+                }
+              });
+            }}
           >
             <ExternalLink size={14} />
           </button>
