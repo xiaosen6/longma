@@ -12,6 +12,11 @@ The derived portions live in:
   https://github.com/openclaw/openclaw, MIT — see
   packages/browser-runtime/upstream/browser-runtime.lock.json for the pinned commit)
 - packages/browser-mcp/ (derived from Cindy packages/lizi-mcps browser module)
+- apps/desktop/src/renderer/src/components/SidebarTitleMarquee.tsx,
+  components/RouteFade.tsx, hooks/useAnimatedNumber.ts,
+  lib/hiddenAnimationGate.ts (adapted from Cindy renderer counterparts:
+  SessionItem title marquee, FadeSwitcher, useAnimatedNumber,
+  hiddenAnimationGate)
 - tools/pi/, tools/shared/ (vendored binary-download tooling)
 - apps/desktop/src/main/im/wechat-ilink/ (adapted from Cindy @cindy/wechat-ilink;
   Tencent iLink protocol utilities originally from Tencent/openclaw-weixin, MIT)

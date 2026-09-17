@@ -209,6 +209,11 @@ ChatPage / ChatInput
 - 首页折叠仪表盘（2026-08-28，对齐 Cindy HomeUsageDashboard 形态）：usage_daily 表（migration 0004，day×model 主键）+ wireSession 增量采集（同前）+ USAGE_HISTORY IPC；首页空态渲染 **UsageDashboard 可折叠卡**——统计条（今日花费[>2×前7日均值且≥$1 标 warning]/Token 今今日+30天/连续活跃含最长/近30天总额）+ 近 20 周 GitHub 风格热力图（强度=日花费，4 分位桶，color-mix --accent）+ 右栏 30 天每日堆叠柱（按模型分段，无花费日高度回退 token）+ 模型图例；折叠态一行摘要存 localStorage。中途换模型轻微误归属 v1 接受；预算列（本月/月度）BYOK 无来源未放
 - Canvas 不再被数据变化强制打开（2026-08-28）：贴附件/新产物只更新 canvasPath，仅用户点击（附件芯片/顶栏按钮）才展开——此前 latestArtifact effect 每回合强制 setCanvasOpen(true)，用户「关不掉」。输入卡下方新增会话短 id（前 8 位）。
 - 长会话渲染（2026-08-26）：`AssistantMessage`/`WorkGroupBlock` memo 化（流式 100ms 刷新只重渲染末条；工作组按 children 逐项引用比较）。未做列表虚拟化——超长会话仍卡再上 virtualization。
+- **动效三批次（2026-09-17，0.2.24 后、未发版，对齐 Cindy DESIGN.md §14.4；对照分析 Cindy 无 JS 动画库、纯 CSS token 体系）**：
+  - **批次一（侧栏反馈+数字平滑）**：会话行状态槽三态（运行中=MessageSquare 图标 warning 呼吸、需关注=6px 点光环脉冲 awaiting 蓝/error 红、空闲=muted）；后台会话运行结束 settle 底色闪动（0.9s，**摘类走 onAnimationEnd——StrictMode 双跑吃 setTimeout**）；超长标题 hover 跑马灯（SidebarTitleMarquee，DOM+CSS 变量零 React state）；useAnimatedNumber（rAF 400ms，回落跳变）平滑 token 计数与上下文环；完成态 status-bar-done 弹跳（唯一 overshoot）；按压态 active:scale-[0.98] 补齐主要按钮。侧栏关注数据在 sessionStore（liveAttentionErrors+setActiveSession 切进即读）。
+  - **批次二（过渡完整性）**：CanvasSlider=Canvas 0↔380px 250ms 宽度过渡（关闭保持挂载滑到 0 再卸载，内容钉满宽防重排）；RouteFade=路由切换 220ms 纯 opacity 淡入（pathname 自 key 销毁重挂，**rAF+50ms timer 双路——托盘启动隐藏场景仅 rAF 会永久白屏**）；Radix Dialog 三处统一进出场（keyframes 必须携带 translate 保 transform 居中；McpServerDialog 内部 closing 态防父级硬卸载跳过退场）。
+  - **批次三（性能纪律）**：消息条目 content-visibility: auto + contain-intrinsic-size auto 240px（portal 不受 containment 影响）；lib/hiddenAnimationGate 隐藏窗口冻结 infinite 动画（data-app-hidden → animation-play-state: paused；新增循环动画必须登记）。
+  - 验证工具 tools/motion-smoke.cjs 入库（真实发送验证呼吸/settle/done-pop）。Cindy 刻意不做（勿补）：消息入场动画、打字光标、附件 chip 动画、hover 渐变底色。
 - 厂商 Logo；模型 context window 扫描（GLM 5.2/5.3 = 1M）。
 - 米色 + dark 主题。
 
@@ -459,6 +464,9 @@ Command "build:fundet" not found. Did you mean "pnpm run build"? / （tools/with
 | **electron-builder 26 + pnpm collector 遇 express 树死循环** | desktop dependencies 里出现 `@modelcontextprotocol/sdk`（依赖 express@5）后 "searching for node modules" 永久卡死；实测 express@4/@5 单独出现即卡（Cindy 没事是 electron-forge 不做依赖树收集）。**修法**：这批运行时依赖不进 desktop dependencies，`tools/pack-browser-deps.mjs` 打平闭包 → extraResources 到 `resources/node_modules`（asar 外，主进程模块解析向上可及） |
 | **pi 在无 AVX2 的 CPU 上启动即崩**（客户报障 code=3221225501） | 0xC000001D 非法指令：pi 是 bun 单二进制，标准 x64 构建要 AVX/AVX2（约 2013 前 Intel / 2015 前 AMD / 部分虚拟机没有；bun 有 baseline 变体但 pi 只发标准构建）。处理：启动预检 `pi --version` 崩溃码探测 → 原生弹窗明示；发送失败经 `friendlyError` 转中文引导。**这类机器暂无解**，除非 earendil-works/pi 出 baseline 构建 |
 | sharp 的 @img 平台二进制 | pnpm 对 sharp 的 optionalDependencies（@img/sharp-\<plat\> 等）**不在任何 node_modules 建符号链接**，只落 .pnpm store——dev 里 require('@img/...') 其实也是坏的（仅截图路径触发才发现）。pack 脚本从 store 扫 `@img+sharp-*` 并走闭包；dev 要用截图再处理 |
+| **Tailwind v4 变体只认 @utility** | 自定义动画类挂 `data-[state=open]:xxx` 前缀变体，普通 `.css` 类定义**不会生成该规则**（实测 computed animationName=none）——需参与变体的类必须用 `@utility` 定义（globals.css 已有 animate-dialog-in 等四例） |
+| **StrictMode 双跑吃 setTimeout** | 一次性动画的摘类若靠 effect 里 `setTimeout(()=>set(false))`，cleanup 会清掉定时器而第二次 effect 因 ref 已翻转提前 return——类永久卡死（settle 卡 22s 实测）。摘类改 onAnimationEnd 驱动（动画必播一次必摘）；Cindy 同款代码没 StrictMode 所以无此问题，移植必须本地化 |
+| **窗口隐藏 = 渲染整链冻结** | visibilityState hidden 时 rAF 暂停、**transition 冻结在起点**（inline 已是终态、computed 仍起点）、timer 节流到 ≥1s。依赖 rAF 的状态推进必须加 timer 兜底（RouteFade 托盘启动白屏风险）；CDP 在隐藏窗上验证动画时长/完成不可靠——Page.bringToFront 不唤起 OS 窗口，PowerShell AppActivate 对 frameless 窗也会失败，动效验证优先确定性 DOM 探针（手动挂类+animationend） |
 
 Pi pin：`tools/pi/latest.json` → **0.84.4**（升级要同步 release.yml 4 处传参，见 §4.7d）。
 
