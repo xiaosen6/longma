@@ -11,6 +11,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { StringDecoder } from 'node:string_decoder';
 
+import { redactSensitiveText } from '@fundet/shared/error-redaction';
 import type { Logger } from '../../interfaces/logger.js';
 
 /** pi RPC 响应帧。 */
@@ -86,8 +87,11 @@ export class PiRpcProcess {
     });
     attachJsonlReader(this.child.stderr, (line) => {
       if (line.trim().length === 0) return;
-      this.logger.warn('pi stderr', { line: line.slice(0, 2000) });
-      opts.onStderrLine?.(line);
+      // stderr 进日志/回调前做凭证脱敏（对齐 Cindy 本地 transport 轮 40-w3）：
+      // spawnEnv 合有 BYOK/MCP header 真值，子进程崩溃 dump 可能把它们打到 stderr。
+      const redacted = redactSensitiveText(line);
+      this.logger.warn('pi stderr', { line: redacted.slice(0, 2000) });
+      opts.onStderrLine?.(redacted);
     });
 
     this.child.on('error', (err) => {
