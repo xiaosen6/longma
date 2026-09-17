@@ -511,7 +511,7 @@ export function MessageStream({
         onScroll={handleScroll}
         className="h-full overflow-y-auto px-6 py-4"
       >
-        <div ref={innerRef} className="mx-auto flex max-w-[820px] flex-col gap-3.5">
+        <div ref={innerRef} className="msg-stream-inner mx-auto flex max-w-[820px] flex-col gap-3.5">
           {slice.items.length === 0 && !slice.streamingText && (
             <div className="pt-24 text-center text-13 text-muted select-none">
               输入消息或拖入文件开始对话

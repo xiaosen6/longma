@@ -678,6 +678,24 @@ textarea:focus-visible {
   animation: status-done-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
+/* 长会话渲染：视口外消息条目跳过布局/绘制（对齐 Cindy content-visibility 方案）。
+   contain-intrinsic-size auto：未渲染按 240px 估高，渲染过记住真实高度（重复
+   切回位置稳定）。portal 弹层（预览/分享）挂 body，不受 containment 影响。 */
+.msg-stream-inner > * {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 240px;
+}
+
+/* 窗口隐藏时冻结常驻循环动画（lib/hiddenAnimationGate.ts 切换 data-app-hidden，
+   对齐 Cindy：隐藏期样式重算 -81%）。登记者 = 全部 infinite 动画类；新增循环
+   动画必须登记（paused 而非 none：恢复时从暂停处续播不闪跳）。 */
+html[data-app-hidden='true'] .animate-fundet-pulse,
+html[data-app-hidden='true'] .animate-fundet-spin,
+html[data-app-hidden='true'] .session-attention-dot::after,
+html[data-app-hidden='true'] .thinking-dot {
+  animation-play-state: paused;
+}
+
 /* reduced-motion：一次性/循环动效全部静止（含 keyframes 白名单登记） */
 @media (prefers-reduced-motion: reduce) {
   .status-bar-shimmer,

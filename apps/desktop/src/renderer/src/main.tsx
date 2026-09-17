@@ -5,6 +5,7 @@ import { brand } from '../../shared/brand.js';
 import './styles/globals.css';
 import { applyFonts } from './lib/fonts';
 import { initGlobalListeners } from './stores/sessionStore';
+import { installHiddenAnimationGate } from './lib/hiddenAnimationGate';
 
 applyFonts();
 import { ChatPage } from './pages/ChatPage';
@@ -16,6 +17,8 @@ import { RouteFade } from './components/RouteFade';
 // 全局 agent:event 监听只装一次（模块级 store，与 React 树解耦，
 // 切页面/切会话不影响后台 turn 的事件分发）
 initGlobalListeners();
+// 窗口隐藏时冻结常驻循环动画（托盘挂机省电）
+installHiddenAnimationGate();
 
 const router = createHashRouter([
   { path: '/', element: <RouteFade><ChatPage /></RouteFade> },
