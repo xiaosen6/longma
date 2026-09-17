@@ -21,10 +21,20 @@ export interface PendingInteraction {
 export class InteractionQueue {
   private readonly pending = new Map<string, PendingInteraction>();
   private readonly broadcast: (channel: string, payload: unknown) => void;
+  /** 待决数变化通知（托盘/任务栏角标）；无 electron 依赖 */
+  private readonly onChange?: (pendingCount: number) => void;
 
   // 注：不用构造器参数属性——node --experimental-strip-types（strip-only）不支持该语法
-  constructor(broadcast: (channel: string, payload: unknown) => void) {
+  constructor(
+    broadcast: (channel: string, payload: unknown) => void,
+    onChange?: (pendingCount: number) => void,
+  ) {
     this.broadcast = broadcast;
+    this.onChange = onChange;
+  }
+
+  private notifyCount(): void {
+    this.onChange?.(this.pending.size);
   }
 
   /** wireSession 的 setInteractionListener 回调：登记待决并广播给渲染层 */
@@ -34,6 +44,7 @@ export class InteractionQueue {
       if (request.kind === 'permission') {
         entry.timer = setTimeout(() => {
           this.pending.delete(request.requestId);
+          this.notifyCount();
           this.broadcast(FUNDET_PUSH.INTERACTION_DISMISSED, {
             sessionId,
             requestId: request.requestId,
@@ -44,6 +55,7 @@ export class InteractionQueue {
       }
       this.pending.set(request.requestId, entry);
       this.broadcast(FUNDET_PUSH.INTERACTION_REQUEST, { sessionId, request });
+      this.notifyCount();
     });
   }
 
@@ -59,6 +71,7 @@ export class InteractionQueue {
       requestId,
       reason: 'resolved',
     });
+    this.notifyCount();
     return true;
   }
 

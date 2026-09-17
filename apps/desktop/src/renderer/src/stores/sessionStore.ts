@@ -176,6 +176,12 @@ function getSlice(sessionId: string): SessionSlice {
   return slices.get(sessionId) ?? EMPTY_SLICE;
 }
 
+/** @internal 仅供单测：事件归约与切片读取（模块级状态，测试用独立 sessionId 隔离） */
+export const __testHooks = {
+  applyEvent: (sessionId: string, event: AgentEvent) => applyEvent(sessionId, event),
+  getSlice,
+};
+
 function notifySlice(sessionId: string): void {
   for (const l of sliceListeners.get(sessionId) ?? []) l();
   notifyAny();

@@ -102,3 +102,19 @@ test('list() 列跨会话待决；结算后移除', async () => {
   queue.settle('r2', { kind: 'permission', behavior: 'deny' });
   assert.equal(queue.list().length, 0);
 });
+
+test('onChange：待决计数在 enqueue/settle 时通知（角标数据源）', async () => {
+  const counts: number[] = [];
+  const queue = new InteractionQueue(
+    (channel, payload) => {
+      void channel;
+      void payload;
+    },
+    (n) => counts.push(n),
+  );
+  void queue.enqueue('s1', permReq('r1'));
+  void queue.enqueue('s1', permReq('r2'));
+  queue.settle('r1', { kind: 'permission', behavior: 'allow' });
+  queue.settle('r2', { kind: 'permission', behavior: 'deny' });
+  assert.deepEqual(counts, [1, 2, 1, 0]);
+});

@@ -1,7 +1,7 @@
 // 浏览器 runtime 的数据目录必须在 @fundet/browser-runtime 求值前种下（eager 常量），
 // 所以这个副作用模块必须是 main 的第一条 import
 import './browser/runtime-env.js';
-import { app, BrowserWindow, dialog, Menu, nativeTheme, session, shell, Tray } from 'electron';
+import { app, BrowserWindow, dialog, Menu, nativeImage, nativeTheme, session, shell, Tray } from 'electron';
 import { isPetEnabledInState, isPetWindowAlive, readPetTheme, registerPetIpc, togglePetEnabled } from './pet-window.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -12,6 +12,7 @@ import { getHost, shutdownHost } from './host/pi-host.js';
 import { resolvePiBinaryPath } from './host/pi-binary.js';
 import { ensureBundledSkills } from './host/skills.js';
 import { registerIpcHandlers, broadcast } from './ipc/register.js';
+import { setAttentionCountListener } from './ipc/session-core.js';
 import { startMcpHeartbeat, stopMcpHeartbeat } from './mcp-heartbeat.js';
 import { registerImIpc, startSavedImBots, stopAllImBots } from './im/host.ts';
 import { disposeBrowserHost } from './browser/host.js';
@@ -65,6 +66,8 @@ function isWsl(): boolean {
 
 /** 托盘「退出」/系统关机时置位，close 拦截据此放行真正退出 */
 let isQuitting = false;
+/** 托盘引用（待审批计数的 tooltip 角标更新用；无托盘环境为 null） */
+let trayRef: Electron.Tray | null = null;
 /** 首次最小化到托盘时弹一次气泡提示（仅 Windows 支持 displayBalloon） */
 let trayHintShown = false;
 
@@ -97,6 +100,7 @@ function setupTrayAndCloseBehavior(win: BrowserWindow): void {
     return;
   }
   tray.setToolTip(brand.name);
+  trayRef = tray;
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: `打开 ${brand.name}`, click: () => focusMainWindow() },
@@ -142,6 +146,25 @@ function setupTrayAndCloseBehavior(win: BrowserWindow): void {
       });
     }
   });
+}
+
+/** 待审批角标（Cindy #4361 简化版）：Windows 任务栏 overlay + 托盘 tooltip 计数 */
+function updateAttentionBadge(count: number): void {
+  const desc = count > 0 ? `${count} 项待审批` : '';
+  let overlay: Electron.NativeImage | null = null;
+  if (count > 0 && process.platform === 'win32') {
+    const name = count > 9 ? 'badge-9plus.png' : `badge-${count}.png`;
+    const dir = app.isPackaged
+      ? path.join(process.resourcesPath, 'tray-badges')
+      : path.join(__dirname, '../../resources/tray-badges');
+    overlay = nativeImage.createFromPath(path.join(dir, name));
+    if (overlay.isEmpty()) overlay = null;
+  }
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (win.webContents.getURL().endsWith('/pet.html')) continue;
+    win.setOverlayIcon(overlay, desc);
+  }
+  trayRef?.setToolTip(count > 0 ? `${brand.name} · ${count} 项待审批` : brand.name);
 }
 
 function revealWindow(win: BrowserWindow): void {
@@ -276,6 +299,8 @@ function bootstrap(): void {
   startMcpHeartbeat(broadcast, createConsoleLogger('fundet:mcp-heartbeat'));
 
   createWindow();
+  // 待审批计数 → 任务栏/托盘角标（tray 在 createWindow→setupTray 里就绪）
+  setAttentionCountListener(updateAttentionBadge);
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

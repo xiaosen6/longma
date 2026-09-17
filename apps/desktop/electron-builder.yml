@@ -58,6 +58,8 @@ extraResources:
       - '**/*'
   - from: resources/pet
     to: pet
+  - from: resources/tray-badges
+    to: tray-badges
   - from: resources/bundled-skills
     to: bundled-skills
     filter:

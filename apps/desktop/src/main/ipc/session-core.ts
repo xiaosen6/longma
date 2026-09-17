@@ -28,7 +28,18 @@ import { documentExtractSupport, extractDocumentText } from '../doc-text.js';
 import type { SessionAttachment, SessionSendInput } from '../../shared/fundet-api.js';
 
 /** requestId → 待决审批（跨会话单例；超时/结算语义见 interaction-queue.ts） */
-const interactionQueue = new InteractionQueue((channel, payload) => broadcast(channel, payload));
+const interactionQueue = new InteractionQueue(
+  (channel, payload) => broadcast(channel, payload),
+  (count) => attentionCountListener?.(count),
+);
+
+/** 待决审批计数变化监听（托盘/任务栏角标；index.ts 装配） */
+let attentionCountListener: ((count: number) => void) | null = null;
+
+export function setAttentionCountListener(cb: (count: number) => void): void {
+  attentionCountListener = cb;
+  cb(interactionQueue.list().length);
+}
 /** 已接线（事件/审批监听）的 sessionId */
 const wiredSessions = new Set<string>();
 
