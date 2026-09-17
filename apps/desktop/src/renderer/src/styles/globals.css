@@ -431,6 +431,53 @@ textarea:focus-visible {
   animation: fundet-float-in var(--motion-fast) var(--motion-ease-out) both;
 }
 
+/* 重浮层（Radix Dialog）：入场 250ms scale 0.96→1；出场仅 opacity 不缩放——
+   「纸原地淡出」，缩放退场读作被吸走。transform 居中的 Dialog keyframes 必须
+   携带 translate，否则会打掉 -translate-x/y-1/2 居中（Cindy 踩过的坑）。
+   注册成 @utility：data-[state=open]: 前缀变体只对 Tailwind 已知 utility 生效，
+   普通 CSS 类挂不上变体。 */
+@keyframes fundet-dialog-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+@utility animate-dialog-in {
+  animation: fundet-dialog-in var(--motion-enter) var(--motion-ease-out) both;
+}
+@keyframes fundet-dialog-out {
+  to {
+    opacity: 0;
+  }
+}
+@utility animate-dialog-out {
+  animation: fundet-dialog-out var(--motion-exit) var(--motion-ease-in) both;
+}
+/* 遮罩淡入淡出 */
+@keyframes fundet-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@utility animate-overlay-in {
+  animation: fundet-overlay-in var(--motion-fast) var(--motion-ease-out) both;
+}
+@keyframes fundet-overlay-out {
+  to {
+    opacity: 0;
+  }
+}
+@utility animate-overlay-out {
+  animation: fundet-overlay-out var(--motion-fast) var(--motion-ease-in) both;
+}
+
 /* 运行状态行：事件驱动的一次呼吸（1→0.45→1，steps 低帧率；cadenced，
    由 RunningStatus 在真实动静时 key 重挂载触发，不是无限心跳） */
 @keyframes fundet-status-shimmer {
@@ -640,6 +687,10 @@ textarea:focus-visible {
   .animate-fundet-spin,
   .animate-fade-in,
   .animate-float-in,
+  .animate-dialog-in,
+  .animate-dialog-out,
+  .animate-overlay-in,
+  .animate-overlay-out,
   .session-settle,
   .session-attention-dot::after,
   .status-bar-done {

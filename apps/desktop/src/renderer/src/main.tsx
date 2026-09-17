@@ -11,16 +11,17 @@ import { ChatPage } from './pages/ChatPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { DebugPage } from './pages/DebugPage';
 import { WindowControls } from './components/WindowControls';
+import { RouteFade } from './components/RouteFade';
 
 // 全局 agent:event 监听只装一次（模块级 store，与 React 树解耦，
 // 切页面/切会话不影响后台 turn 的事件分发）
 initGlobalListeners();
 
 const router = createHashRouter([
-  { path: '/', element: <ChatPage /> },
-  { path: '/settings', element: <SettingsPage /> },
+  { path: '/', element: <RouteFade><ChatPage /></RouteFade> },
+  { path: '/settings', element: <RouteFade><SettingsPage /></RouteFade> },
   // 调试台保留：E2E 复验与原始事件流排查用
-  { path: '/debug', element: <DebugPage /> },
+  { path: '/debug', element: <RouteFade><DebugPage /></RouteFade> },
 ]);
 
 document.title = brand.name;

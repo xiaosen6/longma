@@ -51,6 +51,7 @@ import { KnowledgeChip } from '../components/KnowledgeChip';
 import { FolderPickerChip } from '../components/FolderPickerChip';
 import { Sidebar } from '../components/Sidebar';
 import { CanvasPane } from '../components/CanvasPane';
+import { CanvasSlider } from '../components/CanvasSlider';
 import { ContextCapacityRing } from '../components/ContextCapacityRing';
 import { hasFramelessControls } from '../components/WindowControls';
 import { preferScannedContextWindow } from '../../../shared/context-window.js';
@@ -635,7 +636,7 @@ export function ChatPage(): React.JSX.Element {
                 </div>
               </div>
             </div>
-            {canvas.canvasOpen && (
+            <CanvasSlider open={canvas.canvasOpen}>
               <CanvasPane
                 workDir={activeMeta?.workDir || workDir}
                 artifacts={canvas.artifacts}
@@ -643,7 +644,7 @@ export function ChatPage(): React.JSX.Element {
                 onSelect={canvas.setCanvasPath}
                 onClose={() => canvas.setCanvasOpen(false)}
               />
-            )}
+            </CanvasSlider>
           </div>
         )}
       </main>

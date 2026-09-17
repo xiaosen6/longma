@@ -46,6 +46,13 @@ export function McpServerDialog({
   );
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  // 退场动画需要 open=false 渲染出 data-state=closed（Radix presence 等动画完才
+  // 卸载）；父级是条件挂载，直接 onClose 会硬卸载跳过退场——先自关再延迟上抛。
+  const [open, setOpen] = useState(true);
+  const finish = (after: () => void): void => {
+    setOpen(false);
+    setTimeout(after, 220);
+  };
 
   const save = (): void => {
     const trimmedName = name.trim();
@@ -96,7 +103,7 @@ export function McpServerDialog({
       ? window.fundet.updateMcpServer(initial.id, input)
       : window.fundet.createMcpServer(input)
     )
-      .then(onSaved)
+      .then(() => finish(onSaved))
       .catch((err) => {
         setSaving(false);
         setError(err instanceof Error ? err.message : String(err));
@@ -107,10 +114,10 @@ export function McpServerDialog({
     'w-full rounded-lg border border-board bg-card px-3 py-2 text-13 text-primary outline-none placeholder:text-muted focus:border-[var(--accent,#2563eb)]';
 
   return (
-    <Dialog.Root open onOpenChange={(open) => !open && onClose()}>
+    <Dialog.Root open={open} onOpenChange={(o) => !o && finish(onClose)}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-[var(--overlay-modal)]" />
-        <Dialog.Content className="fixed top-1/2 left-1/2 z-50 flex max-h-[min(640px,calc(100vh-48px))] w-[min(520px,100vw-32px)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl border border-board bg-card">
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-[var(--overlay-modal)] data-[state=open]:animate-overlay-in data-[state=closed]:animate-overlay-out" />
+        <Dialog.Content className="fixed top-1/2 left-1/2 z-50 flex max-h-[min(640px,calc(100vh-48px))] w-[min(520px,100vw-32px)] -translate-x-1/2 -translate-y-1/2 data-[state=open]:animate-dialog-in data-[state=closed]:animate-dialog-out flex-col overflow-hidden rounded-xl border border-board bg-card">
           <div className="flex h-12 shrink-0 items-center justify-between border-b border-board px-4">
             <Dialog.Title className="text-14 font-semibold text-primary">
               {initial ? '编辑 MCP 服务器' : '添加 MCP 服务器'}

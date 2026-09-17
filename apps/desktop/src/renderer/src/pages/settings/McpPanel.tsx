@@ -144,7 +144,7 @@ export function McpPanel(): React.JSX.Element {
             onClick={() => probeAll(servers)}
             className="flex h-8 items-center gap-1 rounded-full border border-board px-3 text-12 font-medium text-primary transition-colors hover:bg-hover disabled:opacity-50"
           >
-            <RefreshCw size={13} className={probing ? 'animate-spin' : ''} />
+            <RefreshCw size={13} className={probing ? 'animate-fundet-spin' : ''} />
             检测连接
           </button>
           <button
