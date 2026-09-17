@@ -219,7 +219,8 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     "models": [
       {
         "id": "kimi-for-coding",
-        "contextWindow": 262144
+        "contextWindow": 1048576,
+        "input": ["text", "image"]
       },
       {
         "id": "kimi-for-coding-highspeed",

@@ -13,6 +13,7 @@
  */
 import { useSyncExternalStore } from 'react';
 import { friendlyError, friendlyProviderError } from '../../../shared/friendly-error.ts';
+import { createCoalescedRefresh } from '../lib/coalescedRefresh.ts';
 import type { AgentEvent, InteractionRequest, UsageSnapshot } from '@fundet/agent-core';
 import type {
   KnowledgeRef,
@@ -517,7 +518,10 @@ export function initGlobalListeners(): void {
 // 会话列表（sidebar）
 // ---------------------------------------------------------------------------
 
-export async function refreshSessionList(): Promise<void> {
+/** 合并刷新：done/状态变化/发送完成等多处并发触发只共享一次在飞读 + 尾部补读 */
+const refreshListCoalesced = createCoalescedRefresh<void>();
+
+async function refreshSessionListOnce(): Promise<void> {
   try {
     sessionList = await window.fundet.listSessions();
     rebuildCombinedList();
@@ -525,6 +529,10 @@ export async function refreshSessionList(): Promise<void> {
   } catch {
     // 列表拉取失败不致命，保持旧值
   }
+}
+
+export async function refreshSessionList(): Promise<void> {
+  await refreshListCoalesced(refreshSessionListOnce);
 }
 
 export function useSessionList(): SessionListItem[] {

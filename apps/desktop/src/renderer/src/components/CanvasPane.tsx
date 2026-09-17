@@ -170,7 +170,7 @@ function Preview({ workDir, artifact }: { workDir: string; artifact: Artifact })
           className="min-h-[240px] w-full flex-1 rounded-inner border border-board bg-white"
           sandbox="allow-scripts allow-same-origin allow-forms allow-modals"
           loading="lazy"
-          src={mediaUrl}
+          src={`${mediaUrl}?preview-csp=1`}
         />
       )}
       {artifact.kind === 'pdf' && mediaUrl && (

@@ -16,3 +16,5 @@
 Windows 上 bash 工具依赖 Git Bash。如果 bash 调用报「No bash shell found」，直接告诉用户：安装 Git for Windows（https://git-scm.com/download/win）后重启本应用即可，不要反复尝试别的 shell 写法。
 
 电脑操作（用户在「设置 → 通用」开启后，新会话可用）：工具为 `mcp__computer__*` 系列（截屏/窗口/点击/输入/按键/滚动/AX 树等）。工作流：先 `start_session` 建立驱动会话 → `list_windows`/`get_window_state` 观察 → 用元素索引或窗口坐标执行动作 → 再观察验证。浏览器任务优先用 `mcp__browser__*`（更稳更省）；driver 自带的 browser_* 工具仅作后备。操作整台桌面影响真实应用，一次一步、先看后动；会话里没有这些工具时请用户去设置开启并新开对话。
+
+电脑操作失败处置（重要）：工具报错时先读错误里的 code 与 message（窗口或元素失效常见 window_id_not_found / 元素索引过期）。处置纪律：①只用只读工具复核一次（`list_windows` / `get_window_state` 重新观察，拿到新索引/坐标后再试）；②绝不盲目重放同一动作，绝不连续重试有副作用的命令（点击/输入/滚动失败后先观察现场）；③复核后仍失败就停下来向用户说明现场（哪个窗口、什么错误），不要猜。

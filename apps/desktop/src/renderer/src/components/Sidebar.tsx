@@ -256,10 +256,33 @@ export function Sidebar({
       return 'active';
     }
   });
+  // 当前会话钉住（对齐 Cindy #4620 heldPriorityRanks 的简化版）：active 会话锁在
+  // 激活时刻的下标档位，后台会话刷新（updatedAt 变化）不把用户正看的行挤走；
+  // 切换会话时重新捕获档位。deps 故意不含 sessions——只在切换瞬间取当时序。
+  const heldIndexRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!activeId) {
+      heldIndexRef.current = null;
+      return;
+    }
+    const idx = sessions.findIndex((s) => s.id === activeId);
+    heldIndexRef.current = idx >= 0 ? idx : null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在 activeId 变化时捕获档位
+  }, [activeId]);
+
   const sortedSessions = useMemo(() => {
-    if (sortBy === 'active') return sessions;
-    return [...sessions].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
-  }, [sessions, sortBy]);
+    if (sortBy === 'created') {
+      return [...sessions].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+    }
+    const held = heldIndexRef.current;
+    if (!activeId || held == null) return sessions;
+    const idx = sessions.findIndex((s) => s.id === activeId);
+    if (idx <= 0 || idx === held) return sessions;
+    const target = sessions[idx];
+    const rest = sessions.filter((s) => s.id !== activeId);
+    rest.splice(Math.min(held, rest.length), 0, target);
+    return rest;
+  }, [sessions, sortBy, activeId]);
   return (
     <aside
       className="relative z-20 flex h-full shrink-0 flex-col border-r border-board bg-surface"

@@ -5,6 +5,7 @@ import {
   FILE_PROTOCOL_SCHEME,
   parseFilePreviewUrl,
 } from '../shared/file-preview-url.ts';
+import { withHtmlPreviewCsp } from '../shared/html-preview-csp.ts';
 import { resolveUnderWorkDir } from './fs-local.js';
 
 export function registerFileProtocolPrivileges(): void {
@@ -30,6 +31,17 @@ export function registerFileProtocolHandler(): void {
       const resolved = resolveUnderWorkDir(parsed.relPath || '.', parsed.workDir);
       if (!(await fs.promises.stat(resolved)).isFile()) {
         return new Response('Not a file', { status: 404 });
+      }
+      // CanvasPane 预览 iframe 带 ?preview-csp=1：HTML 注入 CSP+能力剥离（agent
+      // 产出不可信，出网必须引擎强制关闭）。用户自己的文件直开不带参数，行为不变。
+      const wantsCsp =
+        new URL(request.url).searchParams.get('preview-csp') === '1' &&
+        /\.html?$/i.test(resolved);
+      if (wantsCsp) {
+        const html = await fs.promises.readFile(resolved, 'utf8');
+        return new Response(withHtmlPreviewCsp(html), {
+          headers: { 'Content-Type': 'text/html; charset=utf-8' },
+        });
       }
       const range = request.headers.get('Range');
       const headers: Record<string, string> = {};
