@@ -215,6 +215,12 @@ ChatPage / ChatInput
   - **批次二（过渡完整性）**：CanvasSlider=Canvas 0↔380px 250ms 宽度过渡（关闭保持挂载滑到 0 再卸载，内容钉满宽防重排）；RouteFade=路由切换 220ms 纯 opacity 淡入（pathname 自 key 销毁重挂，**rAF+50ms timer 双路——托盘启动隐藏场景仅 rAF 会永久白屏**）；Radix Dialog 三处统一进出场（keyframes 必须携带 translate 保 transform 居中；McpServerDialog 内部 closing 态防父级硬卸载跳过退场）。
   - **批次三（性能纪律）**：消息条目 content-visibility: auto + contain-intrinsic-size auto 240px（portal 不受 containment 影响）；lib/hiddenAnimationGate 隐藏窗口冻结 infinite 动画（data-app-hidden → animation-play-state: paused；新增循环动画必须登记）。
   - 验证工具 tools/motion-smoke.cjs 入库（真实发送验证呼吸/settle/done-pop）。Cindy 刻意不做（勿补）：消息入场动画、打字光标、附件 chip 动画、hover 渐变底色。
+- **Cindy 上游对照批次 P0~P2（2026-09-17 深评 v0.1.79→85 + 三老候选，0.2.25 后、未发版）**：
+  - **P0 Pi RPC 三重防线**（Cindy #4518 同源欠账）：rpc-client attachJsonlReader 补 16Mi 缓冲防线（此前零防护可 OOM 主进程；超限丢当前行跳到下一换行恢复分帧+重建 StringDecoder）+ pending 记 commandType、超限只 fail 可归属的 get_entries（不空等 30s 不误伤 steer/abort）；session-jsonl-scan 本地流式扫描（前 4KiB 前缀+mtime/size 缓存）替代 get_entries 轮询（带图长历史不再撑破 RPC 帧，失败回落 RPC）；openPath 结果边界归一 IPC 生命周期失败（#4404，ipc_lifecycle 静默）。
+  - **P1**：system-prompt 电脑操作失败处置段（#4591 纪律的提示层移植——代理透明转发错误本就保留，无需代码）；lib/coalescedRefresh（#4602 单在飞读+尾部合并）接 refreshSessionList；侧栏当前会话钉住（#4620 简化版：锁激活时刻下标档位）；Kimi kimi-for-coding 更新 K2.8 数据（1M 上下文+图片输入）；shared/html-preview-csp（#4346 可摘件）：CanvasPane HTML 预览 iframe 带 ?preview-csp=1、file-protocol 仅对该参数的 .html 注入 CSP 前导段+设备面 guard（**实测结论：webrtc 'block' 是装饰品、frame-src 拦不住 srcless iframe 子 realm**——勿凭 spec 推翻）。
+  - **P2**：sessionStore isFinal 封口契约回归测试（#4375 结构免疫钉住：流式只存 streamingText、isFinal 才封口唯一 assistant 行）；IM 实例缓存核查通过（#4522 不变量本就满足：每回合 maker.getSession 取真值）；待审批数字角标（#4361 自研简化版：InteractionQueue onChange → Windows 任务栏 overlay badge-N.png + 托盘 tooltip；tray-badges 资产随包）。
+  - **三老候选裁决**：MCP「懒加载」实为 schema 网关化非懒连接（连接仍启动全连）——仅用户表外部 server 走网关才值得（1-2 天），待用户配置外部 MCP 多了再议；网络守卫=Ghost 插件沙箱专属，不适用；yield cells=Codex exec 专属，不适用（将来接 Codex harness 时整簇移植约 2 周）。
+  - 明确不适用（记录在案）：假心跳看门狗（记原则：stall 判定不能让用量心跳/空白 delta 续命）、分享图失焦复制（我们走 main 侧剪贴板天然免疫）、Vertex/Azure host 校验、千条会话侧栏 perf、速度历史 UI（做时须连 #4351 防放大采样一起搬）。
 - 厂商 Logo；模型 context window 扫描（GLM 5.2/5.3 = 1M）。
 - 米色 + dark 主题。
 
@@ -468,6 +474,7 @@ Command "build:fundet" not found. Did you mean "pnpm run build"? / （tools/with
 | **Tailwind v4 变体只认 @utility** | 自定义动画类挂 `data-[state=open]:xxx` 前缀变体，普通 `.css` 类定义**不会生成该规则**（实测 computed animationName=none）——需参与变体的类必须用 `@utility` 定义（globals.css 已有 animate-dialog-in 等四例） |
 | **StrictMode 双跑吃 setTimeout** | 一次性动画的摘类若靠 effect 里 `setTimeout(()=>set(false))`，cleanup 会清掉定时器而第二次 effect 因 ref 已翻转提前 return——类永久卡死（settle 卡 22s 实测）。摘类改 onAnimationEnd 驱动（动画必播一次必摘）；Cindy 同款代码没 StrictMode 所以无此问题，移植必须本地化 |
 | **窗口隐藏 = 渲染整链冻结** | visibilityState hidden 时 rAF 暂停、**transition 冻结在起点**（inline 已是终态、computed 仍起点）、timer 节流到 ≥1s。依赖 rAF 的状态推进必须加 timer 兜底（RouteFade 托盘启动白屏风险）；CDP 在隐藏窗上验证动画时长/完成不可靠——Page.bringToFront 不唤起 OS 窗口，PowerShell AppActivate 对 frameless 窗也会失败，动效验证优先确定性 DOM 探针（手动挂类+animationend） |
+| **blobless clone 勿全仓 git grep** | Cindy 对照仓是 --filter=blob:none 克隆，`git grep <pattern> origin/main -- '*.ts'` 会按需拉全部 blob + 触发后台 gc，实测挂死。定向读用 `git show <commit> [-- <file>]` / `git show origin/main:<path>`；增量清单用 `git log --format`（只走 commit 元数据） |
 
 Pi pin：`tools/pi/latest.json` → **0.84.4**（升级要同步 release.yml 4 处传参，见 §4.7d）。
 

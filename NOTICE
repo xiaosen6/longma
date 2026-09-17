@@ -14,9 +14,14 @@ The derived portions live in:
 - packages/browser-mcp/ (derived from Cindy packages/lizi-mcps browser module)
 - apps/desktop/src/renderer/src/components/SidebarTitleMarquee.tsx,
   components/RouteFade.tsx, hooks/useAnimatedNumber.ts,
-  lib/hiddenAnimationGate.ts (adapted from Cindy renderer counterparts:
-  SessionItem title marquee, FadeSwitcher, useAnimatedNumber,
-  hiddenAnimationGate)
+  lib/hiddenAnimationGate.ts, lib/coalescedRefresh.ts,
+  src/shared/html-preview-csp.ts, src/shared/open-path-result.ts
+  (adapted from Cindy renderer counterparts: SessionItem title marquee,
+  FadeSwitcher, useAnimatedNumber, hiddenAnimationGate,
+  coalescedRefresh, htmlPreviewCsp, preload openPath result boundary)
+- packages/agent-core/src/agents/pi/session-jsonl-scan.ts and the
+  oversized-frame hardening in agents/pi/rpc-client.ts (adapted from
+  Cindy maker-core counterparts, #4518)
 - tools/pi/, tools/shared/ (vendored binary-download tooling)
 - apps/desktop/src/main/im/wechat-ilink/ (adapted from Cindy @cindy/wechat-ilink;
   Tencent iLink protocol utilities originally from Tencent/openclaw-weixin, MIT)
