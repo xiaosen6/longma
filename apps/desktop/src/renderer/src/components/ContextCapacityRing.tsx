@@ -1,8 +1,9 @@
 /**
  * ContextCapacityRing — Cindy 式 20px 上下文占用圆环 + 百分比。
- * 窗口未知时画空轨，不假装 128k。
+ * 窗口未知时画空轨，不假装 128k。占用值 rAF 平滑滚动（环与数字一起缓动）。
  */
 import { formatTokenCount } from '../../../shared/context-window.js';
+import { useAnimatedNumber } from '../hooks/useAnimatedNumber';
 
 interface ContextCapacityRingProps {
   contextTokens: number;
@@ -13,9 +14,10 @@ export function ContextCapacityRing({
   contextTokens,
   contextWindow,
 }: ContextCapacityRingProps): React.JSX.Element {
+  const animatedTokens = useAnimatedNumber(contextTokens);
   const pct =
     contextWindow > 0
-      ? Math.min(Math.max(Math.round((contextTokens / contextWindow) * 100), 0), 100)
+      ? Math.min(Math.max(Math.round((animatedTokens / contextWindow) * 100), 0), 100)
       : 0;
 
   const size = 20;
@@ -24,7 +26,7 @@ export function ContextCapacityRing({
   const circumference = 2 * Math.PI * radius;
   const dashOffset = circumference - (circumference * pct) / 100;
   const fillColor = pct > 90 ? 'var(--error-fg)' : pct > 70 ? 'var(--warning)' : 'var(--text-muted)';
-  const used = Math.min(contextTokens, contextWindow || Infinity);
+  const used = Math.min(animatedTokens, contextWindow || Infinity);
   const title =
     contextWindow > 0
       ? `上下文 ${formatTokenCount(used)} / ${formatTokenCount(contextWindow)}（${pct}%）`

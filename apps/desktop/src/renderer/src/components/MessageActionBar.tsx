@@ -29,7 +29,7 @@ function formatCompactTokens(n: number): string {
 }
 
 const ICON_BTN =
-  'group flex h-6 w-6 items-center justify-center rounded-[4px] text-muted transition-colors hover:bg-hover hover:text-primary disabled:opacity-40';
+  'group flex h-6 w-6 items-center justify-center rounded-[4px] text-muted transition-colors hover:bg-hover hover:text-primary active:scale-[0.98] disabled:opacity-40 disabled:active:scale-100';
 
 export function MessageActionBar({
   createdAt,

@@ -2,15 +2,17 @@
  * RunningStatus —— composer 上方的运行状态行（复刻 Cindy RunningStatusBar 的简化版）。
  *
  * 两段式：左 = Sparkles 14 + 状态文案（Thinking Orange --warning，text-13 font-medium），
- * 右 = 计时 · tokens（--text-secondary）。
+ * 右 = 计时 · tokens（--text-secondary，token 计数 rAF 平滑滚动）。
  * 呼吸 = cadenced 一次性动画（DESIGN.md §14.4）：状态文案 / token 计数有真实动静时
  * key 重挂载播一次 1.5s 下潜（1→0.45→1，steps(18)），静默期常亮不动。
- * 结束时 linger 1s 再 400ms 淡出，然后卸载（不占 composer 上方空行）。
+ * 结束 = Check 图标换装 + status-bar-done 弹跳（全应用唯一 overshoot 曲线），
+ * linger 1s 再 400ms 淡出，然后卸载（不占 composer 上方空行）。
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowDown, Check, Sparkles } from 'lucide-react';
 import { cn } from '../lib/cn';
 import { useReducedMotion } from '../hooks/useReducedMotion';
+import { useAnimatedNumber } from '../hooks/useAnimatedNumber';
 
 const FADE_MS = 400;
 
@@ -24,6 +26,8 @@ export function RunningStatus({ visible, status, tokenUsage }: RunningStatusProp
   const reducedMotion = useReducedMotion();
   const [showContent, setShowContent] = useState(visible);
   const [fading, setFading] = useState(false);
+  // token 计数平滑滚动：真实动静仍以原始 tokenUsage 触发 shimmer，显示值单独缓动
+  const animatedTokens = useAnimatedNumber(tokenUsage);
 
   // 结束：满亮停留 1s → 淡出 → 卸载
   useEffect(() => {
@@ -92,9 +96,9 @@ export function RunningStatus({ visible, status, tokenUsage }: RunningStatusProp
   const seconds = elapsed % 60;
   const elapsedText = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
   const tokenText =
-    tokenUsage >= 1000 ? `${(tokenUsage / 1000).toFixed(1)}k tokens` : `${tokenUsage} tokens`;
+    animatedTokens >= 1000 ? `${(animatedTokens / 1000).toFixed(1)}k tokens` : `${animatedTokens} tokens`;
 
-  // Done 态换 Check 图标（对齐 Cindy RunningStatusBar：运行=Sparkles 橙，完成=✓）
+  // Done 态换 Check 图标 + done-pop 弹跳（对齐 Cindy RunningStatusBar：运行=Sparkles 橙，完成=✓）
   const isDone = status === 'Done' && !visible;
 
   const hidden = !showContent && !visible;
@@ -110,7 +114,11 @@ export function RunningStatus({ visible, status, tokenUsage }: RunningStatusProp
       <div
         key={shimmerCycle}
         onAnimationEnd={handleShimmerEnd}
-        className={cn('flex min-w-0 items-center gap-[6px]', !hidden && visible && !reducedMotion && 'status-bar-shimmer')}
+        className={cn(
+          'flex min-w-0 items-center gap-[6px]',
+          !hidden && visible && !reducedMotion && 'status-bar-shimmer',
+          isDone && !reducedMotion && 'status-bar-done',
+        )}
         style={{ ...fadeStyle, color: 'var(--warning)' }}
         aria-hidden={hidden}
       >

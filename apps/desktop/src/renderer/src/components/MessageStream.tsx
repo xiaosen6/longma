@@ -38,7 +38,7 @@ const STICK_THRESHOLD = 48;
 const scrollMemory = new Map<string, number>();
 /** 用户消息操作条图标按钮样式（对齐 MessageActionBar ICON_BTN） */
 const USER_ICON_BTN =
-  'flex h-6 w-6 items-center justify-center rounded-[4px] text-muted transition-colors hover:bg-hover hover:text-primary disabled:opacity-40';
+  'flex h-6 w-6 items-center justify-center rounded-[4px] text-muted transition-colors hover:bg-hover hover:text-primary active:scale-[0.98] disabled:opacity-40 disabled:active:scale-100';
 
 function formatRelativeUser(ts: number): string {
   const d = Date.now() - ts;
@@ -622,7 +622,7 @@ export function MessageStream({
                       <button
                         type="button"
                         onClick={onRetryError}
-                        className="mt-1.5 rounded-full border border-error-border px-2.5 py-0.5 text-12 text-error transition-colors hover:bg-error-bg/60"
+                        className="mt-1.5 rounded-full border border-error-border px-2.5 py-0.5 text-12 text-error transition-colors hover:bg-error-bg/60 active:scale-[0.98]"
                       >
                         重新发送
                       </button>
@@ -663,7 +663,7 @@ export function MessageStream({
         <button
           type="button"
           onClick={jumpToBottom}
-          className="absolute bottom-4 right-6 flex items-center gap-1.5 rounded-full border border-board bg-card px-3 py-1.5 text-12 text-primary shadow-md transition-colors hover:bg-hover"
+          className="absolute bottom-4 right-6 flex items-center gap-1.5 rounded-full border border-board bg-card px-3 py-1.5 text-12 text-primary shadow-md transition-colors hover:bg-hover active:scale-[0.98]"
         >
           <ArrowDown size={13} />
           回到底部

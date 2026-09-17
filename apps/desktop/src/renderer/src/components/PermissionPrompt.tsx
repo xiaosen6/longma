@@ -83,7 +83,7 @@ export function PermissionPrompt({ request, onRespond }: PermissionPromptProps):
         <button
           type="button"
           onClick={handleDeny}
-          className="flex items-center gap-2 rounded-inner border border-board bg-transparent px-3 py-[7px] text-13 font-medium text-primary transition-colors hover:bg-perm-code-bg"
+          className="flex items-center gap-2 rounded-inner border border-board bg-transparent px-3 py-[7px] text-13 font-medium text-primary transition-colors hover:bg-perm-code-bg active:scale-[0.98]"
         >
           <span>拒绝</span>
           <Kbd>Esc</Kbd>
@@ -91,7 +91,7 @@ export function PermissionPrompt({ request, onRespond }: PermissionPromptProps):
         <button
           type="button"
           onClick={handleAllowSession}
-          className="flex items-center gap-2 rounded-inner border border-board bg-transparent px-3 py-[7px] text-13 font-medium text-primary transition-colors hover:bg-perm-code-bg"
+          className="flex items-center gap-2 rounded-inner border border-board bg-transparent px-3 py-[7px] text-13 font-medium text-primary transition-colors hover:bg-perm-code-bg active:scale-[0.98]"
         >
           <span>本会话总允许</span>
           <Kbd>Ctrl</Kbd>
@@ -101,7 +101,7 @@ export function PermissionPrompt({ request, onRespond }: PermissionPromptProps):
         <button
           type="button"
           onClick={handleAllowOnce}
-          className="flex items-center gap-2 rounded-inner border border-board bg-accent px-3 py-[7px] text-13 font-medium text-accent-fg transition-colors hover:opacity-90"
+          className="flex items-center gap-2 rounded-inner border border-board bg-accent px-3 py-[7px] text-13 font-medium text-accent-fg transition-colors hover:opacity-90 active:scale-[0.98]"
         >
           <span>允许一次</span>
           <kbd className="rounded-[4px] border border-[var(--accent-kbd-border)] bg-[var(--accent-kbd-bg)] px-1.5 py-[1px] font-mono text-11 font-normal text-accent-fg opacity-80">

@@ -6,13 +6,15 @@
  * - 顶行品牌位：图形 logo + LongMa 字；其下是同级等权 pill 导航行
  *   （h-8 / rounded-full / px-3 / gap-2.5 / text-14，icon 15×1.8）。
  * - 会话区：小字灰标签「会话」+ 会话行（SessionItem 解剖：32px pill 行，15px 状态槽
- *   + 标题 truncate + 右侧时间槽，hover 时 120ms 让位给重命名/删除按钮）。
+ *   + 标题（超长 hover 跑马灯）+ 右侧时间槽，hover 时 120ms 让位给重命名/删除按钮）。
  * - 选中行 = 反相胶囊（CINDY 反相中性：--accent 底 + --accent-fg 字，无描边）。
- * - 运行中会话：状态槽换 Thinking Orange 呼吸点。
+ * - 状态槽三态：运行中 = MessageSquare 图标 Thinking Orange 呼吸（opacity compositor-only）；
+ *   需关注 = 6px 点+光环脉冲（awaiting 蓝=审批悬挂 / error 红=后台终态错误）；
+ *   空闲 = muted 图标。后台会话运行结束时底色闪一次 settle（0.9s 一次性）。
  * - 底部：设置入口做成「用户胶囊」同款（icon 圆 + 文字的 pill 卡，对齐 Cindy
  *   UserInfoSection 的 Not-signed-in 胶囊位）。
  */
-import { useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Activity, CalendarClock, CirclePlus, MessageSquare, Pencil, Trash2, UserRound } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { SessionListItem } from '../../../shared/fundet-api.js';
@@ -21,12 +23,15 @@ import { brand } from '../../../shared/brand.js';
 import { getProfile, subscribeProfile } from '../lib/profile';
 import { BrandMark } from './BrandMark';
 import { SessionRenameInput } from './SessionRenameInput';
+import { SidebarTitleMarquee } from './SidebarTitleMarquee';
 
 interface SidebarProps {
   sessions: SessionListItem[];
   activeId: string | null;
   /** 各会话是否有后台 turn 在跑（呼吸点提示） */
   runningIds: ReadonlySet<string>;
+  /** 需关注的非活动会话：awaiting=审批悬挂 / error=后台终态错误（切进清除） */
+  attentionIds: ReadonlyMap<string, 'awaiting' | 'error'>;
   onSelect: (id: string) => void;
   onCreate: () => void;
   onDelete: (id: string) => void;
@@ -49,15 +54,16 @@ function formatTime(ts: number): string {
 
 /** 导航行通用样式 —— 各行同款 pill 行（对齐 Cindy SidebarTopNav ROW_CLASS） */
 const NAV_ROW_CLASS =
-  'flex h-8 w-full items-center gap-2.5 rounded-full px-3 text-14 font-normal text-primary transition-colors hover:bg-hover select-none cursor-pointer';
+  'flex h-8 w-full items-center gap-2.5 rounded-full px-3 text-14 font-normal text-primary transition-colors hover:bg-hover active:scale-[0.98] select-none cursor-pointer';
 
 const ACTION_BTN =
-  'flex h-6 w-6 items-center justify-center rounded-full transition-opacity duration-120';
+  'flex h-6 w-6 items-center justify-center rounded-full transition-opacity duration-120 active:scale-[0.98]';
 
 function SessionRow({
   session,
   isActive,
   isRunning,
+  attention,
   onSelect,
   onDelete,
   onRename,
@@ -65,6 +71,7 @@ function SessionRow({
   session: SessionListItem;
   isActive: boolean;
   isRunning: boolean;
+  attention?: 'awaiting' | 'error';
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
   onRename: (id: string, title: string) => Promise<void>;
@@ -73,6 +80,24 @@ function SessionRow({
   const [draft, setDraft] = useState(session.title);
   const committed = useRef(false);
   const display = session.title || session.model || session.id.slice(0, 8);
+
+  // 运行结束：非活动行底色闪一次 settle 作完成提示（活动会话由状态行直接感知，
+  // 且反相胶囊底不参与闪烁）。初次挂载/未跑过不触发。摘类由 onAnimationEnd 驱动：
+  // StrictMode 下 effect 双跑，cleanup 会吃掉 setTimeout 而第二次 effect 因
+  // wasRunning 已翻转提前 return，定时器方案会让类卡死不摘（Cindy 同款代码没
+  // StrictMode 所以无此问题——移植本地化点）。
+  const prevRunningRef = useRef(isRunning);
+  const [isSettling, setIsSettling] = useState(false);
+  useEffect(() => {
+    const wasRunning = prevRunningRef.current;
+    prevRunningRef.current = isRunning;
+    if (isRunning) {
+      setIsSettling(false);
+      return;
+    }
+    if (!wasRunning) return;
+    setIsSettling(true);
+  }, [isRunning]);
 
   const startEdit = (): void => {
     committed.current = false;
@@ -98,6 +123,7 @@ function SessionRow({
     <div
       role="button"
       tabIndex={0}
+      data-sidebar-session-row="true"
       onClick={() => {
         if (!editing) onSelect(session.id);
       }}
@@ -113,17 +139,31 @@ function SessionRow({
           onSelect(session.id);
         }
       }}
+      onAnimationEnd={(e) => {
+        if (e.animationName === 'session-settle') setIsSettling(false);
+      }}
       className={cn(
         'group relative flex h-8 w-full items-center gap-2.5 rounded-full pr-2 pl-3',
         'text-left text-14 font-medium select-none',
         isActive
           ? 'cursor-pointer bg-accent text-accent-fg'
           : 'cursor-pointer text-primary hover:bg-hover',
+        isSettling && !isActive && 'session-settle',
       )}
     >
       <span className="flex w-[15px] shrink-0 items-center justify-center">
         {isRunning ? (
-          <span className="h-2 w-2 animate-fundet-pulse rounded-full bg-warning" />
+          <MessageSquare
+            size={12}
+            strokeWidth={1.8}
+            className={cn('animate-fundet-pulse', isActive ? 'text-accent-fg' : 'text-warning')}
+          />
+        ) : attention ? (
+          <span
+            className="session-attention-dot"
+            style={{ background: attention === 'awaiting' ? 'var(--focus)' : 'var(--error-fg)' }}
+            title={attention === 'awaiting' ? '等待审批' : '发生错误'}
+          />
         ) : (
           <MessageSquare
             size={12}
@@ -141,7 +181,9 @@ function SessionRow({
           onCancel={cancel}
         />
       ) : (
-        <span className="min-w-0 flex-1 truncate">{display}</span>
+        <span className="min-w-0 flex-1">
+          <SidebarTitleMarquee title={display}>{display}</SidebarTitleMarquee>
+        </span>
       )}
 
       {!editing && (
@@ -196,6 +238,7 @@ export function Sidebar({
   sessions,
   activeId,
   runningIds,
+  attentionIds,
   onSelect,
   onCreate,
   onDelete,
@@ -282,7 +325,7 @@ export function Sidebar({
               localStorage.setItem('longma.sidebar-sort', next);
             } catch { /* localStorage 不可用时仅会话内生效 */ }
           }}
-          className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-hover hover:text-primary"
+          className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-hover hover:text-primary active:scale-[0.98]"
         >
           {sortBy === 'created' ? (
             <CalendarClock size={12} strokeWidth={1.8} />
@@ -303,6 +346,7 @@ export function Sidebar({
             session={s}
             isActive={s.id === activeId}
             isRunning={runningIds.has(s.id)}
+            attention={attentionIds.get(s.id)}
             onSelect={onSelect}
             onDelete={onDelete}
             onRename={onRename}
@@ -314,7 +358,7 @@ export function Sidebar({
       <div className="px-3 pb-3">
         <Link
           to="/settings"
-          className="flex items-center gap-2.5 rounded-full bg-card px-3 py-2 transition-colors hover:bg-hover select-none"
+          className="flex items-center gap-2.5 rounded-full bg-card px-3 py-2 transition-colors hover:bg-hover active:scale-[0.98] select-none"
         >
           <span className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full border border-board text-secondary">
             {profile.avatar ? (

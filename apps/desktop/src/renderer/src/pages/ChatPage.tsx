@@ -28,7 +28,9 @@ import {
   renameSession,
   resolvePermission,
   sendMessage,
+  setActiveSession,
   updateDraftSession,
+  useAttentionIds,
   useRunningIds,
   useSessionList,
   useSessionSlice,
@@ -65,6 +67,7 @@ import { ChatHeader } from './chat/ChatHeader';
 export function ChatPage(): React.JSX.Element {
   const sessions = useSessionList();
   const runningIds = useRunningIds();
+  const attentionIds = useAttentionIds();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [providers, setProviders] = useState<ProviderView[]>([]);
   const [skills, setSkills] = useState<SkillView[]>([]);
@@ -376,6 +379,11 @@ export function ChatPage(): React.JSX.Element {
 
   // ---------- 渲染 ----------
 
+  // 侧栏「需关注」的已读边界：切进会话即清除该会话的 error 关注
+  useEffect(() => {
+    setActiveSession(activeId);
+  }, [activeId]);
+
   const pendingPermission =
     slice.pendingInteraction?.kind === 'permission' ? slice.pendingInteraction : null;
 
@@ -389,6 +397,7 @@ export function ChatPage(): React.JSX.Element {
         sessions={sessions}
         activeId={activeId}
         runningIds={runningIds}
+        attentionIds={attentionIds}
         onSelect={setActiveId}
         onCreate={() => void createSession()}
         onDelete={(id) => void deleteSession(id)}
@@ -412,7 +421,7 @@ export function ChatPage(): React.JSX.Element {
           title="Canvas"
           onClick={() => canvas.setCanvasOpen((v) => !v)}
           className={cn(
-            'no-drag fixed top-0 z-40 flex h-[46px] w-10 items-center justify-center hover:bg-hover',
+            'no-drag fixed top-0 z-40 flex h-[46px] w-10 items-center justify-center hover:bg-hover active:scale-[0.98]',
             hasFramelessControls() ? 'right-[138px]' : 'right-0',
             canvas.canvasOpen ? 'text-primary' : 'text-muted',
           )}

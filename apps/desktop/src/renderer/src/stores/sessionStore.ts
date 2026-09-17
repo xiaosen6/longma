@@ -129,6 +129,39 @@ const anyListeners = new Set<() => void>();
 /** 运行中 sessionId 集合快照（useSyncExternalStore 需要引用稳定） */
 let runningSnapshot: ReadonlySet<string> = new Set();
 
+// ---------------------------------------------------------------------------
+// 侧栏「需关注」：非活动会话有待决审批（awaiting）或后台收到终态错误（error）。
+// error 只记本次应用周期内活动会话之外发生的（DB 历史错误不追认）；
+// 切进该会话即视为已读清除。
+// ---------------------------------------------------------------------------
+
+let activeSessionId: string | null = null;
+const liveAttentionErrors = new Set<string>();
+/** sessionId → 'awaiting' | 'error'（引用稳定快照） */
+let attentionSnapshot: ReadonlyMap<string, 'awaiting' | 'error'> = new Map();
+
+function rebuildAttention(): void {
+  const next = new Map<string, 'awaiting' | 'error'>();
+  for (const [id, s] of slices) {
+    if (s.pendingInteraction) {
+      next.set(id, 'awaiting');
+      continue;
+    }
+    if (liveAttentionErrors.has(id)) next.set(id, 'error');
+  }
+  attentionSnapshot = next;
+}
+
+/** ChatPage 切换活动会话时上报；切进即视为已读，清掉该会话的 error 关注 */
+export function setActiveSession(sessionId: string | null): void {
+  if (activeSessionId === sessionId) return;
+  activeSessionId = sessionId;
+  if (sessionId && liveAttentionErrors.delete(sessionId)) {
+    rebuildAttention();
+    for (const l of anyListeners) l();
+  }
+}
+
 /** 「本会话总允许」工具白名单（pi 的 permission decision 只认 allow/deny，
  *  会话级规则由 renderer 侧自动放行实现） */
 const autoAllowTools = new Map<string, Set<string>>();
@@ -147,11 +180,12 @@ function notifySlice(sessionId: string): void {
   notifyAny();
 }
 
-/** 重算运行中集合并通知跨会话视图 */
+/** 重算运行中集合与需关注快照并通知跨会话视图 */
 function notifyAny(): void {
   const next = new Set<string>();
   for (const [id, s] of slices) if (s.isRunning) next.add(id);
   runningSnapshot = next;
+  rebuildAttention();
   for (const l of anyListeners) l();
 }
 
@@ -365,6 +399,8 @@ function applyEvent(sessionId: string, event: AgentEvent): 'immediate' | 'thrott
       const data = event.data as { message?: string; isTerminal?: boolean; willRetry?: boolean };
       const terminal = data.isTerminal ?? data.willRetry !== true;
       const message = friendlyProviderError(data.message || '未知错误');
+      // 后台会话的终态错误记侧栏关注（活动会话用户正看着，不记）
+      if (terminal && activeSessionId !== sessionId) liveAttentionErrors.add(sessionId);
       const s0 = getSlice(sessionId);
       if (terminal) {
         // 终态错误卡每轮只保留一张：重复错误替换末尾卡片文案（对齐 Cindy「终态错误横幅只弹一次」）
@@ -509,6 +545,17 @@ export function useRunningIds(): ReadonlySet<string> {
       return () => anyListeners.delete(cb);
     },
     () => runningSnapshot,
+  );
+}
+
+/** 需关注的非活动会话（sidebar 关注点）：awaiting=审批悬挂 / error=后台终态错误 */
+export function useAttentionIds(): ReadonlyMap<string, 'awaiting' | 'error'> {
+  return useSyncExternalStore(
+    (cb) => {
+      anyListeners.add(cb);
+      return () => anyListeners.delete(cb);
+    },
+    () => attentionSnapshot,
   );
 }
 
