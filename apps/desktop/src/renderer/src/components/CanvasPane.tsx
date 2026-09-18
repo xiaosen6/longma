@@ -14,6 +14,7 @@ import { cn } from '../lib/cn';
 import { basename, type Artifact, type ArtifactKind } from '../lib/artifacts';
 import { LocalImagePreview } from './LocalImagePreview';
 import { buildFilePreviewUrl } from '../../../shared/file-preview-url.ts';
+import { showToast } from '../lib/toast';
 
 interface CanvasPaneProps {
   workDir: string;
@@ -137,9 +138,9 @@ function Preview({ workDir, artifact }: { workDir: string; artifact: Artifact })
             className="text-muted hover:text-primary"
             onClick={() => {
               void window.fundet.openPath(artifact.path).then((r) => {
-                // 生命周期失败（窗口关闭期）静默；真实打开失败只进控制台（无打扰出口）
+                // 生命周期失败（窗口关闭期）静默；真实打开失败给 toast
                 if (!r.success && r.failureKind !== 'ipc_lifecycle') {
-                  console.warn('[canvas] 打开文件失败', r.error);
+                  showToast(`打开文件失败：${r.error ?? artifact.path}`, 'error');
                 }
               });
             }}

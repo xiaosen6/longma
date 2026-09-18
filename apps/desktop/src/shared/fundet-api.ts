@@ -302,6 +302,17 @@ export interface FundetApi {
   setSessionEffort(id: string, effort: Effort | null): Promise<void>;
   setSessionPermissionMode(id: string, mode: PermissionMode): Promise<void>;
   renameSession(id: string, title: string): Promise<void>;
+  /** 启动时查询上次退出被中断的会话（turn 在途时应用退出/崩溃） */
+  getSessionInterrupted(): Promise<string[]>;
+  /** 该会话的中断提示已展示（打开过一次即清） */
+  clearSessionInterrupted(id: string): Promise<void>;
+  /** 侧栏置顶会话 id（有序，手动拖拽序）；settings 持久化 */
+  getSidebarPinned(): Promise<string[]>;
+  setSidebarPinned(order: string[]): Promise<void>;
+  /** 会话分支树（pi 原生分支；不支持/会话不在内存返回 null） */
+  getSessionTree(sessionId: string): Promise<import('@fundet/agent-core').SessionTreeSnapshot | null>;
+  /** 切到指定分支节点；成功后消息历史已被 main 重写，渲染层整体重建 */
+  navigateSessionTree(sessionId: string, entryId: string): Promise<void>;
 
   resolveInteraction(requestId: string, decision: InteractionDecision): Promise<void>;
   getPendingInteractions(): Promise<InteractionRequestPayload[]>;

@@ -13,6 +13,8 @@ import { SettingsPage } from './pages/SettingsPage';
 import { DebugPage } from './pages/DebugPage';
 import { WindowControls } from './components/WindowControls';
 import { RouteFade } from './components/RouteFade';
+import { ToastContainer } from './components/ToastContainer';
+import { CommandPalette } from './components/CommandPalette';
 
 // 全局 agent:event 监听只装一次（模块级 store，与 React 树解耦，
 // 切页面/切会话不影响后台 turn 的事件分发）
@@ -38,6 +40,8 @@ createRoot(document.getElementById('root')!).render(
         </div>
       )}
       <RouterProvider router={router} />
+      <CommandPalette />
+      <ToastContainer />
     </div>
   </React.StrictMode>,
 );

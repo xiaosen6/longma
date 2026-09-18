@@ -67,6 +67,12 @@ const api: FundetApi = {
   setSessionPermissionMode: (id, mode) =>
     ipcRenderer.invoke(FUNDET_INVOKE.SESSION_SET_PERMISSION_MODE, id, mode),
   renameSession: (id, title) => ipcRenderer.invoke(FUNDET_INVOKE.SESSION_SET_TITLE, id, title),
+  getSessionInterrupted: () => ipcRenderer.invoke(FUNDET_INVOKE.SESSION_GET_INTERRUPTED),
+  clearSessionInterrupted: (id) => ipcRenderer.invoke(FUNDET_INVOKE.SESSION_CLEAR_INTERRUPTED, id),
+  getSidebarPinned: () => ipcRenderer.invoke(FUNDET_INVOKE.SIDEBAR_PINNED_GET),
+  setSidebarPinned: (order) => ipcRenderer.invoke(FUNDET_INVOKE.SIDEBAR_PINNED_SET, order),
+  getSessionTree: (id) => ipcRenderer.invoke(FUNDET_INVOKE.SESSION_TREE_GET, id),
+  navigateSessionTree: (id, entryId) => ipcRenderer.invoke(FUNDET_INVOKE.SESSION_TREE_NAVIGATE, id, entryId),
 
   resolveInteraction: (requestId, decision) =>
     ipcRenderer.invoke(FUNDET_INVOKE.INTERACTION_RESOLVE, requestId, decision),

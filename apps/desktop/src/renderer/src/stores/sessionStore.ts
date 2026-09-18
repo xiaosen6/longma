@@ -14,6 +14,7 @@
 import { useSyncExternalStore } from 'react';
 import { friendlyError, friendlyProviderError } from '../../../shared/friendly-error.ts';
 import { createCoalescedRefresh } from '../lib/coalescedRefresh.ts';
+import { emptyRateHistory, recordRateReport, type RateHistory } from '../lib/tokenRate.ts';
 import type { AgentEvent, InteractionRequest, UsageSnapshot } from '@fundet/agent-core';
 import type {
   KnowledgeRef,
@@ -68,6 +69,8 @@ export interface SessionSlice {
   pendingInteraction: InteractionRequest | null;
   /** DB 历史是否已重建进 items */
   historyLoaded: boolean;
+  /** token 输出速度采样（#4351 防放大规则，详见 lib/tokenRate.ts） */
+  rateHistory: RateHistory;
 }
 
 const EMPTY_USAGE: UsageSnapshot = { tokenUsage: 0, contextTokens: 0, contextWindow: 0, costUsd: 0 };
@@ -80,6 +83,7 @@ const EMPTY_SLICE: SessionSlice = {
   usage: EMPTY_USAGE,
   pendingInteraction: null,
   historyLoaded: false,
+  rateHistory: emptyRateHistory(),
 };
 
 // ---------------------------------------------------------------------------
@@ -352,7 +356,15 @@ function applyEvent(sessionId: string, event: AgentEvent): 'immediate' | 'thrott
     }
 
     case 'status': {
-      const data = event.data as Partial<UsageSnapshot> & { status?: string; isRunning?: boolean };
+      const data = event.data as Partial<UsageSnapshot> & { status?: string; isRunning?: boolean; outputTokens?: number };
+      const rateHistory =
+        typeof data.outputTokens === 'number'
+          ? recordRateReport(s.rateHistory, {
+              now: Date.now(),
+              outputTokens: data.outputTokens,
+              running: data.isRunning ?? s.isRunning,
+            })
+          : s.rateHistory;
       patchSlice(sessionId, {
         statusText: data.status ?? s.statusText,
         isRunning: data.isRunning ?? s.isRunning,
@@ -362,6 +374,7 @@ function applyEvent(sessionId: string, event: AgentEvent): 'immediate' | 'thrott
           contextWindow: data.contextWindow ?? s.usage.contextWindow,
           costUsd: data.costUsd ?? s.usage.costUsd,
         },
+        rateHistory,
       });
       return 'immediate';
     }
@@ -397,7 +410,13 @@ function applyEvent(sessionId: string, event: AgentEvent): 'immediate' | 'thrott
         next[lastAi] = { ...lastItem, usage: usageSnap };
         items = next;
       }
-      patchSlice(sessionId, { items, streamingText: '', isRunning: false, statusText: 'Done' });
+      patchSlice(sessionId, {
+        items,
+        streamingText: '',
+        isRunning: false,
+        statusText: 'Done',
+        rateHistory: { ...s.rateHistory, running: false, baseline: null, turnStart: null },
+      });
       void refreshSessionList();
       return 'immediate';
     }
@@ -443,6 +462,13 @@ function applyEvent(sessionId: string, event: AgentEvent): 'immediate' | 'thrott
       return 'immediate';
   }
 }
+
+// ---------------------------------------------------------------------------
+// 中断回合提示：turn 在途时应用退出/崩溃 → 下次打开该会话并注一条 notice
+// （marker 由 main 维护：send 接受落下、done/error/会话关闭清除）
+// ---------------------------------------------------------------------------
+
+const interruptedSessions = new Set<string>();
 
 // ---------------------------------------------------------------------------
 // 全局监听器（App 启动装一次）
@@ -506,12 +532,17 @@ export function initGlobalListeners(): void {
     }
   });
 
-  // 重启后补拉悬挂的审批（10 分钟兜底超时前仍有效）
+  // 重启后补拉悬挂的审批（10 分钟兜底超时前仍有效）+ 中断回合清单
   void window.fundet.getPendingInteractions().then((pending) => {
     for (const { sessionId, request } of pending) {
       patchSlice(sessionId, { pendingInteraction: request });
       notifySlice(sessionId);
     }
+  });
+  void window.fundet.getSessionInterrupted().then((ids) => {
+    for (const id of ids) interruptedSessions.add(id);
+  }).catch(() => {
+    /* 拉取失败只影响提示，不影响会话 */
   });
 
   void refreshSessionList();
@@ -595,6 +626,19 @@ export function useSessionSlice(sessionId: string | null): SessionSlice {
   );
 }
 
+/** 分支切换后整体重建：清空 items/流式态并重新拉 DB（main 已重写时间线） */
+export async function reloadSessionHistory(sessionId: string): Promise<void> {
+  patchSlice(sessionId, {
+    items: [],
+    streamingText: '',
+    isRunning: false,
+    statusText: '',
+    historyLoaded: false,
+  });
+  notifySlice(sessionId);
+  await ensureHistory(sessionId);
+}
+
 /** 切进会话时调用：首次从 DB 重建历史 items（直播中不重建，避免覆盖流式态） */
 export async function ensureHistory(sessionId: string): Promise<void> {
   // 草稿在 DB 里没有行，纯本地，不触 main
@@ -609,7 +653,16 @@ export async function ensureHistory(sessionId: string): Promise<void> {
     const current = getSlice(sessionId);
     // 等待期间已有直播事件进来（流式/审批中），跳过重建以免覆盖
     if (current.items.length > 0 || current.isRunning) return;
-    patchSlice(sessionId, { items: rebuildItems(detail.messages) });
+    let items = rebuildItems(detail.messages);
+    // 中断回合提示（只并注一次，随即清 marker）
+    if (interruptedSessions.delete(sessionId)) {
+      items = [
+        { kind: 'notice', id: nextId('n'), text: '上次退出时这轮任务被中断，重新发送即可继续。' },
+        ...items,
+      ];
+      void window.fundet.clearSessionInterrupted(sessionId).catch(() => {});
+    }
+    patchSlice(sessionId, { items });
     notifySlice(sessionId);
   } catch {
     // 拉取失败：保持空，下次切回重试

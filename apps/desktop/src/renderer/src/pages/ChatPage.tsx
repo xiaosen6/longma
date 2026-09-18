@@ -25,6 +25,7 @@ import {
   getDraftSession,
   isDraftSession,
   refreshSessionList,
+  reloadSessionHistory,
   renameSession,
   resolvePermission,
   sendMessage,
@@ -52,12 +53,15 @@ import { FolderPickerChip } from '../components/FolderPickerChip';
 import { Sidebar } from '../components/Sidebar';
 import { CanvasPane } from '../components/CanvasPane';
 import { CanvasSlider } from '../components/CanvasSlider';
+import { NEW_CHAT_EVENT } from '../components/CommandPalette';
 import { ContextCapacityRing } from '../components/ContextCapacityRing';
+import { TokenRateChip } from '../components/TokenRateChip';
 import { hasFramelessControls } from '../components/WindowControls';
 import { preferScannedContextWindow } from '../../../shared/context-window.js';
 import { addRecentFolder } from '../lib/recentFolders';
 import { dataTransferHasFiles, filesFromDataTransfer } from '../lib/file-drop';
 import { cn } from '../lib/cn';
+import { showToast } from '../lib/toast';
 import { useSidebarResize } from './chat/useSidebarResize';
 import { useCanvasTracker } from './chat/useCanvasTracker';
 import { useAttachments } from './chat/useAttachments';
@@ -218,6 +222,13 @@ export function ChatPage(): React.JSX.Element {
     rememberModelChoice(provider.id, model);
     setActiveId(meta.id);
   }, [providers, workDir]);
+
+  // 命令面板「新对话」动作（Ctrl+K）经 DOM 事件认领——面板不持有会话上下文
+  useEffect(() => {
+    const onNewChat = (): void => createSession();
+    window.addEventListener(NEW_CHAT_EVENT, onNewChat);
+    return () => window.removeEventListener(NEW_CHAT_EVENT, onNewChat);
+  }, [createSession]);
 
   const deleteSession = useCallback(
     async (id: string): Promise<void> => {
@@ -497,6 +508,11 @@ export function ChatPage(): React.JSX.Element {
                     throw err;
                   }
                 }}
+                onTreeNavigated={() => {
+                  if (!activeId) return;
+                  void reloadSessionHistory(activeId);
+                }}
+                onTreeError={(m) => showToast(`分支切换失败：${m}`, 'error')}
               />
 
               <MessageStream
@@ -619,6 +635,7 @@ export function ChatPage(): React.JSX.Element {
                           ${slice.usage.costUsd.toFixed(4)}
                         </span>
                       )}
+                      <TokenRateChip history={slice.rateHistory} />
                       {activeId && !activeId.startsWith('draft-') && (
                         <span
                           className="font-mono text-10 text-muted select-text"

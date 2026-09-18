@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Pencil } from 'lucide-react';
 import { SessionRenameInput } from '../../components/SessionRenameInput';
+import { SessionTreeButton } from '../../components/SessionTreePanel';
 import { hasFramelessControls } from '../../components/WindowControls';
 import { cn } from '../../lib/cn';
 
@@ -14,8 +15,12 @@ export function ChatHeader(props: {
   workDir: string | null;
   /** 返回 reject 时由调用方落 notice；resolve（含未变更）表示完成 */
   onRename: (title: string) => Promise<void>;
+  /** 分支切换成功后重建消息历史（ChatPage 提供） */
+  onTreeNavigated?: () => void;
+  /** 分支切换失败提示 */
+  onTreeError?: (message: string) => void;
 }): React.JSX.Element {
-  const { sessionId, title, workDir, onRename } = props;
+  const { sessionId, title, workDir, onRename, onTreeNavigated, onTreeError } = props;
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState('');
   // 双击/铅笔两条入口与 commit/cancel 都可能触发状态切换；用 ref 防重复提交
@@ -94,6 +99,13 @@ export function ChatHeader(props: {
           </>
         )}
       </div>
+      {onTreeNavigated && (
+        <SessionTreeButton
+          sessionId={sessionId}
+          onNavigated={onTreeNavigated}
+          onError={(m) => onTreeError?.(m)}
+        />
+      )}
     </header>
   );
 }

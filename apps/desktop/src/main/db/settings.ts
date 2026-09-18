@@ -23,6 +23,11 @@ export function setSetting(key: string, value: string | null): void {
     .run();
 }
 
+/** 删行封装（与 setSetting(key, null) 等价，语义更直白） */
+export function deleteSetting(key: string): void {
+  setSetting(key, null);
+}
+
 /** 布尔设置的便捷封装：缺省返回 defaultValue */
 export function getBoolSetting(key: string, defaultValue: boolean): boolean {
   const raw = getSetting(key);
@@ -32,4 +37,14 @@ export function getBoolSetting(key: string, defaultValue: boolean): boolean {
 
 export function setBoolSetting(key: string, value: boolean): void {
   setSetting(key, value ? '1' : '0');
+}
+
+/** 前缀扫描（中断回合 marker 等小规模枚举用；settings 表量级小，全表过滤可接受） */
+export function listSettingKeys(prefix: string): string[] {
+  return getDb()
+    .select({ key: settings.key })
+    .from(settings)
+    .all()
+    .map((r) => r.key)
+    .filter((k) => k.startsWith(prefix));
 }

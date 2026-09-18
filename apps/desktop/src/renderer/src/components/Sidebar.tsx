@@ -1,21 +1,28 @@
 /**
- * Sidebar —— 会话列表（按更新时间倒序，由 main 查询保证）+ 新建会话 + 删除 + 设置入口。
+ * Sidebar —— 会话列表 + 置顶组（手动拖拽序）+ 标题过滤 + 新建会话 + 删除 + 设置入口。
  *
  * 视觉复刻 Cindy 侧栏（真机参照 ref-shots/cindy-02/08，CINDY skin）：
  * - 整块 Surface 平铺，只靠右侧 1px Board 发丝线与主区分隔（无背景色分块、无阴影）。
- * - 顶行品牌位：图形 logo + LongMa 字；其下是同级等权 pill 导航行
- *   （h-8 / rounded-full / px-3 / gap-2.5 / text-14，icon 15×1.8）。
- * - 会话区：小字灰标签「会话」+ 会话行（SessionItem 解剖：32px pill 行，15px 状态槽
- *   + 标题（超长 hover 跑马灯）+ 右侧时间槽，hover 时 120ms 让位给重命名/删除按钮）。
- * - 选中行 = 反相胶囊（CINDY 反相中性：--accent 底 + --accent-fg 字，无描边）。
- * - 状态槽三态：运行中 = MessageSquare 图标 Thinking Orange 呼吸（opacity compositor-only）；
- *   需关注 = 6px 点+光环脉冲（awaiting 蓝=审批悬挂 / error 红=后台终态错误）；
- *   空闲 = muted 图标。后台会话运行结束时底色闪一次 settle（0.9s 一次性）。
- * - 底部：设置入口做成「用户胶囊」同款（icon 圆 + 文字的 pill 卡，对齐 Cindy
- *   UserInfoSection 的 Not-signed-in 胶囊位）。
+ * - 顶行品牌位：图形 logo + LongMa 字；其下是同级等权 pill 导航行。
+ * - 会话区：「置顶」（settings 持久化有序 id，原生 DnD 重排，拖完落盘）+
+ *   「会话」（最近活跃/创建时间，当前会话钉住档位防后台刷新挤走）。
+ * - 标签行右侧：搜索切换（标题过滤）+ 排序切换。
+ * - 选中行 = 反相胶囊；运行中 = 图标呼吸；需关注 = 光环点；置顶行 hover 有 Pin 钮。
+ * - 底部：设置入口做成「用户胶囊」同款。
  */
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { Activity, CalendarClock, CirclePlus, MessageSquare, Pencil, Trash2, UserRound } from 'lucide-react';
+import {
+  Activity,
+  CalendarClock,
+  CirclePlus,
+  MessageSquare,
+  Pencil,
+  Pin,
+  Search,
+  Trash2,
+  UserRound,
+  X,
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { SessionListItem } from '../../../shared/fundet-api.js';
 import { cn } from '../lib/cn';
@@ -30,7 +37,7 @@ interface SidebarProps {
   activeId: string | null;
   /** 各会话是否有后台 turn 在跑（呼吸点提示） */
   runningIds: ReadonlySet<string>;
-  /** 需关注的非活动会话：awaiting=审批悬挂 / error=后台终态错误（切进清除） */
+  /** 需关注的非活动会话：awaiting=审批悬挂 / error=后台终态错误（切进即读） */
   attentionIds: ReadonlyMap<string, 'awaiting' | 'error'>;
   onSelect: (id: string) => void;
   onCreate: () => void;
@@ -64,6 +71,12 @@ function SessionRow({
   isActive,
   isRunning,
   attention,
+  isPinned,
+  draggable,
+  onTogglePin,
+  onDragStart,
+  onDragOverRow,
+  onDragEnd,
   onSelect,
   onDelete,
   onRename,
@@ -72,6 +85,12 @@ function SessionRow({
   isActive: boolean;
   isRunning: boolean;
   attention?: 'awaiting' | 'error';
+  isPinned?: boolean;
+  draggable?: boolean;
+  onTogglePin?: (id: string) => void;
+  onDragStart?: (id: string) => void;
+  onDragOverRow?: (id: string) => void;
+  onDragEnd?: () => void;
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
   onRename: (id: string, title: string) => Promise<void>;
@@ -124,6 +143,14 @@ function SessionRow({
       role="button"
       tabIndex={0}
       data-sidebar-session-row="true"
+      draggable={draggable && !editing}
+      onDragStart={() => onDragStart?.(session.id)}
+      onDragOver={(e) => {
+        if (!draggable) return;
+        e.preventDefault();
+        onDragOverRow?.(session.id);
+      }}
+      onDragEnd={() => onDragEnd?.()}
       onClick={() => {
         if (!editing) onSelect(session.id);
       }}
@@ -205,6 +232,28 @@ function SessionRow({
               'group-focus-within/slot:pointer-events-auto group-focus-within/slot:opacity-100',
             )}
           >
+            {onTogglePin && (
+              <button
+                type="button"
+                title={isPinned ? '取消置顶' : '置顶'}
+                className={cn(
+                  ACTION_BTN,
+                  isPinned
+                    ? isActive
+                      ? 'text-accent-fg hover:opacity-70'
+                      : 'text-primary hover:opacity-70'
+                    : isActive
+                      ? 'text-accent-fg hover:opacity-70'
+                      : 'text-muted hover:text-primary',
+                )}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onTogglePin(session.id);
+                }}
+              >
+                <Pin size={13} className={isPinned ? 'fill-current' : ''} />
+              </button>
+            )}
             <button
               type="button"
               title="重命名"
@@ -248,7 +297,13 @@ export function Sidebar({
   onResizeStart,
 }: SidebarProps): React.JSX.Element {
   const profile = useSyncExternalStore(subscribeProfile, getProfile, getProfile);
-  // 会话排序：active=最近活跃（updatedAt，默认，与 main 侧返回序一致）/ created=创建时间
+  // 置顶（settings 持久化的有序 id；加载失败按无置顶处理）
+  const [pinned, setPinned] = useState<string[]>([]);
+  const [dragId, setDragId] = useState<string | null>(null);
+  // 搜索：标签行内两态（图标钮 ↔ 输入框），标题/模型/id 前缀过滤
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  // 排序：active=最近活跃（默认）/ created=创建时间
   const [sortBy, setSortBy] = useState<'active' | 'created'>(() => {
     try {
       return localStorage.getItem('longma.sidebar-sort') === 'created' ? 'created' : 'active';
@@ -256,9 +311,40 @@ export function Sidebar({
       return 'active';
     }
   });
+
+  useEffect(() => {
+    void window.fundet.getSidebarPinned().then(setPinned).catch(() => setPinned([]));
+  }, []);
+
+  const persistPinned = (next: string[]): void => {
+    setPinned(next);
+    void window.fundet.setSidebarPinned(next).catch(() => {
+      /* 落盘失败仅本会话内生效 */
+    });
+  };
+
+  const togglePin = (id: string): void => {
+    persistPinned(pinned.includes(id) ? pinned.filter((x) => x !== id) : [...pinned, id]);
+  };
+
+  // 置顶行拖拽重排（松手落盘）
+  const handleDragOverRow = (overId: string): void => {
+    if (!dragId || dragId === overId) return;
+    const from = pinned.indexOf(dragId);
+    const to = pinned.indexOf(overId);
+    if (from < 0 || to < 0) return;
+    const next = [...pinned];
+    next.splice(from, 1);
+    next.splice(to, 0, dragId);
+    setPinned(next);
+  };
+  const handleDragEnd = (): void => {
+    if (dragId) persistPinned(pinned);
+    setDragId(null);
+  };
+
   // 当前会话钉住（对齐 Cindy #4620 heldPriorityRanks 的简化版）：active 会话锁在
-  // 激活时刻的下标档位，后台会话刷新（updatedAt 变化）不把用户正看的行挤走；
-  // 切换会话时重新捕获档位。deps 故意不含 sessions——只在切换瞬间取当时序。
+  // 激活时刻的下标档位，后台会话刷新（updatedAt 变化）不把用户正看的行挤走。
   const heldIndexRef = useRef<number | null>(null);
   useEffect(() => {
     if (!activeId) {
@@ -283,6 +369,35 @@ export function Sidebar({
     rest.splice(Math.min(held, rest.length), 0, target);
     return rest;
   }, [sessions, sortBy, activeId]);
+
+  const pinnedSet = useMemo(() => new Set(pinned), [pinned]);
+  const pinnedSessions = useMemo(() => {
+    const byId = new Map(sessions.map((s) => [s.id, s]));
+    const ordered = pinned.map((id) => byId.get(id)).filter((s): s is SessionListItem => Boolean(s));
+    // settings 里没有的新置顶（落盘竞态）按列表序补到尾部
+    for (const s of sortedSessions) {
+      if (pinnedSet.has(s.id) && !ordered.some((o) => o.id === s.id)) ordered.push(s);
+    }
+    return ordered;
+  }, [pinned, sessions, sortedSessions, pinnedSet]);
+  const unpinnedSessions = useMemo(
+    () => sortedSessions.filter((s) => !pinnedSet.has(s.id)),
+    [sortedSessions, pinnedSet],
+  );
+
+  // 搜索过滤：置顶+普通合并平铺
+  const q = query.trim().toLowerCase();
+  const filterList = (list: SessionListItem[]): SessionListItem[] =>
+    q
+      ? list.filter(
+          (s) =>
+            s.title.toLowerCase().includes(q) ||
+            s.model.toLowerCase().includes(q) ||
+            s.id.toLowerCase().startsWith(q),
+        )
+      : list;
+  const searching = q.length > 0;
+
   return (
     <aside
       className="relative z-20 flex h-full shrink-0 flex-col border-r border-board bg-surface"
@@ -333,29 +448,74 @@ export function Sidebar({
         </div>
       </div>
 
-      {/* 会话区标签 + 排序切换（对齐 Cindy 的「Chat」段标） */}
-      <div className="flex items-center justify-between px-6 pt-1 pb-1">
-        <span className="text-13 text-muted select-none">会话</span>
-        <button
-          type="button"
-          title={sortBy === 'created' ? '当前：按创建时间排序（点击切换为最近活跃）' : '当前：按最近活跃排序（点击切换为创建时间）'}
-          aria-label="切换会话排序"
-          data-sidebar-action="sort-toggle"
-          onClick={() => {
-            const next = sortBy === 'created' ? 'active' : 'created';
-            setSortBy(next);
-            try {
-              localStorage.setItem('longma.sidebar-sort', next);
-            } catch { /* localStorage 不可用时仅会话内生效 */ }
-          }}
-          className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-hover hover:text-primary active:scale-[0.98]"
-        >
-          {sortBy === 'created' ? (
-            <CalendarClock size={12} strokeWidth={1.8} />
-          ) : (
-            <Activity size={12} strokeWidth={1.8} />
-          )}
-        </button>
+      {/* 标签行：搜索 ↔ 排序（搜索态占位标签行） */}
+      <div className="flex items-center justify-between gap-2 px-6 pt-1 pb-1">
+        {searchOpen ? (
+          <div className="flex h-5 min-w-0 flex-1 items-center gap-1.5">
+            <Search size={12} strokeWidth={1.8} className="shrink-0 text-muted" />
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  setQuery('');
+                  setSearchOpen(false);
+                }
+              }}
+              placeholder="过滤会话…"
+              className="min-w-0 flex-1 bg-transparent text-13 text-primary outline-none placeholder:text-muted"
+              data-sidebar-action="search-input"
+            />
+            <button
+              type="button"
+              aria-label="关闭搜索"
+              className="shrink-0 cursor-pointer text-muted hover:text-primary"
+              onClick={() => {
+                setQuery('');
+                setSearchOpen(false);
+              }}
+            >
+              <X size={12} />
+            </button>
+          </div>
+        ) : (
+          <span className="text-13 text-muted select-none">会话</span>
+        )}
+        {!searchOpen && (
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              title="搜索会话（标题过滤）"
+              aria-label="搜索会话"
+              data-sidebar-action="search-toggle"
+              onClick={() => setSearchOpen(true)}
+              className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-hover hover:text-primary active:scale-[0.98]"
+            >
+              <Search size={12} strokeWidth={1.8} />
+            </button>
+            <button
+              type="button"
+              title={sortBy === 'created' ? '当前：按创建时间排序（点击切换为最近活跃）' : '当前：按最近活跃排序（点击切换为创建时间）'}
+              aria-label="切换会话排序"
+              data-sidebar-action="sort-toggle"
+              onClick={() => {
+                const next = sortBy === 'created' ? 'active' : 'created';
+                setSortBy(next);
+                try {
+                  localStorage.setItem('longma.sidebar-sort', next);
+                } catch { /* localStorage 不可用时仅会话内生效 */ }
+              }}
+              className="flex h-5 w-5 cursor-pointer items-center justify-center rounded-full text-muted transition-colors hover:bg-hover hover:text-primary active:scale-[0.98]"
+            >
+              {sortBy === 'created' ? (
+                <CalendarClock size={12} strokeWidth={1.8} />
+              ) : (
+                <Activity size={12} strokeWidth={1.8} />
+              )}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 会话列表 */}
@@ -363,18 +523,70 @@ export function Sidebar({
         {sessions.length === 0 && (
           <div className="px-3 pt-1 text-13 text-muted select-none">还没有会话</div>
         )}
-        {sortedSessions.map((s) => (
-          <SessionRow
-            key={s.id}
-            session={s}
-            isActive={s.id === activeId}
-            isRunning={runningIds.has(s.id)}
-            attention={attentionIds.get(s.id)}
-            onSelect={onSelect}
-            onDelete={onDelete}
-            onRename={onRename}
-          />
-        ))}
+
+        {searching ? (
+          <>
+            {filterList([...pinnedSessions, ...unpinnedSessions]).map((s) => (
+              <SessionRow
+                key={s.id}
+                session={s}
+                isActive={s.id === activeId}
+                isRunning={runningIds.has(s.id)}
+                attention={attentionIds.get(s.id)}
+                isPinned={pinnedSet.has(s.id)}
+                onTogglePin={togglePin}
+                onSelect={onSelect}
+                onDelete={onDelete}
+                onRename={onRename}
+              />
+            ))}
+            {filterList([...pinnedSessions, ...unpinnedSessions]).length === 0 && (
+              <div className="px-3 pt-1 text-13 text-muted select-none">没有匹配的会话</div>
+            )}
+          </>
+        ) : (
+          <>
+            {pinnedSessions.length > 0 && (
+              <div className="px-3 pt-1 pb-0.5 text-12 text-muted select-none" data-sidebar-pinned-label="true">
+                置顶 · 拖动排序
+              </div>
+            )}
+            {pinnedSessions.map((s) => (
+              <SessionRow
+                key={s.id}
+                session={s}
+                isActive={s.id === activeId}
+                isRunning={runningIds.has(s.id)}
+                attention={attentionIds.get(s.id)}
+                isPinned
+                draggable
+                onTogglePin={togglePin}
+                onDragStart={setDragId}
+                onDragOverRow={handleDragOverRow}
+                onDragEnd={handleDragEnd}
+                onSelect={onSelect}
+                onDelete={onDelete}
+                onRename={onRename}
+              />
+            ))}
+            {pinnedSessions.length > 0 && unpinnedSessions.length > 0 && (
+              <div className="my-1 px-3 text-12 text-muted select-none">会话</div>
+            )}
+            {filterList(unpinnedSessions).map((s) => (
+              <SessionRow
+                key={s.id}
+                session={s}
+                isActive={s.id === activeId}
+                isRunning={runningIds.has(s.id)}
+                attention={attentionIds.get(s.id)}
+                onTogglePin={togglePin}
+                onSelect={onSelect}
+                onDelete={onDelete}
+                onRename={onRename}
+              />
+            ))}
+          </>
+        )}
       </div>
 
       {/* 底部：设置入口（对齐 Cindy 用户胶囊位：icon 圆 + 文字的 pill 卡） */}

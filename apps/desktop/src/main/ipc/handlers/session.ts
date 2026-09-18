@@ -4,17 +4,21 @@ import { ipcMain } from 'electron';
 import type { Effort, InteractionDecision, PermissionMode } from '@fundet/agent-core';
 import { desc, eq } from 'drizzle-orm';
 import { getDb } from '../../db/client.js';
-import { sessions } from '../../db/schema.js';
+import { sessions, settings } from '../../db/schema.js';
 import { copyMessagesUntil, deleteMessagesInRange, insertMessage, listMessages } from '../../db/messages.js';
 import { getUsageHistory } from '../../db/usage.js';
+import { deleteMessagesForSession } from '../../db/messages.js';
 import { listProviders } from '../../db/providers.js';
 import { getHost } from '../../host/pi-host.js';
 import { FUNDET_INVOKE } from '../channels.js';
 import {
   autoTitleFromFirstMessage,
   buildUserMessage,
+  clearInterruptedTurnSession,
   ensureSession,
+  listInterruptedTurnSessions,
   listPendingInteractions,
+  markTurnRunning,
   settleInteraction,
   wireSession,
 } from '../session-core.js';
@@ -105,6 +109,7 @@ export function registerSessionHandlers(): void {
         input.text.trim() || attachments.map((a) => a.name).join(' ') || '',
       );
       const result = await session.send(await buildUserMessage(input.text, attachments, input.knowledgeContext));
+      if (result.accepted) markTurnRunning(session.id);
       return result.accepted ? { accepted: true } : { accepted: false, reason: result.reason };
     },
   );
@@ -225,6 +230,94 @@ export function registerSessionHandlers(): void {
 
   ipcMain.handle(FUNDET_INVOKE.INTERACTION_GET_PENDING, async () => listPendingInteractions());
 
+  // ---------- 侧栏置顶 ----------
+  const PINNED_KEY = 'sidebar.pinned';
+  ipcMain.handle(FUNDET_INVOKE.SIDEBAR_PINNED_GET, async (): Promise<string[]> => {
+    const raw = getDb().select().from(settings).where(eq(settings.key, PINNED_KEY)).get();
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw.value) as unknown;
+      return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string') : [];
+    } catch {
+      return [];
+    }
+  });
+  ipcMain.handle(FUNDET_INVOKE.SIDEBAR_PINNED_SET, async (_e, order: string[]) => {
+    const clean = (Array.isArray(order) ? order : []).filter((x) => typeof x === 'string').slice(0, 10_000);
+    const value = JSON.stringify(clean);
+    getDb()
+      .insert(settings)
+      .values({ key: PINNED_KEY, value })
+      .onConflictDoUpdate({ target: settings.key, set: { value } })
+      .run();
+  });
+
+  // ---------- 会话分支树 ----------
+  ipcMain.handle(FUNDET_INVOKE.SESSION_TREE_GET, async (_e, id: string) => {
+    const handle = getHost().maker.getSession(id);
+    if (!handle?.getSessionTree) return null;
+    try {
+      return await handle.getSessionTree();
+    } catch {
+      return null;
+    }
+  });
+
+  ipcMain.handle(FUNDET_INVOKE.SESSION_TREE_NAVIGATE, async (_e, id: string, entryId: string) => {
+    const handle = getHost().maker.getSession(id);
+    if (!handle?.navigateSessionTree) throw new Error('该会话不支持分支切换');
+    const result = await handle.navigateSessionTree(entryId);
+    // 分支切换后按 agent-core 给的安全时间线重写本会话消息（原线性行作废）
+    deleteMessagesForSession(id);
+    for (const m of result.messages) {
+      const row = sessionTreeMessageToRow(m);
+      if (row) insertMessage(id, row.role, row.content);
+    }
+    getDb().update(sessions).set({ updatedAt: Date.now() }).where(eq(sessions.id, id)).run();
+  });
+
+  // ---------- 中断回合提示 ----------
+  ipcMain.handle(FUNDET_INVOKE.SESSION_GET_INTERRUPTED, async () => listInterruptedTurnSessions());
+  ipcMain.handle(FUNDET_INVOKE.SESSION_CLEAR_INTERRUPTED, async (_e, id: string) => {
+    clearInterruptedTurnSession(id);
+  });
+
   // ---------- 用量历史 ----------
   ipcMain.handle(FUNDET_INVOKE.USAGE_HISTORY, async (_e, days?: number) => getUsageHistory(Math.min(90, Math.max(1, days ?? 30))));
+}
+
+
+/** SessionTreeHistoryMessage → messages 行（分支切换重写用）。
+ *  content 形状 harness 中立：文本角色尽量抽字符串，抽不出落原始 JSON。 */
+function sessionTreeMessageToRow(m: {
+  role: 'user' | 'assistant' | 'tool_use' | 'tool_result' | 'thinking';
+  content: unknown;
+  toolUseId?: string;
+}): { role: string; content: unknown } | null {
+  const textOf = (c: unknown): string | null => {
+    if (typeof c === 'string') return c;
+    if (Array.isArray(c)) {
+      const texts = c
+        .map((b) => (typeof b === 'object' && b !== null && typeof (b as { text?: unknown }).text === 'string' ? (b as { text: string }).text : ''))
+        .filter(Boolean);
+      return texts.length > 0 ? texts.join('') : null;
+    }
+    return null;
+  };
+  switch (m.role) {
+    case 'user':
+    case 'assistant': {
+      const text = textOf(m.content);
+      return text != null ? { role: m.role, content: { text } } : null;
+    }
+    case 'thinking': {
+      const text = textOf(m.content);
+      return text != null ? { role: 'thinking', content: { text } } : null;
+    }
+    case 'tool_use':
+    case 'tool_result':
+      return { role: 'tool', content: { kind: m.role, data: { toolUseId: m.toolUseId, raw: m.content } } };
+    default:
+      return null;
+  }
 }

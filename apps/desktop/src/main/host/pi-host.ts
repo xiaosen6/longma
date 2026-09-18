@@ -12,11 +12,14 @@ import {
   PiAgent,
   createConsoleLogger,
   type AgentRuntimeConfig,
+  type AutoReviewDecision,
+  type AutoReviewRequest,
   type Logger,
   type MakerMemoryManager,
   type PiNativeProviderSpec,
   type PiNativeProvidersResult,
 } from '@fundet/agent-core';
+import { createAutoReviewDelegate } from './auto-review-delegate.ts';
 import { createSessionStorage } from '../db/session-storage.js';
 import { listProviders } from '../db/providers.js';
 import { createByokAuthAdapter, isLoopbackBaseUrl, piNativeKeyEnvVar } from './auth-adapter.js';
@@ -160,6 +163,9 @@ export function getHost(): FundetHost {
   // "manager 要 agents、agents 要 manager" 的装配时序（同 Cindy maker-memory-host）。
   const memoryManager = createFundetMemoryManager(logger);
 
+  // auto 档审阅委托：maker 装配后回填（PiAgent 先拿稳定闭包引用）
+  let autoReviewDelegate: ((request: AutoReviewRequest) => Promise<AutoReviewDecision | null>) | null = null;
+
   const pi = new PiAgent({
     auth: createByokAuthAdapter(),
     runtimeConfig: buildRuntimeConfig(),
@@ -177,6 +183,10 @@ export function getHost(): FundetHost {
       serverName === SEARCH_MCP_SERVER_NAME || serverName === KNOWLEDGE_MCP_SERVER_NAME
         ? 'auto-approve'
         : 'prompt',
+    // auto 档灰区动作的 AI 审阅（host/auto-review-delegate.ts；仅 permission mode
+    // 为 auto 时 agent-core 才调用；失败降级 ask+unavailable 不静默 block）
+    reviewAutoPermissionAction: (request) =>
+      autoReviewDelegate ? autoReviewDelegate(request) : Promise.resolve(null),
   });
   memoryManager.setAgents({ pi });
 
@@ -186,6 +196,7 @@ export function getHost(): FundetHost {
     logger: logger.child('maker'),
     makerMemory: memoryManager,
   });
+  autoReviewDelegate = createAutoReviewDelegate(maker, logger.child('auto-review'));
 
   host = { maker, logger, memoryManager };
   logger.info('host assembled');

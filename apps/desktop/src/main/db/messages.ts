@@ -38,6 +38,12 @@ export function deleteMessagesInRange(sessionId: string, afterCreatedAt: number,
     .run();
 }
 
+/** 清空会话全部消息（分支切换重写时间线用；与 deleteMessagesInRange 的
+ *  「保 user 行」语义不同——这里整棵线性历史作废，由调用方重写）。 */
+export function deleteMessagesForSession(sessionId: string): void {
+  getDb().delete(messages).where(eq(messages.sessionId, sessionId)).run();
+}
+
 export function copyMessagesUntil(fromId: string, toId: string, upToCreatedAt: number): void {
   const rows = listMessages(fromId).filter((m) => m.createdAt <= upToCreatedAt);
   const db = getDb();

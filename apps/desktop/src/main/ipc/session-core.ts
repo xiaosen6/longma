@@ -21,6 +21,7 @@ import { getDb } from '../db/client.js';
 import { sessions } from '../db/schema.js';
 import { insertMessage } from '../db/messages.js';
 import { addUsageDelta } from '../db/usage.js';
+import { deleteSetting, listSettingKeys, setSetting } from '../db/settings.js';
 import { getHost } from '../host/pi-host.js';
 import { FUNDET_PUSH } from './channels.js';
 import { InteractionQueue } from './interaction-queue.js';
@@ -53,6 +54,39 @@ export function broadcast(channel: string, payload: unknown): void {
 /** 每会话最近一条 assistant final 正文：RPC replay 重发 message_end 时去重（对齐 Cindy #4180） */
 const lastAssistantFinal = new Map<string, string>();
 
+/** 在途回合 marker（中断检测）：turn 被接受时落下，正常收口/出错/会话关闭时清除；
+ *  启动时残留 = 上次退出（崩溃/强杀）打断了在途任务，渲染层开该会话时并注提示。 */
+const TURN_MARKER_PREFIX = 'turn.running.';
+
+export function markTurnRunning(sessionId: string): void {
+  try {
+    setSetting(TURN_MARKER_PREFIX + sessionId, String(Date.now()));
+  } catch {
+    /* marker 写失败只影响中断提示，不影响会话 */
+  }
+}
+
+function clearTurnMarker(sessionId: string): void {
+  try {
+    deleteSetting(TURN_MARKER_PREFIX + sessionId);
+  } catch {
+    /* 同上 */
+  }
+}
+
+/** 启动时残留的在途 marker → 会话 id 清单（渲染层展示用；不清，打开时才清） */
+export function listInterruptedTurnSessions(): string[] {
+  const out: string[] = [];
+  for (const key of listSettingKeys(TURN_MARKER_PREFIX)) {
+    out.push(key.slice(TURN_MARKER_PREFIX.length));
+  }
+  return out;
+}
+
+export function clearInterruptedTurnSession(sessionId: string): void {
+  clearTurnMarker(sessionId);
+}
+
 /** 事件落库：user/assistant 文本 + done，工具/thinking/error 事件存 JSON */
 function persistEvent(sessionId: string, event: AgentEvent): void {
   try {
@@ -79,9 +113,11 @@ function persistEvent(sessionId: string, event: AgentEvent): void {
         break;
       case 'done':
         insertMessage(sessionId, 'done', event.data);
+        clearTurnMarker(sessionId);
         break;
       case 'error': {
         const data = event.data as { isTerminal?: boolean };
+        clearTurnMarker(sessionId);
         if (data.isTerminal) insertMessage(sessionId, 'error', event.data);
         break;
       }
@@ -152,6 +188,7 @@ export function wireSession(session: Session): void {
     if (status === 'closed' || status === 'error') {
       wiredSessions.delete(session.id);
       lastAssistantFinal.delete(session.id);
+      clearTurnMarker(session.id);
     }
   });
 }
