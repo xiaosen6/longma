@@ -149,7 +149,7 @@ ChatPage / ChatInput
 
 | 版本 | 日期 | 要点 |
 | --- | --- | --- |
-| 0.2.27 | 09-18 | **发版中**（打包冒烟进行时）。**Cindy 共同功能追平批次**：①侧栏置顶（hover Pin 钮+置顶组原生 DnD 拖拽序 settings 持久化）+侧栏标题搜索（标签行两态过滤）②token 速度历史（lib/tokenRate 采样器忠实保留 #4351 防放大规则+TokenRateChip MorphPopover sparkline 面板，挂钟适配版）③auto 档 AI 审阅（host/auto-review-delegate，pi oneShot；与 Cindy 网关链差异=我们无网关纯 BYOK，失败降级 ask+unavailable）④会话分支树导航（SESSION_TREE IPC+ChatHeader 分支钮+切换后 main 重写消息/渲染层整体重建）⑤Toast 基建+命令面板 Ctrl+K（location.hash 导航——RouterProvider 外 useNavigate 会炸）⑥中断回合检测（turn.marker 键+打开会话并注一次性 notice）。修 CommandPalette 路由上下文崩溃。测试 121→127 |
+| 0.2.27 | 09-18 | **已发布**（CI 绿 6m20s/Release published 12 资产/latest.yml 已验/真机覆盖装 D:\QQ\LongMa 冒烟过：0.2.27.0+asar hash 一致+IPC 10 域 PASS+title=LongMa+theme 三件套+tray-badges 随包）。**Cindy 共同功能追平批次**：①侧栏置顶（hover Pin 钮+置顶组原生 DnD 拖拽序 settings 持久化）+侧栏标题搜索（标签行两态过滤）②token 速度历史（lib/tokenRate 采样器忠实保留 #4351 防放大规则+TokenRateChip MorphPopover sparkline 面板，挂钟适配版）③auto 档 AI 审阅（host/auto-review-delegate，pi oneShot；与 Cindy 网关链差异=我们无网关纯 BYOK，失败降级 ask+unavailable）④会话分支树导航（SESSION_TREE IPC+ChatHeader 分支钮+切换后 main 重写消息/渲染层整体重建）⑤Toast 基建+命令面板 Ctrl+K（location.hash 导航——RouterProvider 外 useNavigate 会炸）⑥中断回合检测（turn.marker 键+打开会话并注一次性 notice）。修 CommandPalette 路由上下文崩溃。测试 121→127 |
 | 0.2.26 | 09-17 | **已发布**（CI 绿 7m38s/Release published 12 资产/latest.yml 已验/真机覆盖装 D:\QQ\LongMa 冒烟过：0.2.26.0+asar hash 与 win-unpacked 一致+IPC 10 域 PASS+title=LongMa+tray-badges 新资源确认随包）。**Cindy 上游对照批次 P0~P2**（详见 §4.2 对照批次小节）：①Pi RPC 三重防线（16Mi 缓冲+整帧跳过+超限只 fail get_entries；session-jsonl-scan 本地扫描替代轮询；openPath IPC 生命周期归一）②电脑操作失败处置纪律+coalescedRefresh 合并刷新+侧栏当前会话钉住+Kimi K2.8 数据+HTML 预览 CSP（?preview-csp=1 注入+设备面 guard）③isFinal 双行回归锚+IM 真值核查通过+待审批数字角标（任务栏 overlay+托盘 tooltip，tray-badges 随包）④pi stderr 凭证脱敏。三老候选裁决与不适用清单入 §4.2。测试 109→121（desktop）+860→864（agent-core） |
 | 0.2.25 | 09-17 | **已发布**（CI 绿 7m23s/Release published 12 资产/latest.yml 已验/真机覆盖装 D:\QQ\LongMa 冒烟过：0.2.25.0+asar hash 与 win-unpacked 一致+IPC 10 域 PASS+title=LongMa+动效 CSS（跑马灯/对话框动画/content-visibility）确认进包）。**Cindy 动效三批次**（详见 §4.2 动效小节）：①侧栏运行态反馈（图标呼吸/结束 settle 闪动/需关注光环点 awaiting-error 双色/超长标题 hover 跑马灯）+ token 计数与上下文环 rAF 平滑（useAnimatedNumber）+ 完成态 done-pop + 按压态全局补齐；②Canvas 0↔380px 宽度过渡（CanvasSlider）+ 路由切换 220ms 淡入（RouteFade）+ Radix 对话框三处进出场动画；③消息条目 content-visibility + 隐藏窗口冻结循环动画闸门（hiddenAnimationGate）。修复四坑：StrictMode 吃 settle 定时器（onAnimationEnd 摘类）/ Tailwind v4 变体只认 @utility / RouteFade 仅 rAF 托盘启动白屏风险（timer 兜底）/ McpServerDialog 硬卸载跳过退场（内部 closing 态）。新坑三条入 §5。tools/motion-smoke.cjs 动效冒烟入库 |
 | 0.2.24 | 09-14 | **已发布**（CI 绿/Release published 12 资产/latest.yml 已验/用户机覆盖装冒烟过：0.2.24.0+asar hash+IPC 10 域 PASS）。**用户消息操作条对齐 Cindy**（hover 气泡下方出操作条：相对时间+复制/分享/分叉/编辑/更多五图标；分享=该条之后最近 assistant 回复组成回合；更多=删除本条及之后 deleteFromUserMessage；去掉 0.2.23 的悬浮黑胶囊编辑钮——形态不对用户打回重做）+ **编辑重发**保留（就地 textarea→发送=删本条及之后+重发 editAndResendUserMessage，kb 注入复用 buildKbInjection） |
@@ -223,6 +223,7 @@ ChatPage / ChatInput
   - **P2**：sessionStore isFinal 封口契约回归测试（#4375 结构免疫钉住：流式只存 streamingText、isFinal 才封口唯一 assistant 行）；IM 实例缓存核查通过（#4522 不变量本就满足：每回合 maker.getSession 取真值）；待审批数字角标（#4361 自研简化版：InteractionQueue onChange → Windows 任务栏 overlay badge-N.png + 托盘 tooltip；tray-badges 资产随包）。
   - **三老候选裁决**：MCP「懒加载」实为 schema 网关化非懒连接（连接仍启动全连）——仅用户表外部 server 走网关才值得（1-2 天），待用户配置外部 MCP 多了再议；网络守卫=Ghost 插件沙箱专属，不适用；yield cells=Codex exec 专属，不适用（将来接 Codex harness 时整簇移植约 2 周）。
   - 明确不适用（记录在案）：假心跳看门狗（记原则：stall 判定不能让用量心跳/空白 delta 续命）、分享图失焦复制（我们走 main 侧剪贴板天然免疫）、Vertex/Azure host 校验、千条会话侧栏 perf、速度历史 UI（做时须连 #4351 防放大采样一起搬）。
+- **Cindy 共同功能追平批次（2026-09-18，随 0.2.27 发）**：①侧栏置顶+搜索+拖拽（置顶组=settings 键 `sidebar.pinned` 有序 id 持久化，原生 DnD 重排落盘；搜索=标签行两态标题/模型/id 过滤——Cindy 的内容级 FTS+向量搜索是有账号云的独立基建，v1 刻意只做标题过滤）；②token 速度历史（lib/tokenRate：忠实保留 #4351 三条防放大规则，数据源用事件挂钟替代其 generationDurationMs——pi translator 流中无连续时长源，挂钟近似已覆盖「时间先到 token 后到」场景；TokenRateChip 挂输入卡下方行，MorphPopover 面板=SVG sparkline+平均/总量/峰值）；③auto 档 AI 审阅（host/auto-review-delegate.ts：pi oneShot+XML 边界防注入+verdict 校验+reason 脱敏+15s 硬超时；**与 Cindy 网关专用模型链的差异是本地方案的刻意取舍**——无网关纯 BYOK，审阅失败降级 ask+unavailable 走 agent-core fail-closed）；④会话分支树（SESSION_TREE_GET/NAVIGATE；切换后 main 用 agent-core 安全时间线重写消息表 deleteMessagesForSession+逐条插入，渲染层 reloadSessionHistory 重建；**pi 的会话文件才有真分支，DB 是线性投影**——分支切换=重写投影）；⑤Toast 基建（lib/toast 模块 store+ToastContainer，FLIP 重排未做——单条场景够用，多并发再加）；⑥命令面板 Ctrl+K（**渲染在 RouterProvider 外必须用 location.hash 导航，useNavigate 上下文崩溃是实测坑**）；⑦中断回合检测（`turn.running.<sid>` marker：send 接受落/done/任何 error/会话关闭清；启动残留=崩溃中断，打开会话并注一次性 notice 后清键）。对照差距现状：共同功能面已无已知缺口（多语言刻意不做；内容级会话搜索与 Cindy 全量 FTS 的差距记录在案按需再追）。
 - 厂商 Logo；模型 context window 扫描（GLM 5.2/5.3 = 1M）。
 - 米色 + dark 主题。
 
@@ -686,6 +687,17 @@ Cindy（makecindy/cindy，Apache-2.0）是主要参考与部分衍生来源。�
 4. **验证沉淀**：typecheck + 单测 + dev 真机 + 更新本文件 + 新增衍生文件补 NOTICE derived 列表 + 随版发布。
 
 特例：browser-runtime 是 vendored 整包（上游 openclaw），按 `upstream/browser-runtime.lock.json` 整体同步 + 跑 SSRF 契约测试，**不手工挑提交、不过 rollup**（§5 僵死坑）。
+
+## 8.6 上游跟进决策流程（2026-09-18 固化——追 Cindy 更新的方法论）
+
+四步闭环，每步有产物、有闸门，先评估后动手：
+
+1. **发现（固定节奏）**：`git -C /d/AI/Fundet/cindy fetch origin` → `git log --oneline <上次锚点>..origin/main`。锚点=上次对照时的 origin/main 头（记在速查表行或本节）。Cindy 日均 30+ 提交，建议节奏：**每周一次全量对照 + 发版前一次增量对照**（0.2.26/0.2.27 两轮实测：隔天增量约 20-30 提交，半小时可审完）。红线域标题直接跳过（mobile/device-link/remote-desktop/teammates/bots/cindy-make/scheduler/orca/ghost/plugins/codex/claude-code）。
+2. **评估（两问一核）**：对每个候选提交 `git show <hash>` 读透——①机制是什么（两三句）②**LongMa 同构吗**（必须对照我们本地代码核实，不能只看提交说明——0.2.26 轮实证：同源文件我们可能缺得更狠或结构上已免疫）③代价（小/中/大，动不动内核）。产出分级：P0（安全/稳定性欠账，同源代码别人修了我们没修）/P1（小而通用）/P2（条件触发/自查）/不适用（**必须记录在案+理由**，防重复评估）。
+3. **裁决**：用户拍板或按既定分级执行；「不移植」也是裁决——每项写明是「永不」（红线）还是「条件触发」（触发条件是什么，如 MCP 网关化=用户外部 server 配多了再做）。
+4. **移植与沉淀**：手工移植（§8.5 四步不变）；**Cindy 注释里的实测结论当规范继承**（如 webrtc 'block' 是装饰品、frame-src 拦不住 srcless iframe），本地化差异（StrictMode/无网关/挂钟采样）写进代码注释与 memory；验证=typecheck+单测+CDP 冒烟+发版闸门，然后速查表记锚点。
+
+评估代际的效率工具：`git show origin/main:<path>` 定向读文件（勿全仓 git grep，§5 坑表）；带 __tests__ 的提交连测试一起搬（Cindy 的测试即规格书）；坑位注释是最高价值情报——提交信息里的 PR 讨论结论（如「余量为零最后重试恒被护栏挡掉」）比代码本身更防回归。
 
 ---
 
