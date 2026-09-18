@@ -263,10 +263,10 @@ export function registerSessionHandlers(): void {
     }
   });
 
-  ipcMain.handle(FUNDET_INVOKE.SESSION_TREE_NAVIGATE, async (_e, id: string, entryId: string) => {
-    const handle = getHost().maker.getSession(id);
-    if (!handle?.navigateSessionTree) throw new Error('该会话不支持分支切换');
-    const result = await handle.navigateSessionTree(entryId);
+  const rewriteTimelineFromTree = async (
+    id: string,
+    result: { messages: Array<{ role: 'user' | 'assistant' | 'tool_use' | 'tool_result' | 'thinking'; content: unknown; toolUseId?: string }> },
+  ): Promise<void> => {
     // 分支切换后按 agent-core 给的安全时间线重写本会话消息（原线性行作废）
     deleteMessagesForSession(id);
     for (const m of result.messages) {
@@ -274,7 +274,50 @@ export function registerSessionHandlers(): void {
       if (row) insertMessage(id, row.role, row.content);
     }
     getDb().update(sessions).set({ updatedAt: Date.now() }).where(eq(sessions.id, id)).run();
+  };
+
+  ipcMain.handle(FUNDET_INVOKE.SESSION_TREE_NAVIGATE, async (_e, id: string, entryId: string) => {
+    const handle = getHost().maker.getSession(id);
+    if (!handle?.navigateSessionTree) throw new Error('该会话不支持分支切换');
+    const result = await handle.navigateSessionTree(entryId);
+    await rewriteTimelineFromTree(id, result);
   });
+
+  // 消息操作条「回退」：在分支树里按角色+内容定位节点并切换（对齐 Cindy rewind：
+  // 会话回到该消息为最新，其后消息留在原分支）。取最后一个匹配节点防同文重复。
+  ipcMain.handle(
+    FUNDET_INVOKE.SESSION_REWIND_TO_MESSAGE,
+    async (_e, id: string, role: 'user' | 'assistant', text: string) => {
+      const handle = getHost().maker.getSession(id);
+      if (!handle?.navigateSessionTree || !handle.getSessionTree) {
+        throw new Error('会话不在运行中，暂时无法回退。给这个会话发条消息后再试。');
+      }
+      const tree = await handle.getSessionTree();
+      if (!tree) throw new Error('读不到分支树，无法回退。');
+      const norm = (v: string): string => v.replace(/\s+/g, ' ').trim();
+      const needle = norm(text);
+      const head = needle.slice(0, 40);
+      let matched: string | null = null;
+      const walk = (nodes: Array<{ id: string; kind: string; role?: string; preview: string; children: unknown[] }>): void => {
+        for (const n of nodes) {
+          const preview = norm(n.preview);
+          if (
+            n.kind === 'message' &&
+            n.role === role &&
+            preview.length > 0 &&
+            (needle.startsWith(preview) || preview.startsWith(head))
+          ) {
+            matched = n.id;
+          }
+          walk(n.children as typeof nodes);
+        }
+      };
+      walk(tree.roots as Array<{ id: string; kind: string; role?: string; preview: string; children: unknown[] }>);
+      if (!matched) throw new Error('分支树里没找到这条消息，无法回退。');
+      const result = await handle.navigateSessionTree(matched);
+      await rewriteTimelineFromTree(id, result);
+    },
+  );
 
   // ---------- 中断回合提示 ----------
   ipcMain.handle(FUNDET_INVOKE.SESSION_GET_INTERRUPTED, async () => listInterruptedTurnSessions());

@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Check, Copy, Ellipsis, MessageSquarePlus, Share, Split, Trash2 } from 'lucide-react';
+import {
+  Check,
+  Copy,
+  Ellipsis,
+  LoaderCircle,
+  MessageSquarePlus,
+  Share,
+  Split,
+  Trash2,
+  Undo2,
+} from 'lucide-react';
 import { cn } from '../lib/cn';
 
 export interface TurnUsage {
@@ -31,6 +41,10 @@ function formatCompactTokens(n: number): string {
 const ICON_BTN =
   'group flex h-6 w-6 items-center justify-center rounded-[4px] text-muted transition-colors hover:bg-hover hover:text-primary active:scale-[0.98] disabled:opacity-40 disabled:active:scale-100';
 
+/** Cindy More 菜单同款菜单行：h-8 + 图标 14 + gap，删除项红字（destructive） */
+const MENU_ITEM =
+  'flex h-8 w-full cursor-pointer items-center gap-2 rounded-lg px-2 text-left text-14 select-none transition-colors hover:bg-hover active:scale-[0.98] disabled:cursor-default disabled:opacity-50';
+
 export function MessageActionBar({
   createdAt,
   copyText,
@@ -40,6 +54,7 @@ export function MessageActionBar({
   onShare,
   onFork,
   onAddToChat,
+  onRewind,
   onDelete,
 }: {
   createdAt?: number;
@@ -51,11 +66,14 @@ export function MessageActionBar({
   onShare?: () => void;
   onFork?: () => Promise<void>;
   onAddToChat?: () => void;
+  /** 回退到这条消息（分支树切换，其后消息留在原分支） */
+  onRewind?: () => Promise<void>;
   onDelete?: () => Promise<void>;
 }): React.JSX.Element {
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
   const [forking, setForking] = useState(false);
+  const [rewinding, setRewinding] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const visible = hovered || menuOpen || Boolean(pinned);
@@ -107,7 +125,9 @@ export function MessageActionBar({
         .join('\n')
     : '';
 
-  const hasMore = Boolean(onAddToChat || onDelete);
+  // 回退进行中会.dim 整条并挡点击（对齐 Cindy moreInFlight）
+  const moreInFlight = rewinding;
+  const hasMore = Boolean(onAddToChat || onRewind || onDelete);
 
   return (
     <div
@@ -115,6 +135,7 @@ export function MessageActionBar({
       className={cn(
         'mt-1 flex h-6 items-center gap-0.5 transition-opacity duration-150',
         visible ? 'opacity-100' : 'pointer-events-none opacity-0',
+        moreInFlight && 'pointer-events-none opacity-60',
       )}
     >
       <button
@@ -151,41 +172,61 @@ export function MessageActionBar({
         <div className="relative">
           <button
             type="button"
-            className={ICON_BTN}
+            className="flex h-6 w-6 items-center justify-center rounded-full text-muted transition-colors hover:bg-hover hover:text-primary active:scale-[0.98] disabled:opacity-40"
             title="更多"
             aria-label="更多"
             aria-expanded={menuOpen}
+            disabled={moreInFlight}
             onClick={() => setMenuOpen((v) => !v)}
           >
-            <Ellipsis size={14} />
+            {moreInFlight ? <LoaderCircle size={12} className="animate-fundet-spin" /> : <Ellipsis size={12} />}
           </button>
           {menuOpen && (
-            <div className="absolute bottom-full left-0 z-20 mb-1 w-[180px] rounded-xl border border-board bg-card p-1 shadow-[var(--shadow-menu)]">
+            <div className="animate-float-in absolute bottom-full left-0 z-20 mb-1 min-w-[184px] rounded-xl border border-board bg-card p-1 shadow-[var(--shadow-menu)]">
               {onAddToChat ? (
                 <button
                   type="button"
-                  className="flex w-full items-center gap-2 rounded-inner px-2 py-1.5 text-left text-13 text-primary hover:bg-hover"
+                  className={MENU_ITEM}
                   onClick={() => {
                     onAddToChat();
                     setMenuOpen(false);
                   }}
                 >
-                  <MessageSquarePlus size={14} />
+                  <MessageSquarePlus size={14} strokeWidth={2} className="shrink-0" />
                   添加到对话
                 </button>
               ) : null}
-              {onDelete ? (
+              {onRewind ? (
                 <button
                   type="button"
-                  className="flex w-full items-center gap-2 rounded-inner px-2 py-1.5 text-left text-13 text-error hover:bg-hover"
+                  className={MENU_ITEM}
+                  disabled={moreInFlight}
                   onClick={() => {
+                    if (moreInFlight) return;
                     setMenuOpen(false);
-                    void onDelete();
+                    setRewinding(true);
+                    void onRewind().finally(() => setRewinding(false));
                   }}
                 >
-                  <Trash2 size={14} />
-                  删除本条消息
+                  <Undo2 size={14} strokeWidth={2} className="shrink-0" />
+                  回退
                 </button>
+              ) : null}
+              {onDelete ? (
+                <>
+                  {(onAddToChat || onRewind) && <div className="my-1 h-px bg-board" />}
+                  <button
+                    type="button"
+                    className={cn(MENU_ITEM, 'text-error')}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      void onDelete();
+                    }}
+                  >
+                    <Trash2 size={14} strokeWidth={2} className="shrink-0" />
+                    删除本条消息
+                  </button>
+                </>
               ) : null}
             </div>
           )}

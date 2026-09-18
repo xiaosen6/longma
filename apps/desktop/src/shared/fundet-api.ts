@@ -313,6 +313,8 @@ export interface FundetApi {
   getSessionTree(sessionId: string): Promise<import('@fundet/agent-core').SessionTreeSnapshot | null>;
   /** 切到指定分支节点；成功后消息历史已被 main 重写，渲染层整体重建 */
   navigateSessionTree(sessionId: string, entryId: string): Promise<void>;
+  /** 消息操作条「回退」：按消息内容在分支树里定位节点并切换（对齐 Cindy rewind） */
+  rewindSessionToMessage(sessionId: string, role: 'user' | 'assistant', text: string): Promise<void>;
 
   resolveInteraction(requestId: string, decision: InteractionDecision): Promise<void>;
   getPendingInteractions(): Promise<InteractionRequestPayload[]>;

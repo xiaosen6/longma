@@ -555,6 +555,15 @@ export function ChatPage(): React.JSX.Element {
                 }}
                 onRetryError={resendLast}
                 onEditUser={editUserMessage}
+                onRewind={async (role, text) => {
+                  if (!activeId) return;
+                  try {
+                    await window.fundet.rewindSessionToMessage(activeId, role, text);
+                    await reloadSessionHistory(activeId);
+                  } catch (err) {
+                    showToast(`回退失败：${err instanceof Error ? err.message : String(err)}`, 'error');
+                  }
+                }}
               />
 
               {/* composer：审批悬挂时换成 PermissionPrompt；运行状态行在输入卡上方 */}

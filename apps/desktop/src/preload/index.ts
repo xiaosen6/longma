@@ -73,6 +73,7 @@ const api: FundetApi = {
   setSidebarPinned: (order) => ipcRenderer.invoke(FUNDET_INVOKE.SIDEBAR_PINNED_SET, order),
   getSessionTree: (id) => ipcRenderer.invoke(FUNDET_INVOKE.SESSION_TREE_GET, id),
   navigateSessionTree: (id, entryId) => ipcRenderer.invoke(FUNDET_INVOKE.SESSION_TREE_NAVIGATE, id, entryId),
+  rewindSessionToMessage: (id, role, text) => ipcRenderer.invoke(FUNDET_INVOKE.SESSION_REWIND_TO_MESSAGE, id, role, text),
 
   resolveInteraction: (requestId, decision) =>
     ipcRenderer.invoke(FUNDET_INVOKE.INTERACTION_RESOLVE, requestId, decision),

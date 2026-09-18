@@ -15,7 +15,7 @@
  *   不含「复制当前消息链接」。
  */
 import { useEffect, useLayoutEffect, useMemo, useState, useRef } from 'react';
-import { AlertCircle, ArrowDown, Check, Copy, Ellipsis, Info, Pencil, Share, Split } from 'lucide-react';
+import { AlertCircle, ArrowDown, Check, Copy, Ellipsis, Info, MessageSquarePlus, Pencil, Share, Split, Trash2, Undo2 } from 'lucide-react';
 import type { DisplayItem, SessionSlice } from '../stores/sessionStore';
 import { deleteFromUserMessage } from '../stores/sessionStore';
 import { AssistantMessage } from './AssistantMessage';
@@ -61,6 +61,8 @@ function UserBubble({
   onCopy,
   onShare,
   onFork,
+  onAddToChat,
+  onRewind,
   onDeleteAfter,
 }: {
   text: string;
@@ -71,6 +73,9 @@ function UserBubble({
   onCopy?: (text: string) => Promise<void>;
   onShare?: () => void;
   onFork?: () => void | Promise<void>;
+  onAddToChat?: (text: string) => void;
+  /** 回退到这条消息（分支树切换）；首条 user 消息不传（无锚点，Cindy 同款门控） */
+  onRewind?: () => Promise<void>;
   onDeleteAfter?: () => Promise<void>;
 }) {
   const mayExceed = mayExceedVisualLineThreshold(text);
@@ -238,31 +243,64 @@ function UserBubble({
             <Pencil size={14} />
           </button>
         ) : null}
-        {onDeleteAfter ? (
+        {(onAddToChat || onRewind || onDeleteAfter) ? (
           <div className="relative">
             <button
               type="button"
-              className={USER_ICON_BTN}
+              className="flex h-6 w-6 items-center justify-center rounded-full text-muted transition-colors hover:bg-hover hover:text-primary active:scale-[0.98]"
               title="更多"
               aria-label="更多"
               aria-expanded={menuOpen}
               onClick={() => setMenuOpen((v) => !v)}
             >
-              <Ellipsis size={14} />
+              <Ellipsis size={12} />
             </button>
             {menuOpen && (
-              <div className="absolute bottom-full right-0 z-20 mb-1 w-[180px] rounded-xl border border-board bg-card p-1 shadow-[var(--shadow-menu)]">
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 rounded-inner px-2 py-1.5 text-left text-13 text-error hover:bg-hover"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    setDeleting(true);
-                    void onDeleteAfter().finally(() => setDeleting(false));
-                  }}
-                >
-                  删除本条及之后{deleting ? '…' : ''}
-                </button>
+              <div className="animate-float-in absolute bottom-full right-0 z-20 mb-1 min-w-[184px] rounded-xl border border-board bg-card p-1 shadow-[var(--shadow-menu)]">
+                {onAddToChat ? (
+                  <button
+                    type="button"
+                    className="flex h-8 w-full cursor-pointer items-center gap-2 rounded-lg px-2 text-left text-14 text-primary select-none transition-colors hover:bg-hover"
+                    onClick={() => {
+                      onAddToChat(text);
+                      setMenuOpen(false);
+                    }}
+                  >
+                    <MessageSquarePlus size={14} strokeWidth={2} className="shrink-0" />
+                    添加到对话
+                  </button>
+                ) : null}
+                {onRewind ? (
+                  <button
+                    type="button"
+                    className="flex h-8 w-full cursor-pointer items-center gap-2 rounded-lg px-2 text-left text-14 text-primary select-none transition-colors hover:bg-hover"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setDeleting(true);
+                      void onRewind().finally(() => setDeleting(false));
+                    }}
+                  >
+                    <Undo2 size={14} strokeWidth={2} className="shrink-0" />
+                    回退
+                  </button>
+                ) : null}
+                {onDeleteAfter ? (
+                  <>
+                    {(onAddToChat || onRewind) && <div className="my-1 h-px bg-board" />}
+                    <button
+                      type="button"
+                      className="flex h-8 w-full cursor-pointer items-center gap-2 rounded-lg px-2 text-left text-14 text-error select-none transition-colors hover:bg-hover"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        setDeleting(true);
+                        void onDeleteAfter().finally(() => setDeleting(false));
+                      }}
+                    >
+                      <Trash2 size={14} strokeWidth={2} className="shrink-0" />
+                      删除本条及之后{deleting ? '…' : ''}
+                    </button>
+                  </>
+                ) : null}
               </div>
             )}
           </div>
@@ -289,6 +327,8 @@ interface MessageStreamProps {
   onRetryError?: () => void;
   /** 用户消息编辑重发（就地编辑→删除本条及之后→发送新文本） */
   onEditUser?: (userId: string, newText: string) => Promise<void>;
+  /** 消息「回退」：分支树切换到该消息（role+text 定位） */
+  onRewind?: (role: 'user' | 'assistant', text: string) => Promise<void>;
 }
 
 function isTurnTailAssistant(
@@ -336,6 +376,7 @@ function AssistantTurn({
   onShare,
   onFork,
   onAddToChat,
+  onRewind,
   onDelete,
   kbRefs,
 }: {
@@ -346,6 +387,7 @@ function AssistantTurn({
   onShare?: () => void;
   onFork?: () => Promise<void>;
   onAddToChat?: () => void;
+  onRewind?: () => Promise<void>;
   onDelete?: () => Promise<void>;
   kbRefs?: KnowledgeRef[];
 }): React.JSX.Element {
@@ -367,6 +409,7 @@ function AssistantTurn({
           onShare={onShare}
           onFork={onFork}
           onAddToChat={onAddToChat}
+          onRewind={onRewind}
           onDelete={onDelete}
         />
       </div>
@@ -385,6 +428,7 @@ export function MessageStream({
   onDelete,
   onRetryError,
   onEditUser,
+  onRewind,
 }: MessageStreamProps): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
@@ -560,6 +604,13 @@ export function MessageStream({
                       : undefined
                   }
                   onEdit={canEdit && editUser ? (newText) => void editUser(item.id, newText) : undefined}
+                  onAddToChat={onAddToChat}
+                  onRewind={
+                    // Cindy 同款门控：首条 user 消息没有 prior assistant 锚点，不给回退
+                    onRewind && !slice.isRunning && slice.items.slice(0, userIdx).some((it) => it.kind === 'assistant')
+                      ? () => onRewind('user', item.text)
+                      : undefined
+                  }
                   onDeleteAfter={
                     canEdit
                       ? async () => {
@@ -603,6 +654,11 @@ export function MessageStream({
                     canFork && createdAt && onFork ? () => onFork(createdAt) : undefined
                   }
                   onAddToChat={onAddToChat ? () => onAddToChat(item.text) : undefined}
+                  onRewind={
+                    onRewind && !slice.isRunning
+                      ? () => onRewind('assistant', item.text)
+                      : undefined
+                  }
                   onDelete={onDelete ? () => onDelete(item.id) : undefined}
                 />
               );

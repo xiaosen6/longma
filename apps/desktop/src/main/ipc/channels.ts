@@ -24,6 +24,7 @@ export const FUNDET_INVOKE = {
   SIDEBAR_PINNED_SET: 'sidebar:set-pinned',
   SESSION_TREE_GET: 'session:tree-get',
   SESSION_TREE_NAVIGATE: 'session:tree-navigate',
+  SESSION_REWIND_TO_MESSAGE: 'session:rewind-to-message',
   SESSION_CLEAR_INTERRUPTED: 'session:clear-interrupted',
   INTERACTION_RESOLVE: 'interaction:resolve',
   INTERACTION_GET_PENDING: 'interaction:get-pending',
