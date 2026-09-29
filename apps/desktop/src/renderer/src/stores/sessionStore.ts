@@ -867,7 +867,8 @@ export async function editAndResendUserMessage(
   const prevTs = prev && 'createdAt' in prev && prev.createdAt ? prev.createdAt : 0;
   if (!isDraftSession(sessionId)) {
     // deleteMessagesInRange 是 (after, until] 开闭区间：prevTs 保住之前内容
-    await window.fundet.deleteTurn(sessionId, prevTs, Date.now() + 60_000);
+    // includeUser=true：编辑重发的语义是删本条(user)及之后全部
+    await window.fundet.deleteTurn(sessionId, prevTs, Date.now() + 60_000, true);
   }
   const items = s.items.slice(0, idx);
   patchSlice(sessionId, { items });
@@ -885,7 +886,7 @@ export async function deleteFromUserMessage(sessionId: string, userId: string): 
   const prev = idx > 0 ? s.items[idx - 1] : null;
   const prevTs = prev && 'createdAt' in prev && prev.createdAt ? prev.createdAt : 0;
   if (!isDraftSession(sessionId)) {
-    await window.fundet.deleteTurn(sessionId, prevTs, Date.now() + 60_000);
+    await window.fundet.deleteTurn(sessionId, prevTs, Date.now() + 60_000, true);
   }
   const items = s.items.slice(0, idx);
   patchSlice(sessionId, { items });
@@ -1046,6 +1047,15 @@ export function updateDraftSession(
   });
   rebuildCombinedList();
   notifyList();
+}
+
+/** 删除 DB 会话后调用：统一清理本会话的模块级状态（防长期挂机 Map 无界增长） */
+export function dropSession(sessionId: string): void {
+  slices.delete(sessionId);
+  sliceListeners.delete(sessionId);
+  autoAllowTools.delete(sessionId);
+  liveAttentionErrors.delete(sessionId);
+  drafts.delete(sessionId);
 }
 
 /** 删除草稿：纯本地移除，main/DB 里本来就没有它 */

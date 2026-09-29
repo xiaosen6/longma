@@ -5,6 +5,7 @@ import os from 'node:os';
 import { BrowserWindow, ClipboardItem, clipboard, dialog, ipcMain, shell } from 'electron';
 import { FUNDET_INVOKE } from '../channels.js';
 import { resolveUnderWorkDir, stageBytesIntoWorkDir, stageFileIntoWorkDir } from '../../fs-local.js';
+import { isWorkDirRegistered } from '../../file-protocol.js';
 import { mimeFromExt } from '../../../shared/file-kind.ts';
 
 export function registerSystemHandlers(): void {
@@ -33,6 +34,9 @@ export function registerSystemHandlers(): void {
 
   ipcMain.handle(FUNDET_INVOKE.FS_STAGE_FILES, async (_e, workDir: string, paths: string[]) => {
     if (!Array.isArray(paths) || paths.length === 0) return [];
+    // 安全：workDir 必须是主进程注册过的活跃会话目录——阻断「伪造 workDir →
+    // 把磁盘任意文件搬进 .longma-uploads 再经 file-protocol 读出」链
+    if (!isWorkDirRegistered(workDir)) throw new Error('工作目录未注册');
     const out = [];
     for (const p of paths) out.push(await stageFileIntoWorkDir(String(p), workDir));
     return out;
@@ -83,6 +87,20 @@ export function registerSystemHandlers(): void {
 
   ipcMain.handle(FUNDET_INVOKE.FS_OPEN_PATH, async (_e, filePath: string) => {
     const resolved = path.resolve(filePath);
+    // 安全：shell.openPath 在 Windows 上会执行 .bat/.exe——只放行文档/媒体类
+    // 扩展名白名单，阻断「renderer XSS → 本地代码执行」直达通道。
+    const SAFE_OPEN_EXTS = new Set([
+      '.md', '.txt', '.pdf', '.html', '.htm', '.log', '.json', '.csv', '.xml', '.yaml', '.yml',
+      '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico',
+      '.mp4', '.webm', '.avi', '.mov', '.mkv',
+      '.mp3', '.wav', '.ogg', '.flac', '.m4a',
+      '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+      '.zip', '.tar', '.gz',
+    ]);
+    const ext = path.extname(resolved).toLowerCase();
+    if (!SAFE_OPEN_EXTS.has(ext)) {
+      throw new Error(`不支持用系统打开此类型文件（${ext || '无扩展名'}）。`);
+    }
     const err = await shell.openPath(resolved);
     if (err) throw new Error(err);
   });

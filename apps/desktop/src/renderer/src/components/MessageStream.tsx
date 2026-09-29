@@ -533,14 +533,21 @@ export function MessageStream({
     if (remembered != null && remembered > STICK_THRESHOLD) {
       // 延后一个宏任务再恢复（items/scrollHeight 已 commit）。不用 rAF——
       // 窗口被遮挡时 Chromium 暂停 rAF，恢复会永不执行（实测踩坑）
-      const timer = setTimeout(() => {
+      // queueMicrotask：在 paint 前执行恢复，避免贴底 effect 先跳底一帧再拉回的闪烁
+      let done = false;
+      const restore = (): void => {
+        if (done) return;
+        done = true;
         const el = containerRef.current;
         if (!el) return;
         stickRef.current = false;
         setAtBottom(false);
         el.scrollTop = Math.min(remembered, el.scrollHeight);
-      }, 0);
-      return () => clearTimeout(timer);
+      };
+      queueMicrotask(restore);
+      // 窗口遮挡时 microtask 仍可能在 paint 前执行,但兜底 timer 防极端
+      const timer = setTimeout(restore, 50);
+      return () => { clearTimeout(timer); };
     }
     stickRef.current = true;
     const el = containerRef.current;

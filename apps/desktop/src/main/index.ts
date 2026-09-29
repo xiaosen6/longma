@@ -69,6 +69,8 @@ function isWsl(): boolean {
 let isQuitting = false;
 /** 托盘引用（待审批计数的 tooltip 角标更新用；无托盘环境为 null） */
 let trayRef: Electron.Tray | null = null;
+/** before-quit 的 async 清理只跑一次 */
+let quitCleanupDone = false;
 /** 首次最小化到托盘时弹一次气泡提示（仅 Windows 支持 displayBalloon） */
 let trayHintShown = false;
 
@@ -309,15 +311,27 @@ function bootstrap(): void {
   });
   });
 
-  app.on('before-quit', () => {
+  app.on('before-quit', (event) => {
+    if (quitCleanupDone) return;
+    // 等 async 清理完成再真正退出——fire-and-forget 会被进程退出截断，
+    // 导致孤儿 pi 子进程与文件锁（Windows lingering process bug 的根因）
+    event.preventDefault();
     isQuitting = true;
+    quitCleanupDone = true;
     stopMcpHeartbeat();
     disposeStdioMcpPool();
-    void stopAllImBots();
-    // 关闭托管浏览器（用过才发 stop；没用过 stop 反而会拉起服务挂住退出）
-    void disposeBrowserHost();
-    // 关闭所有活跃会话，回收 pi 子进程
-    void shutdownHost();
+    void (async () => {
+      const tasks: Array<Promise<unknown>> = [
+        stopAllImBots(),
+        // 关闭托管浏览器（用过才发 stop；没用过 stop 反而会拉起服务挂住退出）
+        disposeBrowserHost(),
+        // 关闭所有活跃会话，回收 pi 子进程
+        shutdownHost(),
+      ];
+      // 有清理在跑时给 8 秒预算；全好或超时都放行退出
+      await Promise.race([Promise.allSettled(tasks), new Promise((r) => setTimeout(r, 8_000))]);
+      app.quit();
+    })();
   });
 
   app.on('window-all-closed', () => {
@@ -330,6 +344,14 @@ function bootstrap(): void {
 // 整个 bootstrap 只在持锁实例里注册），由已有实例把隐藏窗口唤出来。
 // userData 显式按品牌隔离（Electron 默认按 package.json name 取，Fundet 构建
 // 会落到 fundet-desktop；且必须在 single-instance lock 之前设置才生效）
+// main 进程兜底：漏 catch 的 async 路径不打断应用但必须留痕
+process.on('unhandledRejection', (reason) => {
+  console.error('[longma] unhandledRejection:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[longma] uncaughtException:', err);
+});
+
 const brandUserData = path.join(app.getPath('appData'), brand.name);
 fs.mkdirSync(brandUserData, { recursive: true }); // 锁文件需要目录先存在，否则单实例锁失败 → 静默退出
 app.setPath('userData', brandUserData);

@@ -57,8 +57,8 @@ const api: FundetApi = {
   sendMessage: (input) => ipcRenderer.invoke(FUNDET_INVOKE.SESSION_SEND, input),
   abortSession: (id) => ipcRenderer.invoke(FUNDET_INVOKE.SESSION_ABORT, id),
   closeSession: (id) => ipcRenderer.invoke(FUNDET_INVOKE.SESSION_CLOSE, id),
-  deleteTurn: (sessionId, afterCreatedAt, untilCreatedAt) =>
-    ipcRenderer.invoke(FUNDET_INVOKE.SESSION_DELETE_TURN, sessionId, afterCreatedAt, untilCreatedAt),
+  deleteTurn: (sessionId, afterCreatedAt, untilCreatedAt, includeUser) =>
+    ipcRenderer.invoke(FUNDET_INVOKE.SESSION_DELETE_TURN, sessionId, afterCreatedAt, untilCreatedAt, includeUser),
   forkSession: (sessionId, upToCreatedAt) =>
     ipcRenderer.invoke(FUNDET_INVOKE.SESSION_FORK, sessionId, upToCreatedAt),
   setSessionModel: (id, model, providerId) =>

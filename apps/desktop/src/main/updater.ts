@@ -30,6 +30,19 @@ function setState(patch: Partial<UpdateState>): void {
   }
 }
 
+/** 语义版本比较：a > b 返回 1，相等 0，a < b 返回 -1（降级返回 -1 不提示） */
+function compareVersions(a: string, b: string): number {
+  const pa = a.replace(/^v/, '').split('.').map(Number);
+  const pb = b.replace(/^v/, '').split('.').map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const da = pa[i] ?? 0;
+    const db = pb[i] ?? 0;
+    if (da > db) return 1;
+    if (da < db) return -1;
+  }
+  return 0;
+}
+
 /** macOS 手动档：跟 releases/latest 的重定向拿最新 tag 名做版本比较 */
 async function checkMac(): Promise<void> {
   setState({ status: 'checking' });
@@ -37,7 +50,7 @@ async function checkMac(): Promise<void> {
     const res = await fetch(`${RELEASES_URL}/latest`, { method: 'HEAD', redirect: 'follow' });
     const tag = res.url.split('/').pop() ?? '';
     const latest = tag.replace(/^v/, '');
-    if (latest && latest !== app.getVersion()) {
+    if (latest && compareVersions(latest, app.getVersion()) > 0) {
       setState({ status: 'manual', version: latest, releaseUrl: res.url });
     } else {
       setState({ status: 'latest' });

@@ -56,6 +56,21 @@ export function getProvider(id: string): ProviderView | null {
   return row ? toView(row) : null;
 }
 
+/** baseUrl 安全校验：https 或 loopback http——防 BYOK key 外传到攻击者域名 */
+function validateBaseUrl(url: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error(`无效的 Base URL：${url}`);
+  }
+  const isLoopback =
+    parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1' || parsed.hostname === '[::1]';
+  if (parsed.protocol !== 'https:' && !(parsed.protocol === 'http:' && isLoopback)) {
+    throw new Error('Base URL 必须是 https://（本地调试可用 http://localhost）');
+  }
+}
+
 export function createProvider(input: ProviderInput): ProviderView {
   const row = {
     id: randomUUID(),

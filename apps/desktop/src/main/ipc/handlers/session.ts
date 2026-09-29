@@ -8,6 +8,7 @@ import { sessions, settings } from '../../db/schema.js';
 import { copyMessagesUntil, deleteMessagesInRange, insertMessage, listMessages } from '../../db/messages.js';
 import { getUsageHistory } from '../../db/usage.js';
 import { deleteMessagesForSession } from '../../db/messages.js';
+import { registerWorkDir, unregisterWorkDir } from '../../file-protocol.js';
 import { listProviders } from '../../db/providers.js';
 import { getHost } from '../../host/pi-host.js';
 import { FUNDET_INVOKE } from '../channels.js';
@@ -57,6 +58,7 @@ export function registerSessionHandlers(): void {
       permissionMode: input.permissionMode,
     });
     wireSession(session);
+    registerWorkDir(input.workDir);
     const meta = await maker.getSessionMeta(session.id);
     return meta;
   });
@@ -90,7 +92,9 @@ export function registerSessionHandlers(): void {
   ipcMain.handle(FUNDET_INVOKE.SESSION_DELETE, async (_e, id: string) => {
     const { maker } = getHost();
     if (maker.isSessionAlive(id)) await maker.closeSession(id, 'requested');
+    const row = getDb().select({ workDir: sessions.workDir }).from(sessions).where(eq(sessions.id, id)).get();
     getDb().delete(sessions).where(eq(sessions.id, id)).run();
+    if (row) unregisterWorkDir(row.workDir);
   });
 
   ipcMain.handle(
@@ -98,6 +102,10 @@ export function registerSessionHandlers(): void {
     async (_e, input: SessionSendInput): Promise<SendResult> => {
       const session = await ensureSession(input);
       const attachments = input.attachments ?? [];
+      // 先构建消息（extractDocumentText 可能 throw）再落库——防「已落库但发送失败」的孤儿行
+      const userMsg = await buildUserMessage(input.text, attachments, input.knowledgeContext);
+      const result = await session.send(userMsg);
+      if (!result.accepted) return { accepted: false, reason: result.reason };
       insertMessage(session.id, 'user', {
         text: input.text,
         ...(attachments.length > 0 ? { attachments } : {}),
@@ -108,9 +116,8 @@ export function registerSessionHandlers(): void {
         session.id,
         input.text.trim() || attachments.map((a) => a.name).join(' ') || '',
       );
-      const result = await session.send(await buildUserMessage(input.text, attachments, input.knowledgeContext));
-      if (result.accepted) markTurnRunning(session.id);
-      return result.accepted ? { accepted: true } : { accepted: false, reason: result.reason };
+      markTurnRunning(session.id);
+      return { accepted: true };
     },
   );
 
@@ -121,8 +128,8 @@ export function registerSessionHandlers(): void {
 
   ipcMain.handle(
     FUNDET_INVOKE.SESSION_DELETE_TURN,
-    async (_e, sessionId: string, afterCreatedAt: number, untilCreatedAt: number) => {
-      deleteMessagesInRange(sessionId, afterCreatedAt, untilCreatedAt);
+    async (_e, sessionId: string, afterCreatedAt: number, untilCreatedAt: number, includeUser?: boolean) => {
+      deleteMessagesInRange(sessionId, afterCreatedAt, untilCreatedAt, includeUser === true);
     },
   );
 

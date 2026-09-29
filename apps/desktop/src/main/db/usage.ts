@@ -3,7 +3,7 @@
  * 粒度到 (day, model)：会话中途换模型会轻微误归属，v1 接受。
  * token 拆分（输入/输出/缓存读/缓存写）自 0005 起积累，此前为 0。
  */
-import { sql, desc } from 'drizzle-orm';
+import { sql, desc, gte } from 'drizzle-orm';
 import { getDb } from './client.js';
 import { usageDaily } from './schema.js';
 
@@ -64,13 +64,15 @@ export interface UsageDayRow {
 }
 
 export function getUsageHistory(days: number): UsageDayRow[] {
+  // 日期过滤下推到 SQL（原先 limit(2000) 再 JS 过滤，90 天以外也白查）
+  const sinceDay = shiftDayKeyLocal(todayKey(), -(days - 1));
   return getDb()
     .select()
     .from(usageDaily)
+    .where(gte(usageDaily.day, sinceDay))
     .orderBy(desc(usageDaily.day))
     .limit(2000)
-    .all()
-    .filter((r) => r.day >= shiftDayKeyLocal(todayKey(), -(days - 1)));
+    .all();
 }
 
 function shiftDayKeyLocal(dayKey: string, deltaDays: number): string {

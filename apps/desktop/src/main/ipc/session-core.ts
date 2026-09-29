@@ -26,6 +26,7 @@ import { getHost } from '../host/pi-host.js';
 import { FUNDET_PUSH } from './channels.js';
 import { InteractionQueue } from './interaction-queue.js';
 import { documentExtractSupport, extractDocumentText } from '../doc-text.js';
+import { registerWorkDir, unregisterWorkDir } from '../file-protocol.js';
 import type { SessionAttachment, SessionSendInput } from '../../shared/fundet-api.js';
 
 /** requestId → 待决审批（跨会话单例；超时/结算语义见 interaction-queue.ts） */
@@ -189,6 +190,7 @@ export function wireSession(session: Session): void {
       wiredSessions.delete(session.id);
       lastAssistantFinal.delete(session.id);
       clearTurnMarker(session.id);
+      interactionQueue.dismissSession(session.id);
     }
   });
 }
@@ -225,6 +227,7 @@ export async function ensureSession(input: SessionSendInput): Promise<Session> {
     permissionMode: create.permissionMode,
   });
   wireSession(session);
+  registerWorkDir(create.workDir);
   return session;
 }
 

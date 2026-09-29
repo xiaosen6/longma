@@ -82,4 +82,21 @@ export class InteractionQueue {
       request: p.request,
     }));
   }
+
+  /** 会话关闭时清其全部待决（含 ask/plan 类无超时请求）：deny 结算并广播，
+   *  防泄漏 Map / 托盘角标永久计数 / 重启后弹死审批卡。 */
+  dismissSession(sessionId: string): void {
+    const doomed = [...this.pending.entries()].filter(([, p]) => p.sessionId === sessionId);
+    for (const [requestId, entry] of doomed) {
+      this.pending.delete(requestId);
+      if (entry.timer) clearTimeout(entry.timer);
+      entry.resolve({ kind: 'permission', behavior: 'deny', reason: '会话已关闭' });
+      this.broadcast(FUNDET_PUSH.INTERACTION_DISMISSED, {
+        sessionId,
+        requestId,
+        reason: 'session-closed',
+      });
+    }
+    this.notifyCount();
+  }
 }

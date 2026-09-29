@@ -24,18 +24,23 @@ export function insertMessage(sessionId: string, role: string, content: unknown)
     .run();
 }
 
-export function deleteMessagesInRange(sessionId: string, afterCreatedAt: number, untilCreatedAt: number): void {
-  getDb()
-    .delete(messages)
-    .where(
-      and(
-        eq(messages.sessionId, sessionId),
-        gt(messages.createdAt, afterCreatedAt),
-        lte(messages.createdAt, untilCreatedAt),
-        ne(messages.role, 'user'),
-      ),
-    )
-    .run();
+/**
+ * 区间删除。includeUser=true 时连 user 行一起删（编辑重发/删除本条的语义），
+ * 默认 false 保留 user 行（删助手轮的语义——只删中间过程和回复，user 提问保留）。
+ */
+export function deleteMessagesInRange(
+  sessionId: string,
+  afterCreatedAt: number,
+  untilCreatedAt: number,
+  includeUser = false,
+): void {
+  const conditions = [
+    eq(messages.sessionId, sessionId),
+    gt(messages.createdAt, afterCreatedAt),
+    lte(messages.createdAt, untilCreatedAt),
+  ];
+  if (!includeUser) conditions.push(ne(messages.role, 'user'));
+  getDb().delete(messages).where(and(...conditions)).run();
 }
 
 /** 清空会话全部消息（分支切换重写时间线用；与 deleteMessagesInRange 的

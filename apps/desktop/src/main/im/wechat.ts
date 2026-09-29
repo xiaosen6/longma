@@ -63,7 +63,7 @@ async function pollLoop(transport: TencentIlinkTransport, stored: WechatCredenti
         console.log('[longma:im/wechat] 入站消息', {
           from: msg.senderId.slice(-6),
           len: msg.text.length,
-          preview: msg.text.slice(0, 30),
+          // 不打消息预览（用户私聊内容不进日志）
         });
         if (!msg.text.trim()) continue;
         // 只挡机器人自己发的（防回环）。个人微信场景下用户本人发给机器人的消息

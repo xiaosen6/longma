@@ -17,6 +17,7 @@ import {
   abortSession,
   deleteAssistantTurn,
   deleteDraftSession,
+  dropSession,
   editAndResendUserMessage,
   ensureDraftSession,
   ensureHistory,
@@ -239,6 +240,7 @@ export function ChatPage(): React.JSX.Element {
         return;
       }
       await window.fundet.deleteSession(id);
+      dropSession(id);
       if (activeId === id) setActiveId(null);
       await refreshSessionList();
     },
