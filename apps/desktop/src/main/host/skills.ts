@@ -159,7 +159,7 @@ function bundledSkillsRoot(): string {
   return candidates[0] ?? '';
 }
 
-/** 把安装包内预制技能同步到 ~/.agents/skills。同名目录一律按内置覆盖。 */
+/** 把安装包内预制技能同步到 ~/.agents/skills（版本护栏对齐 Cindy #59debbf26/#3c428afc9）。 */
 export function ensureBundledSkills(): void {
   const srcRoot = bundledSkillsRoot();
   if (!srcRoot || !fs.existsSync(srcRoot)) {
@@ -174,7 +174,7 @@ export function ensureBundledSkills(): void {
     if (!ent.isDirectory()) continue;
     const src = path.join(srcRoot, ent.name);
     if (!fs.existsSync(path.join(src, 'SKILL.md'))) continue;
-    // 用户停用中的预置技能不重装（停用目录位置即状态，重装会破坏停用语义）
+    // 护栏③：用户停用中的预置技能不重装（目录位置即状态；更新重物化不抹掉禁用）
     if (fs.existsSync(path.join(disabledSkillsRoot(), ent.name))) {
       count += 1;
       continue;
@@ -182,10 +182,32 @@ export function ensureBundledSkills(): void {
     const dest = path.join(destRoot, ent.name);
     const srcRev = readRevision(src) ?? '1';
     const destRev = fs.existsSync(dest) ? readRevision(dest) : null;
+
     if (destRev && destRev === srcRev && fs.existsSync(path.join(dest, 'SKILL.md'))) {
       count += 1;
       continue;
     }
+
+    if (destRev) {
+      // 护栏①：已装 revision 比本构建高 → 用户装了新版（或未来版本降级安装），
+      // 不降级——保留已装版本
+      if (Number(destRev) > Number(srcRev)) {
+        console.warn(
+          `[longma:skills] 已装 ${ent.name} rev=${destRev} 高于本包 rev=${srcRev}，保留已装（防降级）`,
+        );
+        count += 1;
+        continue;
+      }
+      // 护栏②：同 revision 但 SKILL.md 字节漂移（发版忘 bump revision）→
+      // 以包内为准覆盖但告警（提示维护者 bump）
+      if (Number(destRev) === Number(srcRev)) {
+        console.warn(
+          `[longma:skills] ${ent.name} 同 revision=${srcRev} 但内容有差异，` +
+          '按包内覆盖（发版时应 bump LONGMA_REVISION）',
+        );
+      }
+    }
+
     if (fs.existsSync(dest)) fs.rmSync(dest, { recursive: true, force: true });
     copyDir(src, dest);
     fs.writeFileSync(path.join(dest, BUNDLED_MARKER), `${srcRev}\n`, 'utf-8');

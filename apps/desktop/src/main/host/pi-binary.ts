@@ -69,7 +69,7 @@ export async function getPiVersion(): Promise<string | null> {
   try {
     const { spawn } = await import('node:child_process');
     const out = await new Promise<string>((resolve, reject) => {
-      const child = spawn(resolvePiBinaryPath(), ['--version'], { stdio: ['ignore', 'pipe', 'ignore'] });
+      const child = spawn(resolvePiBinaryPath(), ['--version'], { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
       let buf = '';
       child.stdout.on('data', (c: Buffer) => (buf += c.toString('utf-8')));
       child.once('error', reject);

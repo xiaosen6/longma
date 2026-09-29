@@ -71,6 +71,9 @@ export class PiRpcProcess {
       cwd: opts.cwd,
       env: opts.env as NodeJS.ProcessEnv,
       stdio: ['pipe', 'pipe', 'pipe'],
+      // pi 是 Bun 编译的控制台程序，Windows 不设 windowsHide 每会话漏一个 conhost.exe
+      // （对齐 Cindy #5179）
+      windowsHide: true,
     });
     if (this.child.pid != null && this.child.pid > 0) {
       try {

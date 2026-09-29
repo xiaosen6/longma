@@ -65,6 +65,7 @@ export class StdioMcpHttpProxy {
     this.child = spawn(command, this.config.args, {
       stdio: ['pipe', 'pipe', 'pipe'],
       env: this.spawnOpts?.env ?? process.env,
+      windowsHide: true,
       ...(this.spawnOpts?.cwd ? { cwd: this.spawnOpts.cwd } : {}),
     });
     this.child.on('error', (err) => {

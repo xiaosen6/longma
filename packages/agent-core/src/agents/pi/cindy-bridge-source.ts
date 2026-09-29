@@ -901,6 +901,7 @@ function rgGlob(
     const child = spawn(managedRipgrepPath(), args, {
       cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
     });
     const lines: string[] = [];
     let stderr = '';

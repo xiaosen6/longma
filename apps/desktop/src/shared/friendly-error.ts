@@ -1,4 +1,5 @@
 import { brand } from './brand.ts';
+import { classifyProviderError, formatProviderErrorAction } from './provider-error-diagnostic.ts';
 /**
  * 供应商/运行时错误的用户话术映射。原始报错（pi 透传的 HTTP 错误文本、
  * pi 子进程退出码）偏技术，常见几类有明确的用户行动项。
@@ -49,6 +50,12 @@ export function friendlyError(raw: string): string {
       '该模型的最大输出（max_tokens）超出上限。请在 设置 → 模型供应商 编辑该模型，' +
       '调小 maxTokens 后重试。'
     );
+  }
+  // 供应商 HTTP 错误安全分类（对齐 Cindy #12c5f86ae）：结构化类别+脱敏，
+  // 确定映射的类别给中文行动项；unknown 时保留原文（已是脱敏路径外的 pi 透传）
+  const diagnostic = classifyProviderError(raw);
+  if (diagnostic.category !== 'unknown') {
+    return formatProviderErrorAction(raw);
   }
   return raw;
 }

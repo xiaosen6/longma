@@ -15,8 +15,13 @@ test('friendly provider error', async (t) => {
     assert.match(friendlyProviderError(raw), /maxTokens/);
   });
 
-  await t.test('其它错误原样返回', () => {
-    assert.equal(friendlyProviderError('401: unauthorized'), '401: unauthorized');
+  await t.test('供应商 401 走安全分类给中文行动项（②升级后行为）', () => {
+    const msg = friendlyProviderError('401: unauthorized');
+    assert.ok(msg.includes('API Key'));
+    assert.ok(msg.includes('设置 → 模型供应商'));
+  });
+  await t.test('真正无关的错误原样返回', () => {
+    assert.equal(friendlyProviderError('某个奇怪的未知错误'), '某个奇怪的未知错误');
   });
 });
 

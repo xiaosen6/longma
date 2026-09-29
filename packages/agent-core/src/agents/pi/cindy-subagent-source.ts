@@ -378,7 +378,7 @@ function runTask(binary, task, runtime, signal, onProgress) {
 
     let child;
     try {
-      child = spawn(binary, args, { cwd: process.cwd(), env: childEnv, stdio: ['ignore', 'pipe', 'pipe'] });
+      child = spawn(binary, args, { cwd: process.cwd(), env: childEnv, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
     } catch (err) {
       resolve({ text: 'subagent failed to start: ' + String(err), isError: true, toolUses: 0, tokens: 0, usage: emptyUsage() });
       return;
