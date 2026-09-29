@@ -33,6 +33,8 @@ pnpm dev:win
 
 打包 Windows：`pnpm dist:win` → `apps/desktop/dist/LongMa-Setup-<version>-x64.exe`。
 
+NSIS 静默覆盖装（`/S /D=D:\QQ\LongMa`）**必须用 PowerShell `Start-Process -ArgumentList '/S','/D=…' -Wait`**——Git Bash 直接跑会被 MSYS 路径转换改写 `/S`/`/D=` 参数，安装器**秒退且无任何报错**（v0.2.29"安装超时"的真因，v0.2.30 复现确认）；装完必须验 exe ProductVersion+asar hash（覆盖装遇文件占用会静默跳过替换）。
+
 Fundet 品牌构建（BRAND=fundet）：
 ```powershell
 pnpm --filter fundet-desktop run build:fundet        # 仅构建（BRAND=fundet 的 vite build）
