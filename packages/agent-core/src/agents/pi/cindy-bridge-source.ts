@@ -656,8 +656,12 @@ class McpHttpClient {
   private headers(): Headers {
     const h = new Headers();
     try {
-      if (this.server.remote) {
-        for (const [headerName, envName] of Object.entries(this.server.remote.headerEnvVars ?? {})) {
+      // remote.auth 默认 'env'（外部 server 只带自定义 env header，不带本地 token）；
+      // 'bridge' = 本地 server 借 remote 传超时但鉴权走本地 bridge token——仅带
+      // remote 而无此标记时会漏发 Bearer，本地 server 全部 401（实测坑）。
+      const useEnvAuth = Boolean(this.server.remote) && (this.server.remote?.auth ?? 'env') === 'env';
+      if (useEnvAuth) {
+        for (const [headerName, envName] of Object.entries(this.server.remote!.headerEnvVars ?? {})) {
           if (typeof envName !== 'string' || !envName) {
             throw new McpBridgeError('invalid authentication configuration');
           }

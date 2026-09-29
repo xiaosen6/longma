@@ -53,6 +53,24 @@ test('start() 预热握手成功并返回 http URL', async () => {
   proxy.dispose();
 });
 
+test('多 token（进程级池化）：addToken 登记的会话 token 可访问，removeToken 后 401', async () => {
+  const proxy = new StdioMcpHttpProxy(config, 'tok-a', logger as any);
+  const url = await proxy.start();
+  // 会话 B 的 token 未登记 → 401
+  const before = await post(url, 'tok-b', { jsonrpc: '2.0', id: 1, method: 'echo' });
+  assert.equal(before.status, 401);
+  proxy.addToken('tok-b');
+  const after = await post(url, 'tok-b', { jsonrpc: '2.0', id: 2, method: 'echo' });
+  assert.equal(after.status, 200);
+  proxy.removeToken('tok-b');
+  const revoked = await post(url, 'tok-b', { jsonrpc: '2.0', id: 3, method: 'echo' });
+  assert.equal(revoked.status, 401);
+  // 会话 A 的 token 不受影响
+  const stillA = await post(url, 'tok-a', { jsonrpc: '2.0', id: 4, method: 'echo' });
+  assert.equal(stillA.status, 200);
+  proxy.dispose();
+});
+
 test('转发带 id 请求并回显结果；错误 token 401', async () => {
   const proxy = new StdioMcpHttpProxy(config, 'tok', logger as any);
   const url = await proxy.start();

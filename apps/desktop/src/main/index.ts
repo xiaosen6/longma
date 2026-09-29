@@ -13,6 +13,7 @@ import { resolvePiBinaryPath } from './host/pi-binary.js';
 import { ensureBundledSkills } from './host/skills.js';
 import { registerIpcHandlers, broadcast } from './ipc/register.js';
 import { setAttentionCountListener } from './ipc/session-core.js';
+import { disposeStdioMcpPool, prewarmStdioMcpServers } from './host/mcp-bridge.js';
 import { startMcpHeartbeat, stopMcpHeartbeat } from './mcp-heartbeat.js';
 import { registerImIpc, startSavedImBots, stopAllImBots } from './im/host.ts';
 import { disposeBrowserHost } from './browser/host.js';
@@ -301,6 +302,8 @@ function bootstrap(): void {
   createWindow();
   // 待审批计数 → 任务栏/托盘角标（tray 在 createWindow→setupTray 里就绪）
   setAttentionCountListener(updateAttentionBadge);
+  // stdio MCP 预热（blender 类慢 server 的 5s 启动在空闲期吸收，首条消息不再等）
+  void prewarmStdioMcpServers(createConsoleLogger('fundet:mcp-prewarm'));
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
@@ -309,6 +312,7 @@ function bootstrap(): void {
   app.on('before-quit', () => {
     isQuitting = true;
     stopMcpHeartbeat();
+    disposeStdioMcpPool();
     void stopAllImBots();
     // 关闭托管浏览器（用过才发 stop；没用过 stop 反而会拉起服务挂住退出）
     void disposeBrowserHost();

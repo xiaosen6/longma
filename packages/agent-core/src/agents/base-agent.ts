@@ -103,6 +103,12 @@ export interface PiMcpServerRef {
     startupTimeoutMs: number;
     /** 完成启动探测后的单次工具调用预算。 */
     requestTimeoutMs: number;
+    /**
+     * 鉴权方式：'env'（默认，外部 server——只带 headerEnvVars 映射的自定义头，
+     * 不带本地 bridge token）；'bridge'（本地 server 复用 remote 传超时但走
+     * Bearer <bridge token>——仅带 remote 而无此标记时 bridge 会漏发 Bearer 401）。
+     */
+    auth?: 'env' | 'bridge';
   };
 }
 

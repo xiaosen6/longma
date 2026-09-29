@@ -27,7 +27,8 @@ export class StdioMcpHttpProxy {
   }>();
   private initializeResult: unknown = null;
   private readonly config: McpServerView;
-  private readonly token: string;
+  /** 有效 Bearer token 集合：进程级池化后同一子进程服务多个会话，每会话一个 token */
+  private readonly tokens = new Set<string>();
   private readonly logger: Logger;
   private readonly spawnOpts?: { cwd?: string; env?: NodeJS.ProcessEnv };
 
@@ -39,9 +40,18 @@ export class StdioMcpHttpProxy {
     spawnOpts?: { cwd?: string; env?: NodeJS.ProcessEnv },
   ) {
     this.config = config;
-    this.token = token;
+    this.tokens.add(token);
     this.logger = logger;
     this.spawnOpts = spawnOpts;
+  }
+
+  /** 池化复用：登记/注销会话 token */
+  addToken(token: string): void {
+    this.tokens.add(token);
+  }
+
+  removeToken(token: string): void {
+    this.tokens.delete(token);
   }
 
   /** 是否曾成功完成 start()（连通性探测用） */
@@ -164,7 +174,10 @@ export class StdioMcpHttpProxy {
     };
     try {
       if (req.method !== 'POST') return reply(405, { error: 'method not allowed' });
-      if (req.headers.authorization !== `Bearer ${this.token}`) return reply(401, { error: 'unauthorized' });
+      const auth = req.headers.authorization ?? '';
+      if (!auth.startsWith('Bearer ') || !this.tokens.has(auth.slice('Bearer '.length))) {
+        return reply(401, { error: 'unauthorized' });
+      }
 
       const body = await new Promise<string>((resolve, reject) => {
         let data = '';
