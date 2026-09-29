@@ -12,7 +12,7 @@ description: 火山引擎 Seedance（豆包）视频生成：文生视频、图�
 Seedance 不走聊天模型供应商，需要**火山引擎方舟 API Key**（单独计费）。
 
 1. 检查 `~/.longma/ark-api-key` 是否存在且非空。
-2. 不存在 → 请用户去 [火山引擎控制台 · 方舟](https://console.volcengine.com/ark) → 左侧「API Key 管理」→ 创建 API Key，把 key 粘贴给你。
+2. 不存在 → 请用户去 [方舟控制台 · API Key 管理](https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey) （注册火山引擎账号+实名认证后）右上角「创建 API Key」，复制后粘贴给你。若调用报模型未开通/余额不足，让用户去方舟控制台「开通管理」开通 doubao-seedance 系列（视频生成按条计费，部分版本要求账户余额 >200 元）。
 3. 保存（只此一次）：
 
 ```bash

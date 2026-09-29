@@ -21,7 +21,7 @@ Authorization: Bearer <方舟 API Key>
 Content-Type: application/json
 ```
 
-API Key 在 [火山引擎控制台 · 方舟](https://console.volcengine.com/ark) →「API Key 管理」创建。Seedance 按生成视频条数计费（与分辨率、时长相关），与聊天模型的 key 体系独立。
+API Key 在 [方舟控制台 · API Key 管理](https://console.volcengine.com/ark/region:ark+cn-beijing/apiKey) 创建（注册火山引擎账号+实名认证后）；Seedance 模型需在控制台「开通管理」里开通，部分版本要求账户余额 >200 元。Seedance 按生成视频条数计费（与分辨率、时长相关），与聊天模型的 key 体系独立。
 
 ## 模型（model 字段）
 
