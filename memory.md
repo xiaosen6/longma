@@ -16,7 +16,7 @@
 | 名称 | LongMa（龙马） | Fundet |
 | 自我介绍 | AI 编程助手 | AI 助手 |
 | Logo | 蓝马头（assets/logo.png） | 红球经纬线（山东未来互联 logo 截取） |
-| 预装技能 | 4 个（Video/social/geo/web-search） | 无 |
+| 预装技能 | 5 个（Video/social/geo/web-search/seedance） | 无 |
 | 更新源 | github.com/xiaosen6/longma | github.com/xiaosen6/fundet |
 | userData | %APPDATA%\LongMa | %APPDATA%\Fundet |
 
@@ -109,7 +109,7 @@ fundet-buddy-main/
 │   │   ├── src/preload/         # window.fundet
 │   │   ├── src/renderer/        # React UI
 │   │   ├── src/shared/          # 主进程+渲染共享类型/文件分类
-│   │   ├── resources/bundled-skills/  # Video / social / geo / web-search
+│   │   ├── resources/bundled-skills/  # Video / social / geo / web-search / seedance
 │   │   └── dist/                # 安装包产物
 │   └── pi-bin/<platform>-<arch>/  # Pi 运行时（gitignore；缺 theme 则 RPC 即崩）
 └── tools/                       # Pi 下载、E2E、Cindy 参照截图
@@ -149,7 +149,7 @@ ChatPage / ChatInput
 
 | 版本 | 日期 | 要点 |
 | --- | --- | --- |
-| 0.2.30 | 09-29 | **已发布**（CI 绿/Release published 12 资产/latest.yml 已验/真机覆盖装冒烟过）。**全维度技术债批次**（14 项修复详见 §4.2 对应小节）：🔴安全三修（openPath 白名单/file-protocol workDir 注册+stageFiles 圈禁/baseUrl 强制 https）；🟡稳定四修（before-quit await 防孤儿 pi/unhandledRejection 兜底/deleteTurn includeUser 修编辑重发 DB 残留/dropSession 清五 Map 修挂机泄漏/dismissSession 修角标死卡）；🟢五小修（滚动闪底/孤儿行/mac 版本/微信 PII/usage SQL）。测试 135 |
+| 0.2.30 | 09-29 | **发版中**。**全维度技术债批次 + 微信图片 + seedance 技能**：🔴安全三修（openPath 白名单/file-protocol workDir 注册+stageFiles 圈禁/baseUrl 强制 https）；🟡稳定四修（before-quit await 防孤儿 pi/unhandledRejection 兜底/deleteTurn includeUser 修编辑重发 DB 残留/dropSession 清五 Map 修挂机泄漏/dismissSession 修角标死卡）；🟢五小修（滚动闪底/孤儿行/mac 版本/微信 PII/usage SQL）；+微信 IM 入站图片接入（downloadMedia CDN+AES 解密→sniffImageMime→UserMessage image 块，模型可识微信发的图）；+内置技能 seedance（火山 Seedance 文生/图生视频+ffmpeg 烧字幕，首用供方舟 key 存 ~/.longma/ark-api-key）。测试 135 |
 | 0.2.29 | 09-29 | **已发布**（CI 绿 5m15s/Release published 12 资产/latest.yml 已验/真机覆盖装 D:\QQ\LongMa 冒烟过：0.2.29.0+asar hash 一致+IPC 10 域 PASS+theme 三件套+tray-badges 随包）。**首条消息慢修复 + Cindy 11 天对照批次**：①stdio MCP 进程级池化+启动预热+装配五路并行——实测 createSession 6472ms→1432ms（blender 类慢 server 的 5s 启动移到空闲期）；附带修 browser MCP 恒 401 老 bug（remote.auth:'bridge'，browser 工具首次真正连上）。②Pi spawn 六处补 windowsHide（防每会话漏 conhost.exe）。③供应商错误安全分类（provider-error-diagnostic：状态码+六类分类+脱敏摘要+中文行动项）。④内置技能版本护栏（防降级/字节漂移告警/停用保留）。测试 128→135 |
 | 0.2.28 | 09-18 | **已发布**（CI 绿 5m58s/Release published 12 资产/latest.yml 已验/真机覆盖装 D:\QQ\LongMa 冒烟过：0.2.28.0+asar hash 一致+IPC 10 域 PASS+theme 三件套+tray-badges 随包）。**消息操作条「更多」菜单对齐 Cindy**：助手/用户菜单=添加到对话/回退(Undo2)/分隔线/删除(红字)；「复制当前消息链接」按产品边界刻意不做。**回退=pi 分支树切换**（SESSION_REWIND_TO_MESSAGE：role+正文前缀定位节点→navigateSessionTree→重写时间线；首条 user 无锚点不显示，Cindy 同款门控）；触发钮 pill 形+12px+回退中 spinner 整条 dim；菜单行 h-8/图标 14/min-w-184/分隔线/destructive。用户菜单「添加到对话」=引用进输入框。**实战实证**：用户真实使用中 PDF 切图回合触发 16Mi 超限帧，P0 守卫正确丢弃恢复分帧（无 OOM 无挂起）。测试 127 |
 | 0.2.27 | 09-18 | **已发布**（CI 绿 6m20s/Release published 12 资产/latest.yml 已验/真机覆盖装 D:\QQ\LongMa 冒烟过：0.2.27.0+asar hash 一致+IPC 10 域 PASS+title=LongMa+theme 三件套+tray-badges 随包）。**Cindy 共同功能追平批次**：①侧栏置顶（hover Pin 钮+置顶组原生 DnD 拖拽序 settings 持久化）+侧栏标题搜索（标签行两态过滤）②token 速度历史（lib/tokenRate 采样器忠实保留 #4351 防放大规则+TokenRateChip MorphPopover sparkline 面板，挂钟适配版）③auto 档 AI 审阅（host/auto-review-delegate，pi oneShot；与 Cindy 网关链差异=我们无网关纯 BYOK，失败降级 ask+unavailable）④会话分支树导航（SESSION_TREE IPC+ChatHeader 分支钮+切换后 main 重写消息/渲染层整体重建）⑤Toast 基建+命令面板 Ctrl+K（location.hash 导航——RouterProvider 外 useNavigate 会炸）⑥中断回合检测（turn.marker 键+打开会话并注一次性 notice）。修 CommandPalette 路由上下文崩溃。测试 121→127 |
@@ -221,6 +221,7 @@ ChatPage / ChatInput
   - **批次三（性能纪律）**：消息条目 content-visibility: auto + contain-intrinsic-size auto 240px（portal 不受 containment 影响）；lib/hiddenAnimationGate 隐藏窗口冻结 infinite 动画（data-app-hidden → animation-play-state: paused；新增循环动画必须登记）。
   - 验证工具 tools/motion-smoke.cjs 入库（真实发送验证呼吸/settle/done-pop）。Cindy 刻意不做（勿补）：消息入场动画、打字光标、附件 chip 动画、hover 渐变底色。
 - **微信 IM 入站图片接入（2026-09-29，d9f7158，未发版）**：codec 原本就解码 media[] 但 bot 层从未用——接通后模型可识别微信发的图。dispatcher ImInbound 增 attachments（UserMessage content blocks 发送，与桌面端拖图同路）；wechat.ts 经 transport.downloadMedia 下载+AES 解密落盘 .im-media/，sniffImageMime 纠正扩展名伪装，失败跳图不阻断文字。空文字+纯图消息不再跳过。
+- **内置技能 seedance（2026-09-29，未发版）**：火山引擎 Seedance 视频生成（文生/图生视频）+ ffmpeg 烧字幕。SKILL.md 为操作流程（首用引导用户供方舟 API Key 存 `~/.longma/ark-api-key`，curl 建任务→轮询→24h 内下载→ass 烧字幕→抽帧自检），官方 API 全量参考在 references/api.md（端点/参数表/错误对照/计费）。REVISION 1；system-prompt.md 技能段已加第五条。
 - **全维度技术债批次（2026-09-29，610edb0，未发版）**：五维度扫描（渲染性能/主进程健康/agent-core/安全/测试运维）出 14 项。🔴安全三修：openPath 扩展名白名单（阻断 XSS→.bat/.exe 执行）；file-protocol workDir 注册白名单+stageFiles 圈禁（阻断伪造 URL 读任意文件完整链）；provider baseUrl 强制 https/loopback（阻断 key 外传）。🟡稳定/bug 四修：before-quit preventDefault+await（8s 预算，防孤儿 pi）；unhandledRejection 兜底；deleteTurn includeUser 参数（**修编辑重发后 DB 残留旧消息重启重现的真 bug**）；sessionStore dropSession 清五 Map（修挂机泄漏）；interaction-queue dismissSession（修角标永久计数）。🟢五小修：滚动闪底/孤儿行/mac 版本语义比较/微信 PII/usage SQL 下推。**坑入表**：file-protocol workDir 来自 URL base64 可伪造——必须对注册集合校验。
 - **Cindy 11 天对照批次（2026-09-29，v0.1.85→94 共 748 提交深评，717588e，未发版）**：①**Pi spawn 全线补 windowsHide**（#5179）——pi 是 Bun 编译控制台程序，Windows 不设此参数每会话漏一个 conhost.exe，六处 spawn 修补（rpc-client/subagent runner/bridge rg/stdio-mcp-proxy/index AVX2 预检/driver telemetry/pi-binary version）；②**供应商错误安全分类**（#12c5f86ae 模式）——shared/provider-error-diagnostic.ts：状态码（仅 400-599，成功握手不进失败原因 #4ea75478f）+ 六类分类 + redactSensitiveText 脱敏摘要，friendlyError 接入给中文行动项；③**内置技能版本护栏**（#59debbf26/#3c428afc9）——已装 revision>包内不降级、同 rev 字节漂移告警、停用不被更新抹掉。**记录在案的工程原则**：agent 永远不能自行触发应用安装/更新；刚执行过的 exe rename 会瞬时 EPERM 应有界重试；影响 spawn env 的值必须确定性派生（否则上游 envHash 变化 kill 重建）；不可信 markdown 提取永不进主进程不用回溯正则型解析器（marked link 正则灾难回溯挂死 main 的教训，我们 renderer+remark+80k 截断结构免疫）。观望项：ask-user 宿主输入（我们无问答卡）、任务切换 perf 理念（滚动锚点恢复/投影缓存）、图片查看器滚轮触控板区分、长按语音输入（依赖云端 ASR 栈与本地优先冲突）。
 - **首条消息慢修复（2026-09-29，9775e49，未发版）**：实测 createSession 6472ms 分解=blender 类 stdio MCP 每会话重拉子进程 ≈5s（Python+连不上 Blender 的多轮重试+第三方遥测）+装配串行叠加+pi spawn 1.4s。修复三件：①**stdio 代理进程级池化**（mcp-bridge stdioPool：同 (command,args) 跨会话复用，会话 acquire 只登记 token 毫秒级；MCP CRUD/开关切换 invalidateStdioMcpPool、退出 disposeStdioMcpPool；StdioMcpHttpProxy 鉴权改 token 集合 addToken/removeToken）②**启动预热** prewarmStdioMcpServers（createWindow 后台拉起启用中的 stdio server 含 cua-driver，5s 在空闲期吸收）③**装配五路并行**（串行 await 总和→max）。附带修 **browser MCP 恒 401 老 bug**：browser 描述符带 remote 传超时 → bridge headers() 走 env-header 分支漏发 Bearer——PiMcpServerRef.remote 增 `auth:'env'|'bridge'`（默认 env 保 Cindy 外部 server 语义），browser 传 'bridge' 走本地 Bearer；browser 工具此前从未连上过。实测 6472→**1432ms**（剩余=pi spawn+扩展启动不可再压），Enter→呼吸点 106ms，五 server 全部 connected。
@@ -270,8 +271,9 @@ ChatPage / ChatInput
 | `social` | sau CLI 发抖音/快手/小红书/B 站/视频号/YouTube（REVISION 4） |
 | `geo` | 封装 [geo-optimizer-skill](https://github.com/Auriti-Labs/geo-optimizer-skill) CLI（`python …/run_geo.py` → PATH 上的 `geo`，否则 `uvx --from geo-optimizer-skill geo`）。**不** vendor Python 包。NOTICE：MIT Auriti-Labs。REVISION 3 |
 | `web-search` | 公网搜索。调 `mcp__search__web_search`。REVISION 1 |
+| `seedance` | 火山引擎 Seedance 视频生成（文生/图生视频）+ ffmpeg 烧字幕；官方 API 参考在 `references/api.md`；首次用要用户供方舟 API Key（存 `~/.longma/ark-api-key`，单独计费）。REVISION 1 |
 
-`system-prompt.md` 已列出上述四个技能。
+`system-prompt.md` 已列出上述五个技能。
 
 #### GEO 自己抓站（2026-08-23 产品结论）
 

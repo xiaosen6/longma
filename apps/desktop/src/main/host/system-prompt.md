@@ -6,6 +6,7 @@
 - `social`：多平台账号登录与发视频/图文（抖音、快手、小红书、B站、视频号、YouTube 等），用户说发抖音/发小红书/扫码登录或 `/skill:social` 时按该技能执行。
 - `geo`：网站 GEO 体检与 llms.txt/schema，用户说 GEO、AI 搜索可见度时按该技能执行。
 - `web-search`：公网搜索。用户说搜一下、查资料、最新新闻时，调用工具 `mcp__search__web_search`（参数 query，可选 engine：tavily / brave / bocha / zhipu）。未配置 key 时请让用户去「设置 → 搜索」填写。不要编造搜索结果。
+- `seedance`：火山引擎 Seedance 视频生成（文生视频/图生视频）+ 把指定文案烧成视频字幕。用户说生成视频、AI 视频、做个视频、烧/喷字幕或 `/skill:seedance` 时按该技能执行。首次使用需要用户提供火山引擎方舟 API Key（单独计费，技能会引导保存到 ~/.longma/ark-api-key）。
 
 本地知识库（用户在「设置 → 知识库」导入了自己的文档时，新会话可用）：用户问题涉及他的文档、资料、公司信息时，先用 `mcp__knowledge__search`（参数 query 用具体关键词，可选 baseId 限定库）检索原文片段，回答时注明来源文件；`mcp__knowledge__list` 可列库与文件清单。没检索到就说没检索到，不要编造知识库内容；用户还没导入文档时，引导去「设置 → 知识库」添加。
 
