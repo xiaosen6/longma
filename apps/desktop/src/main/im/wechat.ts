@@ -1,8 +1,12 @@
 import { randomUUID } from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import { app } from 'electron';
 import QRCode from 'qrcode';
 import { TencentIlinkTransport } from './wechat-ilink/transport.ts';
-import type { WechatAuthorizationObserver, WechatCredentials } from './wechat-ilink/types.ts';
-import { chunkImText, handleImMessage } from './dispatcher.ts';
+import type { WechatAuthorizationObserver, WechatCredentials, WechatMediaRef } from './wechat-ilink/types.ts';
+import { sniffImageMime } from '../../shared/file-kind.ts';
+import { chunkImText, handleImMessage, type ImAttachment } from './dispatcher.ts';
 import { clearImCreds, readImCreds, writeImCreds } from './secrets.ts';
 import { setImRuntime } from './runtime.ts';
 import { getSetting, setSetting } from '../db/settings.js';
@@ -23,6 +27,41 @@ let creds: WechatCredentials | null = null;
 async function qrToDataUrl(url: string): Promise<string> {
   if (url.startsWith('data:')) return url;
   return QRCode.toDataURL(url, { margin: 1, width: 320 });
+}
+
+/** IM 入站媒体落盘目录（IM 会话工作目录下的子目录） */
+function imMediaDir(): string {
+  const saved = getSetting('im.workDir')?.trim();
+  const base = saved || path.join(app.getPath('userData'), 'im-workspace');
+  const dir = path.join(base, '.im-media');
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+/** 下载+解密微信入站图片并落盘；失败返回 null（不阻断文字消息处理） */
+async function downloadInboundImage(
+  ref: WechatMediaRef,
+  transport: TencentIlinkTransport,
+  signal: AbortSignal,
+): Promise<ImAttachment | null> {
+  if (ref.kind !== 'image') return null;
+  try {
+    const bytes = await transport.downloadMedia(ref, signal);
+    // 落唯一文件名（时间戳+uuid 前缀防重名）
+    const ext = (ref.fileName?.match(/\.(\w{2,5})$/)?.[1] ?? 'png').toLowerCase();
+    const name = `im-${Date.now()}-${randomUUID().slice(0, 8)}.${ext}`;
+    const file = path.join(imMediaDir(), name);
+    fs.writeFileSync(file, bytes);
+    // 嗅探真实 mime（QQ/微信原图常见 PNG 套 .jpeg 扩展名）
+    const head = bytes.subarray(0, 16);
+    const sniffed = sniffImageMime(head, ext);
+    return { path: file, name: ref.fileName || name, kind: 'image', mimeType: sniffed ?? undefined };
+  } catch (err) {
+    console.warn('[longma:im/wechat] 入站图片下载失败（跳过该图）', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return null;
+  }
 }
 
 function makeTransport(token?: string, observer?: WechatAuthorizationObserver): TencentIlinkTransport {
@@ -65,7 +104,8 @@ async function pollLoop(transport: TencentIlinkTransport, stored: WechatCredenti
           len: msg.text.length,
           // 不打消息预览（用户私聊内容不进日志）
         });
-        if (!msg.text.trim()) continue;
+        const hasMedia = msg.media.some((m) => m.kind === 'image');
+        if (!msg.text.trim() && !hasMedia) continue;
         // 只挡机器人自己发的（防回环）。个人微信场景下用户本人发给机器人的消息
         // senderId == userId，这正是「给自己派活」的主流程，不能过滤；
         // 带 recipient 且不是发给本机器人的才跳过。
@@ -78,12 +118,21 @@ async function pollLoop(transport: TencentIlinkTransport, stored: WechatCredenti
           continue;
         }
         contextByPeer.set(msg.senderId, msg.contextToken);
+        // 入站图片：下载+解密落盘，作为附件传给模型
+        const attachments: ImAttachment[] = [];
+        for (const media of msg.media) {
+          if (media.kind !== 'image') continue;
+          const att = await downloadInboundImage(media, transport, ac.signal);
+          if (att) attachments.push(att);
+        }
+
         const reply = await handleImMessage({
           channel: 'wechat',
           chatId: msg.senderId,
           senderName: msg.senderId.slice(-6),
-          text: msg.text,
+          text: msg.text || (attachments.length > 0 ? '（发来图片）' : ''),
           dedupeKey: msg.messageId,
+          ...(attachments.length > 0 ? { attachments } : {}),
         });
         if (!reply) continue;
         const chunks = chunkImText(reply, 1800);

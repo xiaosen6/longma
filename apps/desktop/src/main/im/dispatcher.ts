@@ -12,6 +12,7 @@ import { getSetting, setSetting } from '../db/settings.js';
 import { listProviders } from '../db/providers.js';
 import { hasProviderKey } from '../host/secrets.js';
 import { getHost } from '../host/pi-host.js';
+import type { UserContentBlock, UserMessage } from '@fundet/agent-core';
 import { insertMessage } from '../db/messages.js';
 import { wireSession } from '../ipc/register.js';
 import { getDb } from '../db/client.js';
@@ -29,6 +30,13 @@ const CHANNEL_LABEL: Record<ImChannelId, string> = {
   dingtalk: '钉钉',
 };
 
+export interface ImAttachment {
+  path: string;
+  name: string;
+  kind: 'image' | 'file';
+  mimeType?: string;
+}
+
 export interface ImInbound {
   channel: ImChannelId;
   chatId: string;
@@ -36,6 +44,8 @@ export interface ImInbound {
   text: string;
   /** 渠道侧的稳定消息 id（message_id / msgid / messageId）；长连重连重推时靠它去重 */
   dedupeKey?: string;
+  /** 入站附件（微信图片等）——渠道侧已下载落盘，以 image/file 块发给模型 */
+  attachments?: ImAttachment[];
 }
 
 const queues = new Map<string, Promise<string>>();
@@ -75,7 +85,8 @@ function resolveModel(): { providerId: string; model: string } {
 
 async function runTurn(msg: ImInbound): Promise<string> {
   const text = msg.text.trim();
-  if (!text) return '';
+  const attachments = msg.attachments ?? [];
+  if (!text && attachments.length === 0) return '';
   const { maker } = getHost();
   const key = sessionMapKey(msg.channel, msg.chatId);
   let sessionId = getSetting(key);
@@ -103,8 +114,24 @@ async function runTurn(msg: ImInbound): Promise<string> {
     wireSession(session);
   }
   insertMessage(session.id, 'user', { text, source: msg.channel });
+
+  // 入站附件（微信图片等）：以 UserMessage content blocks 发送
+  // （image 走多模态，file 走路径引用——与桌面端拖图同一条路径）
+  const blocks: UserContentBlock[] = [];
+  if (text) blocks.push({ type: 'text', text });
+  for (const a of attachments) {
+    if (a.kind === 'image') {
+      blocks.push({ type: 'image', path: a.path, ...(a.mimeType ? { mimeType: a.mimeType } : {}) });
+    } else {
+      blocks.push({ type: 'file', path: a.path, ...(a.mimeType ? { mimeType: a.mimeType } : {}) });
+    }
+  }
+  const message: UserMessage = blocks.length > 0
+    ? { type: 'user', content: blocks }
+    : { type: 'user', content: text };
+
   const collector = collectFinalText(session);
-  const sent = await session.send(text);
+  const sent = await session.send(message);
   if (!sent.accepted) {
     collector.dispose();
     console.warn('[longma:im] 会话拒收', { sessionId: session.id, reason: sent.reason });
